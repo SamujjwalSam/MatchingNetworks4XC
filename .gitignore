@@ -116,17 +116,7 @@ data/
 *.pt
 *.sav
 .idea/
-.idea/MNXC.iml
-.idea/codeStyles/
-.idea/deployment.xml
-.idea/desktop.ini
-.idea/dictionaries/
-.idea/inspectionProfiles/
-.idea/misc.xml
-.idea/modules.xml
-.idea/other.xml
-.idea/vagrant.xml
-.idea/workspace.xml
+.idea/vcs.xml
 28c2683bf83c82e8675fbecf02054495.html
 data_loaders/desktop.ini
 graph_data/
@@ -145,7 +135,7 @@ models/New folder/lstm_sentence_classifier-master/
 models/OneShotBuilder.py
 models/desktop.ini
 models/g_BiGRU_Pytorch.py
-models/logs/
 neighborhood/desktop.ini
 pretrained/desktop.ini
 utils/desktop.ini
+MNXC.ipynb

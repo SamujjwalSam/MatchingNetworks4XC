@@ -1,14 +1,22 @@
-##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-## Created by: Albert Berenguel
-## Computer Vision Center (CVC). Universitat Autonoma de Barcelona
-## Email: aberenguel@cvc.uab.es
-## Copyright (c) 2017
-##
-## This source code is licensed under the MIT-style license found in the
-## LICENSE file in the root directory of this source tree
-##+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# coding=utf-8
+# !/usr/bin/python3.6 ## Please use python 3.6 or above
+"""
+__synopsis__    : Matching Networks for Extreme Classification.
+__description__ : Builds embeddings for pre-trained sentences using either LSTM and/or CNNText.
+__project__     : MNXC
+__author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+__version__     : "0.1"
+__date__        : "08-11-2018"
+__copyright__   : "Copyright (c) 2018"
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
-# import torch
+__classes__     : EmbedText
+
+__variables__   :
+
+__methods__     :
+"""
+
 import torch.nn as nn
 import torch.nn.init as init
 # from torch.autograd import Variable
@@ -23,7 +31,7 @@ from models import BiLSTM as BiLSTM
 
 
 class EmbedText(nn.Module):
-    def __init__(self, layer_size, model_type = "lstm",nClasses=0, num_channels=1, dropout=0.2, image_size=28):
+    def __init__(self, layer_size, model_type = "lstm",nClasses=0, num_channels=1, dropout=0.2, input_size=28):
         """
         Builds embeddings for pre-trained sentences using either LSTM and/or CNNText.
 
@@ -34,18 +42,19 @@ class EmbedText(nn.Module):
         :param useDroput: use Dropout with p=0.1 in each Conv block
         """
         super(EmbedText, self).__init__()
+        self.model_type = model_type
         
-        if model_type == "lstm":
-            self.output = LSTM_layer(self, input_dim, hid_size, num_layers, batch_size, bidirectional=True, dropout_extrenal=False, dropout=dropout)
+        if self.model_type == "lstm":
+            self.output = self.LSTM_layer(input_size, hid_size=32, num_layers=1, batch_size=64, bidirectional=True, dropout_extrenal=False, dropout=dropout)
             self.weights_init(self.output)
-            self.outSize =   # TODO: final output size of LSTM.
-        elif model_type == "cnn":  # TODO: Decide on CNN architecture to use.
-            self.layer1 = self.CNN_layer(num_channels, layer_size, dropout)
-            self.layer2 = self.CNN_layer(layer_size, layer_size, dropout)
-            self.layer3 = self.CNN_layer(layer_size, layer_size, dropout)
-            self.layer4 = self.CNN_layer(layer_size, layer_size, dropout)
+            self.outSize = input_size  # TODO: final output size of LSTM.
+        elif self.model_type == "cnn":  # TODO: Decide on CNN architecture to use.
+            self.layer1 = self.CNN_layer(num_channels, layer_size, dropout=dropout)
+            self.layer2 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
+            self.layer3 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
+            self.layer4 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
 
-            finalSize = int(math.floor(image_size / (2 * 2 * 2 * 2)))  # (2 * 2 * 2 * 2) for 4 CNN layers.
+            finalSize = int(math.floor(input_size / (2 * 2 * 2 * 2)))  # (2 * 2 * 2 * 2) for 4 CNN layers.
             self.outSize = finalSize * finalSize * layer_size
             if nClasses > 0:  # We want a linear layer as last layer.
                 self.useClassification = True
@@ -82,9 +91,9 @@ class EmbedText(nn.Module):
         :param inputs: Image input to produce embeddings for. [batch_size, 28, 28, 1]
         :return: Embeddings of size [batch_size, 64]
         """
-        if model_type == "lstm":
-            LSTM_layer(self, input_dim, hid_size, num_layers, batch_size, bidirectional=True, dropout_extrenal=False, dropout=0.1)
-        elif model_type == "cnn": 
+        if self.model_type == "lstm":
+            self.LSTM_layer(inputs.size(1), hid_size=32, num_layers=1, batch_size=64, bidirectional=True, dropout_extrenal=False, dropout=self.dropout)
+        elif self.model_type == "cnn":
             x = self.layer1(inputs)
             x = self.layer2(x)
             x = self.layer3(x)
@@ -111,9 +120,9 @@ class EmbedText(nn.Module):
 
         return seq
 
-    def LSTM_layer(self, input_dim, hid_size, num_layers, batch_size, bidirectional=True, dropout_extrenal=False, dropout=0.1):
+    def LSTM_layer(self, input_size, hid_size, num_layers, batch_size, bidirectional=True, dropout_extrenal=False, dropout=0.1):
         """LSTM to get embeddings for input pre-trained sentences."""
-        lstm_out, hn, cn = BiLSTM.BiLSTM(input_dim, hid_size, num_layers, batch_size, dropout, bidirectional)
+        lstm_out, hn, cn = BiLSTM.BiLSTM(input_size, hid_size, num_layers, batch_size, dropout, bidirectional)
         if dropout_extrenal:  # Need to use dropout externally as Pytorch LSTM uses dropout only on last layer. If there is only one layer, dropout will not be used.
             nn.Dropout(dropout)
             lstm_out = F.dropout(lstm_out,p=dropout,training=False,inplace=False)

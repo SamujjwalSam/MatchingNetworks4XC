@@ -2,13 +2,13 @@
 # !/usr/bin/python3.6 ## Please use python 3.6 or above
 """
 __synopsis__    : TXTLoader.
-__description__ :
+__description__ : Class to process and load txt files from a directory.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018 sam"
-__license__     : "Python"
+__copyright__   : "Copyright (c) 2018"
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
 __classes__     : TXTLoader,
 
@@ -27,7 +27,7 @@ from logger.logger import logger
 
 class TXTLoader(torch.utils.data.Dataset):
     """
-    Class to process and load html files from a directory.
+    Class to process and load txt files from a directory.
     
     Datasets: Wiki10-31K
     
@@ -53,18 +53,18 @@ class TXTLoader(torch.utils.data.Dataset):
             txt_dir : Path to the file containing the html files.
             dataset_name : Name of the dataset.
         """
-        self.html_dir = txt_dir
+        self.txt_dir = txt_dir
         self.dataset_name = dataset_name
         logger.debug("Dataset name:%s" % self.dataset_name)
-        logger.debug("HTML directory:%s" % self.html_dir)
+        logger.debug("HTML directory:%s" % self.txt_dir)
         logger.debug("Check if json file already exists, then load.")
         if os.path.isfile(os.path.join(self.json_path, dataset_name + "_sentences.json")) \
                 and os.path.isfile(os.path.join(self.json_path, dataset_name + "_classes.json")) \
                 and os.path.isfile(os.path.join(self.json_path, dataset_name + "_categories.json")):
             logger.debug("Loading json file.")
-            self.sentences = util.load_json(dataset_name + "_sentences", file_path=html_dir)
-            self.classes = util.load_json(dataset_name + "_classes", file_path=html_dir)
-            self.categories = util.load_json(dataset_name + "_categories", file_path=html_dir)
+            self.sentences = util.load_json(dataset_name + "_sentences", file_path=txt_dir)
+            self.classes = util.load_json(dataset_name + "_classes", file_path=txt_dir)
+            self.categories = util.load_json(dataset_name + "_categories", file_path=txt_dir)
             assert len(self.sentences) == len(
                 self.classes), "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
                                                                                                  len(self.classes))
@@ -79,13 +79,13 @@ class TXTLoader(torch.utils.data.Dataset):
                          "and categories[class_name : class_id] from HTML.")
             sentences, classes, categories, no_cat_ids = self.filter_wiki(self.datapoints)
             util.save_json(no_cat_ids, dataset_name + "_no_cat_ids",
-                           file_path=self.html_dir)  # Storing the ids which was not processed.
+                           file_path=self.txt_dir)  # Storing the ids which was not processed.
             self.classes = classes
             # logger.debug("Cleaning data.")
             categories_cleaned, categories_dup_dict = util.clean_categories(categories)
             if categories_dup_dict:
                 util.save_json(categories_dup_dict, dataset_name + "categories_dup_dict",
-                               file_path=self.html_dir)  # Storing the duplicate categories.
+                               file_path=self.txt_dir)  # Storing the duplicate categories.
                 self.classes = util.dedup_data(self.classes, categories_dup_dict)
             sentences_cleaned = util.clean_sentences(sentences)
             self.sentences = sentences_cleaned
@@ -94,13 +94,13 @@ class TXTLoader(torch.utils.data.Dataset):
             assert len(self.sentences) == len(
                 self.classes), "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
                                                                                                  len(self.classes))
-            util.save_json(self.sentences, dataset_name + "_sentences", file_path=self.html_dir)
-            util.save_json(self.classes, dataset_name + "_classes", file_path=self.html_dir)
-            util.save_json(self.categories, dataset_name + "_categories", file_path=self.html_dir)
+            util.save_json(self.sentences, dataset_name + "_sentences", file_path=self.txt_dir)
+            util.save_json(self.classes, dataset_name + "_classes", file_path=self.txt_dir)
+            util.save_json(self.categories, dataset_name + "_categories", file_path=self.txt_dir)
             logger.debug("Saved sentences [{0}], classes [{1}] and categories [{2}] as json files.".format(
-                os.path.join(self.html_dir, dataset_name + "_sentences.json"),
-                os.path.join(self.html_dir, dataset_name + "_classes.json"),
-                os.path.join(self.html_dir, dataset_name + "_categories.json")))
+                os.path.join(self.txt_dir, dataset_name + "_sentences.json"),
+                os.path.join(self.txt_dir, dataset_name + "_classes.json"),
+                os.path.join(self.txt_dir, dataset_name + "_categories.json")))
         self.num_data_points = len(self.sentences)
         # return self.sentences,self.classes,self.categories
 

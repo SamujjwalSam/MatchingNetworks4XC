@@ -2,15 +2,15 @@
 # !/usr/bin/python3.6 ## Please use python 3.6 or above
 """
 __synopsis__    : Script to create Neighborhood graph.
-__description__ :
+__description__ : Class to generate neighborhood graph based on label similarity between datapoints.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018 sam"
-__license__     : "Python"
+__copyright__   : "Copyright (c) 2018"
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
-__classes__     :
+__classes__     : Neighborhood
 
 __variables__   :
 
@@ -37,7 +37,7 @@ RANDOM_INIT = 0
 
 class Neighborhood(object):
     """
-    Class to process and load pretrained models.
+    Class to generate neighborhood graph based on label similarity between datapoints.
 
     Supported models: glove, word2vec, fasttext, googlenews, bert, lex, etc.
     """

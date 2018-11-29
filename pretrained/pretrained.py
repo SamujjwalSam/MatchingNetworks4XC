@@ -2,15 +2,15 @@
 # !/usr/bin/python3.6 ## Please use python 3.6 or above
 """
 __synopsis__    : Matching Networks for Extreme Classification.
-__description__ :
+__description__ : Class to process and load pretrained models.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018 sam"
-__license__     : "Python"
+__copyright__   : "Copyright (c) 2018"
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
-__classes__     : Class,
+__classes__     : Pretrain
 
 __variables__   :
 

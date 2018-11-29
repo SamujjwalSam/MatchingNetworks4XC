@@ -7,8 +7,8 @@ __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018 sam"
-__license__     : "Python"
+__copyright__   : "Copyright (c) 2018"
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
 __classes__     :
 

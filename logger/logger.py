@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-__synopsis__    : Tools for DXML (https://arxiv.org/abs/1704.03718)
-__description__ : https://arxiv.org/abs/1704.03718
+__synopsis__    : Matching Networks for Extreme Classification.
+__description__ : Logger class for the project.
 __project__     : Extreme Classification
 __author__      : Samujjwal Ghosh
 __version__     :
 __date__        : June 2018
 __copyright__   : "Copyright (c) 2018"
-__license__     : "Python"; (Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html)
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
-__classes__     :
+__classes__     : ColoredFormatter
 
 __variables__   :
 
