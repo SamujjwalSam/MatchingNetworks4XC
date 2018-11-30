@@ -17,7 +17,6 @@ __variables__   :
 __methods__     :
 """
 
-import torch
 import torch.nn as nn
 # import numpy as np
 
@@ -58,6 +57,7 @@ class Attn(nn.Module):
 
 if __name__ == '__main__':
     # unittest.main()
+    import torch
     a = torch.ones(2,2,3)
     logger.debug(a)
     b = torch.ones(2,3)

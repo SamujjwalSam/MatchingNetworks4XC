@@ -40,7 +40,8 @@ Variable naming convention:
 
 
 class MatchingNetwork(nn.Module):
-    def __init__(self, dropout, batch_size=100, num_channels=1, learning_rate=0.001, fce=True, num_classes_per_set=5, num_samples_per_class=1, nClasses=0, image_size=28):
+    """Builds a matching network, the training and evaluation ops as well as data augmentation routines."""
+    def __init__(self, dropout, batch_size=100, num_channels=1, learning_rate=0.001, fce=True, num_classes_per_set=5, num_samples_per_class=1, num_categories=0, input_size=28):
         """
         Builds a matching network, the training and evaluation ops as well as data augmentation routines.
 
@@ -52,7 +53,7 @@ class MatchingNetwork(nn.Module):
         :param fce: Flag indicating whether to use full context embeddings (i.e. apply an LSTM on the CNNText embeddings)
         :param num_classes_per_set: Integer indicating the number of classes per set
         :param num_samples_per_class: Integer indicating the number of samples per class
-        :param nClasses: total number of classes. It changes the output size of the classifier g with a final FC layer.
+        :param num_categories: total number of classes. It changes the text_lstm size of the classifier g with a final FC layer.
         :param image_input: size of the input image. It is needed in case we want to create the last FC classification   # TODO
         """
         super(MatchingNetwork, self).__init__()
@@ -63,9 +64,9 @@ class MatchingNetwork(nn.Module):
         # self.learning_rate = learning_rate
         self.fce = fce
 
-        self.g = E.EmbedText(layer_size=64, num_channels=num_channels, nClasses=nClasses, image_size=image_size)
+        self.g = E.EmbedText(layer_size=64, num_channels=num_channels, num_categories=num_categories, input_size=input_size)
         if self.fce:
-            self.lstm = B.BiLSTM(batch_size=self.batch_size, hid_size=32, input_dim=self.g.outSize)
+            self.lstm = B.BiLSTM(batch_size=self.batch_size, hid_size=32, input_dim=self.g.output_size)
         self.cosine_dis = C.CosineDistance()
         self.attn = A.Attn()
 
