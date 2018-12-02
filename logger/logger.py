@@ -15,12 +15,12 @@ __classes__     : ColoredFormatter
 __variables__   :
 
 __methods__     :
-
-TODO            : 1. Add more logging options.
 """
-import os, sys, logging
-from datetime import datetime
+import logging
+import os
+import sys
 from copy import copy
+from datetime import datetime
 from logging import FileHandler
 from logging import Formatter
 

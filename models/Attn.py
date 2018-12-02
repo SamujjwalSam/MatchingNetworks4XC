@@ -18,12 +18,10 @@ __methods__     :
 """
 
 import torch.nn as nn
-# import numpy as np
 
-
+from logger.logger import logger
 # import unittest.
 from models import CosineDistance as C
-from logger.logger import logger
 
 
 class Attn(nn.Module):
@@ -63,7 +61,7 @@ if __name__ == '__main__':
     b = torch.ones(2,3)
     logger.debug(b)
     test_DN = C.CosineDistance()
-    sim = test_DN.forward_orig(a,b)
+    sim = test_DN.forward_old(a, b)
     logger.debug(sim.shape)
     logger.debug(type(sim))
     sim = test_DN(a,b)

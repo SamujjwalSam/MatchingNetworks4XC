@@ -17,16 +17,14 @@ __variables__   :
 __methods__     :
 """
 
-import sys, os, json
-import numpy as np
+import json
 import pickle as pk
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from collections import OrderedDict
+
 from scipy import *
 from scipy import sparse
-from queue import Queue  # Python 2.7 does not have this library
-from collections import defaultdict, OrderedDict
-from sklearn.datasets import load_svmlight_file
 from unidecode import unidecode
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from logger.logger import logger
 
@@ -155,7 +153,6 @@ def get_dataset_path():
         dataset_path = 'D:\Datasets\Extreme Classification'
         sys.path.append('D:\GDrive\Dropbox\IITH\\0 Research')
     elif platform.system() == 'Linux':
-        # TODO: check username for linux.
         # dataset_path = '/raid/ravi'
         dataset_path = '/home/cs16resch01001/datasets/Extreme Classification'
         # sys.path.append('/home/cs16resch01001/codes')

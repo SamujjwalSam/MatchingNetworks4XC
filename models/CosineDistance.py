@@ -29,20 +29,20 @@ class CosineDistance(nn.Module):
     def __init__(self):
         super(CosineDistance, self).__init__()
 
-    def forward_orig(self, support_set, input_image):
+    def forward_old(self, support_set, input_sample):
         """
         Calculates cosine similarity of support sets with target sample.
 
-        :param support_set: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, 64]
-        :param input_image: The embedding of the target image, tensor of shape [batch_size, 64]
+        :param support_set: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, 64]
+        :param input_sample: The embedding of the target sample, tensor of shape [batch_size, 64]
         :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
         """
         eps = 1e-10
         similarities = []
-        for support_image in support_set:
-            sum_support = torch.sum(torch.pow(support_image, 2), 1)
+        for support_sample in support_set:
+            sum_support = torch.sum(torch.pow(support_sample, 2), 1)
             support_magnitude = sum_support.clamp(eps, float("inf")).rsqrt()
-            dot_product = input_image.unsqueeze(1).bmm(support_image.unsqueeze(2)).squeeze()
+            dot_product = input_sample.unsqueeze(1).bmm(support_sample.unsqueeze(2)).squeeze()
             cosine_similarity = dot_product * support_magnitude
             similarities.append(cosine_similarity)
         similarities = torch.stack(similarities)
@@ -53,14 +53,17 @@ class CosineDistance(nn.Module):
         Calculates cosine similarity of support sets with target sample.
 
         :param normalize: Whether to normalize the matrix to range: (0,1) from (-1,+1)
-        :param support_set: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, 64]
-        :param X_hat: The embedding of the target image, tensor of shape [batch_size, 64]
+        :param support_set: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
+        :param X_hat: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]
         :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
         """
         eps = 1e-10
         similarities = []
-        for support_image in support_set:
-            cosine_similarity = F.cosine_similarity(support_image, X_hat, eps=eps)
+        logger.debug(support_set.shape)
+        logger.debug(X_hat.shape)
+        for support_sample in support_set:
+            logger.debug(support_sample.shape)
+            cosine_similarity = F.cosine_similarity(support_sample, X_hat, eps=eps)
             similarities.append(cosine_similarity)
         similarities = torch.stack(similarities)
         # logger.debug(similarities)
@@ -85,7 +88,7 @@ class CosineDistance(nn.Module):
 
 
 if __name__ == '__main__':
-    a = torch.ones(2,2,3)
+    a = torch.ones(2, 5, 3)
     logger.debug(a)
     b = torch.ones(2,3)
     logger.debug(b)
@@ -94,7 +97,7 @@ if __name__ == '__main__':
     logger.debug(sim.shape)
     logger.debug(type(sim))
     logger.debug(sim)
-    sim = test_DN.builtin_cosine(a,b)
+    sim = test_DN.forward_old(a, b)
     logger.debug(sim.shape)
     logger.debug(type(sim))
     logger.debug(sim)
