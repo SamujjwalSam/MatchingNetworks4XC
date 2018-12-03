@@ -126,7 +126,7 @@ class Pretrain(object):
         :param s2: str = Sentence
         :return:
         """
-        sent_sim = self.pretrain_model.wv.wmdistance(s1.lower().split(), s2.lower().split())  # Need to use .wv here.
+        sent_sim = self.pretrain_model.wv.wmdistance(s1.lower().split(), s2.lower().split())
         return sent_sim
 
     def get_sent_sim_list(self,s1:list,s2:list):
@@ -136,7 +136,7 @@ class Pretrain(object):
         :param s2: str = Sentence
         :return:
         """
-        sent_sim = self.pretrain_model.wv.wmdistance(s1, s2)  # Need to use .wv here.
+        sent_sim = self.pretrain_model.wv.wmdistance(s1, s2)
         return sent_sim
 
     def load_word2vec(self, model_dir="D:\Datasets\pretrain", model_file_name="GoogleNews-vectors-negative300.bin", model_type='googlenews', encoding='utf-8', newline='\n', errors='ignore'):

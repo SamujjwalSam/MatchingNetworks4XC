@@ -24,7 +24,7 @@ import torch.nn.functional as F
 from logger.logger import logger
 from models import Attn as A
 from models import BiLSTM as B
-from models import CosineDistance as C
+from models import PairCosineSim as C
 from models import EmbedText as E
 
 """
@@ -67,8 +67,8 @@ class MatchingNetwork(nn.Module):
         self.g = E.EmbedText(num_layers=1, model_type="lstm", num_channels=num_channels, num_categories=num_categories,
                              input_size=input_size, dropout=dropout)
         if self.fce:
-            self.lstm = B.BiLSTM(hid_size=32, input_size=self.g.output_size, dropout=dropout)
-        self.cosine_dis = C.CosineDistance()
+            self.lstm = B.BiLSTM(hid_size=10, input_size=self.g.output_size, dropout=dropout)
+        self.cosine_dis = C.PairCosineSim()
         self.attn = A.Attn()
 
     def forward(self, support_set, support_set_hot, x_hat, x_hat_hot):
@@ -104,14 +104,17 @@ class MatchingNetwork(nn.Module):
 
         # produce embeddings for target samples
         encoded_x_hat = self.g(x_hat, batch_size=32)
+        logger.debug(encoded_x_hat.shape)
         if self.fce:
             logger.debug(encoded_supports.shape)
             encoded_supports, hn, cn = self.lstm(encoded_supports, batch_size=32)
             encoded_x_hat, hn, cn = self.lstm(encoded_x_hat, batch_size=32)
 
+        logger.debug(encoded_supports.shape)
         # get similarity between support set embeddings and target
         similarities = self.cosine_dis(support_set=encoded_supports, X_hat=encoded_x_hat)
-        similarities = similarities.t()  # TODO: need to transpose?
+        logger.debug(similarities.shape)
+        # similarities = similarities.t()  # TODO: need to transpose?
 
         # produce predictions for target probabilities
         preds = self.attn(similarities, support_set_y=support_set_hot)

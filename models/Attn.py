@@ -21,7 +21,7 @@ import torch.nn as nn
 
 from logger.logger import logger
 # import unittest.
-from models import CosineDistance as C
+from models import PairCosineSim as C
 
 
 class Attn(nn.Module):
@@ -30,14 +30,16 @@ class Attn(nn.Module):
 
     def forward(self, similarities, support_set_y):
         """
-        Produces pdfs over the support set classes for the target set datapoint.
+        Produces pdfs over the support set classes for the target samples.
 
-        :param similarities: A tensor with cosine similarities of size [sequence_length, batch_size]
-        :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [sequence_length,  batch_size, num_classes]
+        :param similarities: A tensor with cosine similarities of size [batch_size, sequence_length]
+        :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
         :return: Softmax pdf
         """
         softmax = nn.Softmax()
         softmax_similarities = softmax(similarities)
+        logger.info(softmax_similarities.shape)
+        logger.info(support_set_y.shape)
         preds = softmax_similarities.unsqueeze(1).bmm(support_set_y).squeeze()
         return preds
 
@@ -56,14 +58,23 @@ class Attn(nn.Module):
 if __name__ == '__main__':
     # unittest.main()
     import torch
-    a = torch.ones(2,2,3)
+
+    a = torch.tensor([[[1., 0.4],
+                       [1., 1.]],
+                      [[1., 0.4],
+                       [0., 1.5]],
+                      [[1., 0.4],
+                       [1., 1.5]]])
+
+    b = torch.tensor([[[1., 0.4],
+                       [0., 1.5]],
+                      [[1., 0.4],
+                       [1., 1.5]]])
+    # a = torch.ones(2,2,3)
     logger.debug(a)
-    b = torch.ones(2,3)
+    # b = torch.ones(2,3)
     logger.debug(b)
-    test_DN = C.CosineDistance()
-    sim = test_DN.forward_old(a, b)
-    logger.debug(sim.shape)
-    logger.debug(type(sim))
+    test_DN = C.PairCosineSim()
     sim = test_DN(a,b)
     logger.debug(sim.shape)
     logger.debug(type(sim))
@@ -78,7 +89,7 @@ if __name__ == '__main__':
                                    [0., 0.],
                                    [1., 1.],
                                    [1., 0.]]])
-    logger.debug("y: {}".format(y))
+    logger.debug("y.shape: {}".format(y.shape))
     test_attn = Attn()
     result = test_attn(sim, y)
     logger.debug("result: {}".format(result))

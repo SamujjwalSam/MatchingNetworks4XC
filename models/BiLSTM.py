@@ -70,24 +70,24 @@ class BiLSTM(nn.Module):
         :param dropout: If non-zero, introduces a dropout layer on the outputs of each RNN layer except the last layer.
         :param dropout_extrenal: Flag if dropout should be used externally as Pytorch uses dropout only on last layer.
         :param batch_size: Size of a batch per forward call.
-        :param inputs: The inputs should be a list of shape [batch_size, sequence_length, input_size]
-        :return: Returns the LSTM outputs, as well as the forward and backward hidden states.
+        :param inputs: The inputs should be a list of shape  (seq_len, batch, input_size).
+        :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
         """
         self.batch_size = batch_size
-        layer_multiplier = 2  # For bidirectional, num_layers should be multiplied by 2.
+        num_directions = 2  # For bidirectional, num_layers should be multiplied by 2.
         if not self.bidirectional:
-            layer_multiplier = 1
+            num_directions = 1
 
         if self.use_cuda and torch.cuda.is_available():
-            c0 = Variable(torch.rand(self.lstm.num_layers * layer_multiplier, self.batch_size, self.lstm.hidden_size),
+            c0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
                           requires_grad=requires_grad).cuda()
-            h0 = Variable(torch.rand(self.lstm.num_layers * layer_multiplier, self.batch_size, self.lstm.hidden_size),
+            h0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
                           requires_grad=requires_grad).cuda()
         else:
             # logger.debug(self.batch_size)
-            c0 = Variable(torch.rand(self.lstm.num_layers * layer_multiplier, self.batch_size, self.lstm.hidden_size),
+            c0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
                           requires_grad=requires_grad)
-            h0 = Variable(torch.rand(self.lstm.num_layers * layer_multiplier, self.batch_size, self.lstm.hidden_size),
+            h0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
                           requires_grad=requires_grad)
         # logger.debug(self.lstm)
         # logger.debug(inputs.shape)
@@ -104,25 +104,14 @@ class BiLSTM(nn.Module):
         return output, hn, cn
 
 
-# class BidirectionalLSTMTest(unittest.TestCase):
-#     def setUp(self):
-#         pass
-#
-#     def tearDown(self):
-#         pass
-#
-#     def test_forward(self):
-#         pass
-
-
 if __name__ == '__main__':
     # unittest.main()
-    test_blstm = BiLSTM(input_size=60, hid_size=11, num_layers=1, dropout=0.2)  # (input_size, hid_size, num_layers)
+    test_blstm = BiLSTM(input_size=5, hid_size=2, num_layers=1, dropout=0.2, bidirectional=False)
     print(test_blstm)
-    input = torch.rand(9, 5, 60)  # (batch_size, seq_size, input_size)
+    input = torch.rand(3, 1, 5)  # (batch_size, seq_size, input_size)
     logger.debug("input: {}".format(input))
     logger.debug("input Shape: {}".format(input.shape))
-    result = test_blstm.forward(input, batch_size=9,
+    result = test_blstm.forward(input, batch_size=3,
                                 dropout_extrenal=True)  # output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
     # logger.debug("result: {}".format(result))
     logger.debug("result: {}".format(result[0]))

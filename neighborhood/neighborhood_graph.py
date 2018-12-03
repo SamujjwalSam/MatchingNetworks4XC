@@ -77,8 +77,12 @@ class Neighborhood(object):
              [0,1,1,0,0],
              [0,0,1,1,0],
              [1,0,0,1,0]]
-        pair_cosine = cosine_similarity(a)
+        a = np.ones((2, 2))
+        b = np.ones((2, 2))
+        pair_cosine = cosine_similarity(a, b)
         logger.debug(pair_cosine)
+        logger.debug(pair_cosine.shape)
+        exit(0)
         np.fill_diagonal(pair_cosine,0)
         logger.debug(pair_cosine)
         pair_top_cosine_idx = np.argpartition(pair_cosine,-k)
@@ -482,10 +486,10 @@ def main(dataset_path):
     """
     # config = read_config(args)
     cls = Neighborhood(dataset_name="Wiki10-31K")
-    # data_dict = cls.test_cosine()
-    G, stats = cls.load_neighborhood_graph()
+    data_dict = cls.test_cosine()
+    # G, stats = cls.load_neighborhood_graph()
     # stats = cls.plot_occurance(list(stats["degree_sequence"]))
-    logger.info("Neighborhood graph statistics: [{0}]".format(stats))
+    logger.info("Neighborhood graph statistics: [{0}]".format(data_dict))
 
     exit(0)
 

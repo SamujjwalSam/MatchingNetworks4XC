@@ -17,7 +17,7 @@ __variables__   :
 __methods__     :
 """
 
-import json
+import sys, json
 import pickle as pk
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
@@ -25,6 +25,7 @@ from collections import OrderedDict
 from scipy import *
 from scipy import sparse
 from unidecode import unidecode
+import unicodedata
 
 from logger.logger import logger
 

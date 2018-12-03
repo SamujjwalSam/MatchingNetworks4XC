@@ -73,7 +73,7 @@ class EmbedText(nn.Module):
             # self.weights_init(self.layer3)
             # self.weights_init(self.layer4)
 
-    def forward(self, inputs, batch_size=64, dropout_extrenal=False):
+    def forward(self, inputs, batch_size=32, dropout_extrenal=False):
         """
         Runs the CNNText producing the embeddings and the gradients.
 
@@ -81,7 +81,7 @@ class EmbedText(nn.Module):
         :param inputs: Image input to produce embeddings for. [batch_size, 28, 28, 1]
         :return: Embeddings of size [batch_size, 64]
         """
-        logger.info(inputs.shape)
+        logger.debug(inputs.shape)
         if self.model_type == "lstm":
             output, hn, cn = self.text_lstm(inputs, batch_size, dropout_extrenal=dropout_extrenal)
         elif self.model_type == "cnn":
