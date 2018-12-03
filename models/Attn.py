@@ -20,7 +20,6 @@ __methods__     :
 import torch.nn as nn
 
 from logger.logger import logger
-# import unittest.
 from models import PairCosineSim as C
 
 
@@ -28,35 +27,27 @@ class Attn(nn.Module):
     def __init__(self):
         super(Attn, self).__init__()
 
-    def forward(self, similarities, support_set_y):
+    def forward(self, similarities, support_set_y, dim=1):
         """
         Produces pdfs over the support set classes for the target samples.
 
+        :param dim: Dimension along which Softmax will be computed (so every slice along dim will sum to 1).
         :param similarities: A tensor with cosine similarities of size [batch_size, sequence_length]
         :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
         :return: Softmax pdf
         """
-        softmax = nn.Softmax()
+        softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
+        logger.debug(softmax_similarities)
         logger.info(softmax_similarities.shape)
         logger.info(support_set_y.shape)
-        preds = softmax_similarities.unsqueeze(1).bmm(support_set_y).squeeze()
+        preds = softmax_similarities.mm(support_set_y)
+        logger.debug(preds)
+        logger.info(preds.shape)
         return preds
 
 
-# class AttentionalClassifyTest(unittest.TestCase):
-#     def setUp(self):
-#         pass
-#
-#     def tearDown(self):
-#         pass
-#
-#     def test_forward(self):
-#         pass
-
-
 if __name__ == '__main__':
-    # unittest.main()
     import torch
 
     a = torch.tensor([[[1., 0.4],
@@ -72,24 +63,20 @@ if __name__ == '__main__':
                        [1., 1.5]]])
     # a = torch.ones(2,2,3)
     logger.debug(a)
+    logger.debug(a.shape)
     # b = torch.ones(2,3)
     logger.debug(b)
+    logger.debug(b.shape)
     test_DN = C.PairCosineSim()
-    sim = test_DN(a,b)
+    sim = test_DN(a, b)
     logger.debug(sim.shape)
-    logger.debug(type(sim))
-
-    sim = torch.rand(2, 4)
     logger.debug("sim: {}".format(sim))
-    # y = torch.ones(2, 4, 2)
-    y = torch.tensor([[[1., 0.],
-                       [0., 0.],
-                       [0., 1.],
-                       [1., 0.]], [[0., 1.],
-                                   [0., 0.],
-                                   [1., 1.],
-                                   [1., 0.]]])
+
+    # y = torch.ones(3, 2)
+    y = torch.tensor([[1., 0.],
+                      [0., 1.],
+                      [1., 0.]])
     logger.debug("y.shape: {}".format(y.shape))
     test_attn = Attn()
     result = test_attn(sim, y)
-    logger.debug("result: {}".format(result))
+    logger.info("result: {}".format(result))

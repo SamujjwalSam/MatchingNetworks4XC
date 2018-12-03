@@ -20,6 +20,7 @@ __methods__     :
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from logger.logger import logger
 
 
@@ -80,10 +81,12 @@ class PairCosineSim(nn.Module):
         """
         if len(tensor_data.shape) == 2:
             logger.debug("Flattening 2D tensor to (1, dim), [batch_dim] not used.")
-            tensor_data_flat = tensor_data.view(1, tensor_data.numel())
+            tensor_data_flat = tensor_data.contiguous().view(1, tensor_data.numel())
         elif len(tensor_data.shape) == 3:
-            logger.debug("Flattening 3D tensor to 2D except dim: [batch_dim].")
-            tensor_data_flat = tensor_data.view(tensor_data.shape[batch_dim], -1)
+            logger.debug("Flattening 3D tensor to 2D except dim: [batch_dim={}].".format(batch_dim))
+            logger.debug("tensor_data.shape: [{}].".format(tensor_data.shape))
+            tensor_data_flat = tensor_data.contiguous().view(tensor_data.shape[batch_dim], -1)
+            # tensor_data_flat = tensor_data.view(tensor_data.shape[batch_dim], -1)
         else:
             logger.warn("Tensor shape not supported. Got: [{}].".format(tensor_data.shape))
             raise NotImplementedError

@@ -18,17 +18,12 @@ __methods__     :
 """
 
 import math
-
 import numpy as np
 import torch.nn as nn
 import torch.nn.init as init
 
 from logger.logger import logger
 from models import BiLSTM as BiLSTM
-
-
-# from torch.autograd import Variable
-# import unittest
 
 
 class EmbedText(nn.Module):
@@ -83,6 +78,7 @@ class EmbedText(nn.Module):
         """
         logger.debug(inputs.shape)
         if self.model_type == "lstm":
+            logger.debug(inputs.shape)
             output, hn, cn = self.text_lstm(inputs, batch_size, dropout_extrenal=dropout_extrenal)
         elif self.model_type == "cnn":
             output = self.layer1(inputs)
@@ -133,19 +129,7 @@ class EmbedText(nn.Module):
                 raise NotImplementedError
 
 
-# class ClassifierTest(unittest.TestCase):
-#     def setUp(self):
-#         pass
-#
-#     def tearDown(self):
-#         pass
-#
-#     def test_forward(self):
-#         pass
-
-
 if __name__ == '__main__':
-    # unittest.main()
     import torch
 
     a = torch.ones(1, 2, 4)  # batch_size, <don't matter>, input_size
