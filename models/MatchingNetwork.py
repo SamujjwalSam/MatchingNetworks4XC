@@ -133,7 +133,7 @@ if __name__ == '__main__':
     import torch
 
     support_set = torch.rand(4, 5, 4)  # [batch_size, sequence_size, input_size]
-    support_set_hot = torch.ones(4, 5)  # [batch_size, sequence_size, n_classes]
+    support_set_hot = torch.ones(4, 5)  # [batch_size, n_classes]
     x_hat = torch.rand(4, 5, 4)
     x_hat_hot = torch.ones(4, 5)
     # logger.debug(support_set)
