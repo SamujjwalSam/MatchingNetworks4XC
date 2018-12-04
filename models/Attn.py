@@ -38,12 +38,12 @@ class Attn(nn.Module):
         """
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
-        logger.debug(softmax_similarities)
-        logger.info(softmax_similarities.shape)
-        logger.info(support_set_y.shape)
+        # logger.debug(softmax_similarities)
+        # logger.debug(softmax_similarities.shape)
+        # logger.debug(support_set_y.shape)
         preds = softmax_similarities.mm(support_set_y)
-        logger.debug(preds)
-        logger.info(preds.shape)
+        # logger.debug(preds)
+        # logger.debug(preds.shape)
         return preds
 
 

@@ -101,12 +101,12 @@ class TXTLoader(torch.utils.data.Dataset):
                 os.path.join(self.txt_dir, dataset_name + "_sentences.json"),
                 os.path.join(self.txt_dir, dataset_name + "_classes.json"),
                 os.path.join(self.txt_dir, dataset_name + "_categories.json")))
-        self.num_data_points = len(self.sentences)
+        self.num_samples = len(self.sentences)
         # return self.sentences,self.classes,self.categories
 
     def __len__(self):
-        logger.debug("Number of data points: [%d] for dataset: [%s]".format(self.num_data_points, self.dataset_name))
-        return self.num_data_points
+        logger.debug("Number of samples: [%d] for dataset: [%s]".format(self.num_samples, self.dataset_name))
+        return self.num_samples
 
     def __getitem__(self, idx):
         # TODO: correct this part.

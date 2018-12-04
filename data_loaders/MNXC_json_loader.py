@@ -60,14 +60,14 @@ class JSONLoader(torch.utils.data.Dataset):
                 and os.path.isfile(os.path.join(self.json_path, dataset_name + "_classes.json")) \
                 and os.path.isfile(os.path.join(self.json_path, dataset_name + "_categories.json")):
             logger.debug("Loading json file.")
-            self.sentences = util.load_json(dataset_name + "_sentences", file_path=html_dir)
-            self.classes = util.load_json(dataset_name + "_classes", file_path=html_dir)
-            self.categories = util.load_json(dataset_name + "_categories", file_path=html_dir)
+            self.sentences = util.load_json(dataset_name + "_sentences", file_path=json_dir)
+            self.classes = util.load_json(dataset_name + "_classes", file_path=json_dir)
+            self.categories = util.load_json(dataset_name + "_categories", file_path=json_dir)
             assert len(self.sentences) == len(
                 self.classes), "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
                                                                                                  len(self.classes))
         else:
-            logger.debug("Load data from HTML files.")
+            logger.debug("Load data from JSON files.")
             logger.debug("Create 3 separate dicts of sentences, classes and categories from HTML.")
             datapoints = util.load_json(self.json_path)
             logger.debug(len(self.datapoints))
@@ -77,13 +77,13 @@ class JSONLoader(torch.utils.data.Dataset):
                          "and categories[class_name : class_id] from HTML.")
             sentences, classes, categories, no_cat_ids = self.filter_wiki(self.datapoints)
             util.save_json(no_cat_ids, dataset_name + "_no_cat_ids",
-                           file_path=self.html_dir)  # Storing the ids which was not processed.
+                           file_path=self.json_dir)  # Storing the ids which was not processed.
             self.classes = classes
             # logger.debug("Cleaning data.")
             categories_cleaned, categories_dup_dict = util.clean_categories(categories)
             if categories_dup_dict:
                 util.save_json(categories_dup_dict, dataset_name + "categories_dup_dict",
-                               file_path=self.html_dir)  # Storing the duplicate categories.
+                               file_path=self.json_dir)  # Storing the duplicate categories.
                 self.classes = util.dedup_data(self.classes, categories_dup_dict)
             sentences_cleaned = util.clean_sentences(sentences)
             self.sentences = sentences_cleaned
@@ -92,19 +92,19 @@ class JSONLoader(torch.utils.data.Dataset):
             assert len(self.sentences) == len(
                 self.classes), "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
                                                                                                  len(self.classes))
-            util.save_json(self.sentences, dataset_name + "_sentences", file_path=self.html_dir)
-            util.save_json(self.classes, dataset_name + "_classes", file_path=self.html_dir)
-            util.save_json(self.categories, dataset_name + "_categories", file_path=self.html_dir)
+            util.save_json(self.sentences, dataset_name + "_sentences", file_path=self.json_dir)
+            util.save_json(self.classes, dataset_name + "_classes", file_path=self.json_dir)
+            util.save_json(self.categories, dataset_name + "_categories", file_path=self.json_dir)
             logger.debug("Saved sentences [{0}], classes [{1}] and categories [{2}] as json files.".format(
-                os.path.join(self.html_dir, dataset_name + "_sentences.json"),
-                os.path.join(self.html_dir, dataset_name + "_classes.json"),
-                os.path.join(self.html_dir, dataset_name + "_categories.json")))
-        self.num_data_points = len(self.sentences)
+                os.path.join(self.json_dir, dataset_name + "_sentences.json"),
+                os.path.join(self.json_dir, dataset_name + "_classes.json"),
+                os.path.join(self.json_dir, dataset_name + "_categories.json")))
+        self.num_samples = len(self.sentences)
         # return self.sentences,self.classes,self.categories
 
     def __len__(self):
-        logger.debug("Number of data points: [%d] for dataset: [%s]".format(self.num_data_points, self.dataset_name))
-        return self.num_data_points
+        logger.debug("Number of samples: [%d] for dataset: [%s]".format(self.num_samples, self.dataset_name))
+        return self.num_samples
 
     def __getitem__(self, idx):
         # TODO: correct this part.

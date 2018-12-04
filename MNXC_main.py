@@ -17,7 +17,7 @@ __variables__   :
 __methods__     :
 """
 
-import os, json
+import os
 import pandas as pd
 # import ray.dataframe as pd
 
@@ -27,18 +27,22 @@ from collections import OrderedDict
 
 from logger.logger import logger
 from utils import util
+from models.BuildMN import BuildMN
 from pretrained.pretrained import Pretrain
 from neighborhood.neighborhood_graph import Neighborhood
 
-# Globals-----
-PLATFORM = 'win'
-TIME_STAMP = datetime.utcnow().isoformat()
-dataset_name, dataset_url, dataset_dir, train_path, test_path, solution_path, pretrain_dir = None, None, None, None, None, None, None
-seed = 42
-# np.random.seed(seed)
-# torch.manual_seed(seed)
-# Globals-----
 """
+Variable naming:
+    Name used   ->  Meaning
+-----------------------------------------
+    Categories  ->  Labels / Classes
+    Sample      ->  [Feature, Categories]
+    *_hot       ->  multi-hot format
+    x_hat       ->  test sample
+=========================================
+
+Data formats:
+-----------------------------------------
     sentences : Texts after parsing and cleaning.
     sentences =  {
                     "id1": "text_1",
@@ -61,7 +65,20 @@ seed = 42
                     "sentences":"",
                     "classes":""
                  }
+==========================================
 """
+
+# Globals-----
+PLATFORM = 'win'
+TIME_STAMP = datetime.utcnow().isoformat()
+dataset_name, dataset_url, dataset_dir, train_path, test_path, solution_path, pretrain_dir = None, None, None, None, None, None, None
+seed_val = 42
+
+
+# np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
+# Globals-----
 
 
 def read_config(args):
@@ -74,7 +91,7 @@ def read_config(args):
 
     global dataset_name, dataset_url, dataset_dir, train_path, test_path, solution_path, pretrain_dir
 
-    dataset_name = config["data"]["dataset_name"]
+    dataset_name = config["data_loader"]["dataset_name"]
     dataset_url = config["paths"]["dataset_url"]
     dataset_dir = config["paths"]["dataset_dir"]
     train_path = config["paths"]["train_dir"]
@@ -156,9 +173,10 @@ def download_fastai_dataset(config, dataset='ag_news_csv'):
     """
     # logger.debug(config["paths"]["dataset_url"], os.path.join(config["paths"]["dataset_dir"], config["paths"]["dataset_name"]))
     data = untar_data(url=config["paths"]["dataset_url"],
-                      fname=os.path.join(config["paths"]["dataset_dir"][PLATFORM], config["data"]["dataset_name"]),
+                      fname=os.path.join(config["paths"]["dataset_dir"][PLATFORM],
+                                         config["data_loader"]["dataset_name"]),
                       dest=config["paths"]["dataset_dir"][PLATFORM])
-    # logger.debug(data)
+    # logger.debug(data_loader)
     return data
 
 
@@ -206,7 +224,7 @@ def remove_dup_list(seq, case=False):  # Dave Kirby
 
 def main(args):
     # config = read_config(args)
-    cls = Neighborhood(dataset_name="Wiki10-31K")
+    cls = BuildMN(dataset_name="Wiki10-31K")
     # data_dict = cls.test_cosine()
     # exit(0)
     G, stats = cls.load_neighborhood_graph()

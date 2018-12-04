@@ -291,7 +291,7 @@ def get_label_dict(label_filepath):
 
 def get_subgraph(V, E, label_filepath, dataset_name, level=1, subgraph_count=5, ignore_deg=None, root_node=None):
     """
-    # total_points: total number of data points.
+    # total_points: total number of samples.
     # feature_dm: number of features per datapoint.
     # number_of_labels: total number of categories.
     # X: feature matrix of dimension total_points * feature_dm.

@@ -72,6 +72,7 @@ class EmbedText(nn.Module):
         """
         Runs the CNNText producing the embeddings and the gradients.
 
+        :param dropout_extrenal:
         :param batch_size:
         :param inputs: Image input to produce embeddings for. [batch_size, 28, 28, 1]
         :return: Embeddings of size [batch_size, 64]
@@ -87,8 +88,7 @@ class EmbedText(nn.Module):
             output = self.layer4(output)
             output = output.view(output.size(0), -1)
         else:
-            logger.warn("Unknown model_type: [{}]. Supported types are: ['lstm','cnn'].".format(self.model_type))
-            raise NotImplementedError
+            raise Exception("Unknown model_type: [{}]. Supported types are: ['lstm','cnn'].".format(self.model_type))
 
         if self.use_linear_last:
             output = self.last_linear_layer(output)
@@ -125,8 +125,7 @@ class EmbedText(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             else:
-                logger.warn("Unknown module instance: [{}]. Weight initialization failed.".format(m))
-                raise NotImplementedError
+                raise Exception("Unknown module instance: [{}]. Weight initialization failed.".format(m))
 
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@
 # !/usr/bin/python3.6 ## Please use python 3.6 or above
 """
 __synopsis__    : Matching Networks for Extreme Classification.
-__description__ : Builds a matching network, the training and evaluation ops as well as data augmentation routines.
+__description__ : Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
@@ -26,25 +26,15 @@ from models import BiLSTM as B
 from models import PairCosineSim as C
 from models import EmbedText as E
 
-"""
-Variable naming:
-    Name used   ->  Meaning
------------------------------------------
-    Categories  ->  Labels / Classes
-    Sample      ->  [Feature, Categories]
-    *_hot       ->  multi-hot format
-    x_hat       ->  test sample
-"""
-
 
 class MatchingNetwork(nn.Module):
-    """Builds a matching network, the training and evaluation ops as well as data augmentation routines."""
+    """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
 
-    def __init__(self, input_size=28, hid_size=10, num_channels=1, fce=True, num_classes_per_set=5,
+    def __init__(self, input_size=28, hid_size=10, fce=True, num_classes_per_set=5,
                  num_samples_per_class=1,
                  num_categories=0, dropout=0.2):
         """
-        Builds a matching network, the training and evaluation ops as well as data augmentation routines.
+        Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 
         :param dropout: A placeholder of type torch.float32 denotes the amount of dropout to be used
         :param batch_size: The batch size for the experiment
@@ -64,7 +54,7 @@ class MatchingNetwork(nn.Module):
         # self.learning_rate = learning_rate
         self.fce = fce
 
-        self.g = E.EmbedText(num_layers=1, model_type="lstm", num_channels=num_channels, num_categories=num_categories,
+        self.g = E.EmbedText(num_layers=1, model_type="lstm", num_categories=num_categories,
                              input_size=input_size, dropout=dropout)
         if self.fce:
             self.lstm = B.BiLSTM(hid_size=hid_size, input_size=self.g.output_size, dropout=dropout)
@@ -75,6 +65,7 @@ class MatchingNetwork(nn.Module):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
+        :param batch_size:
         :param support_set: A tensor containing the support set samples.
             [batch_size, sequence_size, n_channels, 28]
             torch.Size([32, 25, 1, 28])
@@ -119,14 +110,25 @@ class MatchingNetwork(nn.Module):
         # produce predictions for target probabilities
         preds = self.attn(similarities, support_set_y=support_set_hot)
         logger.debug(preds)
+        logger.debug(preds.shape)
+
+        assert preds.shape == x_hat_hot.shape, "preds.shape ({}) == ({}) x_hat_hot.shape"
 
         # calculate accuracy and crossentropy loss
         values, indices = preds.max(1)
+        # logger.debug(values)
+        # logger.debug(values.shape)
+        # logger.debug(indices)
+        # logger.debug(indices.shape)
+        # logger.debug(indices.squeeze())
+        # logger.debug(indices.squeeze().shape)
 
-        accuracy = torch.mean((indices.squeeze() == x_hat_hot).float())
-        crossentropy_loss = F.cross_entropy(preds, x_hat_hot.long())
+        # accuracy = torch.mean((indices.squeeze() == x_hat_hot).float())
+        logger.info("preds.shape ({}) == ({}) x_hat_hot.shape".format(preds, x_hat_hot))
+        logger.info("preds.shape ({}) == ({}) x_hat_hot.shape".format(preds.shape, x_hat_hot.shape))
+        crossentropy_loss = F.multilabel_margin_loss(preds, x_hat_hot.long())
 
-        return accuracy / x_hat.size(1), crossentropy_loss / x_hat.size(1)
+        return crossentropy_loss / x_hat.size(1)
 
 
 if __name__ == '__main__':
