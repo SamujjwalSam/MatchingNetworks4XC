@@ -10,30 +10,29 @@ __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2018"
 __license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
-__classes__     : Pretrain
+__classes__     : TextEncoder
 
 __variables__   :
 
 __methods__     :
-
-__todo__        : Include Multi-lingual BERT by Google
 """
 
-from gensim.models import word2vec
+from gensim.models import word2vec, doc2vec
 from gensim.models.fasttext import FastText
 from gensim.models.keyedvectors import KeyedVectors
+from gensim.test.utils import get_tmpfile
+from gensim.utils import simple_preprocess
 from os.path import join, exists, split
 import os
 import numpy as np
 
 from logger.logger import logger
 
-"""
-To solve MKL problem: Adding <conda-env-root>/Library/bin to the path in the run configuration solves the issue, but adding it to the interpreter paths in the project settings doesn't.
-"""
+seed_val = 0
+np.random.seed(seed_val)  # for reproducibility
 
 
-class Pretrain(object):
+class TextEncoder(object):
     """
     Class to process and load pretrained models.
 
@@ -58,7 +57,7 @@ class Pretrain(object):
                 bert_multi
                 bert_large_uncased
         """
-        super(Pretrain, self).__init__()
+        super(TextEncoder, self).__init__()
         self.model_type = model_type
         self.model_dir = model_dir
         self.embedding_dim = embedding_dim
@@ -93,20 +92,11 @@ class Pretrain(object):
             filename = "BERT_large_uncased_L-24_H-1024_A-16.zip"
             binary_file = True
         else:
-            raise NotImplementedError
-        logger.info("Creating Pretrain.")
+            raise Exception("Unknown pretrained model type: [{}]".format(model_type))
+        # logger.debug("Creating TextEncoder.")
         self.model_file_name = filename
         self.binary = binary_file
-        self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name,
-                                                 model_type=model_type)
-
-    # def load_word2vec(self,model_dir=self.model_dir,file_name=self.model_file_name,binary=binary_file):
-        # try:
-            # embedding_model = KeyedVectors.load_word2vec_format(os.path.join(model_dir,file_name),binary=binary)
-        # except Exception as e: ## Loading a different format.
-            # logger.debug('Loading original word2vec format failed. Trying Gensim format.')
-            # embedding_model = KeyedVectors.load(os.path.join(model_dir,file_name),binary=binary)
-        # return embedding_model
+        # self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name, model_type=model_type)
 
     def get_sim(self,w1:str,w2:str):
         """
@@ -138,6 +128,66 @@ class Pretrain(object):
         """
         sent_sim = self.pretrain_model.wv.wmdistance(s1, s2)
         return sent_sim
+
+    def load_doc2vec(self, documents, vector_size=100, window=2, min_count=1, workers=4, seed=seed_val, negative=10,
+                     doc2vec_dir="", doc2vec_model_file="doc2vec_model_file", clean_tmp=False, save_model=True):
+        """
+        Generates vectors from documents.
+        https://radimrehurek.com/gensim/models/doc2vec.html
+
+        :param save_model:
+        :param clean_tmp: Flag to set if cleaning is to be done.
+        :param doc2vec_dir:
+        :param doc2vec_model_file: Name of Doc2Vec model.
+        :param negative: If > 0, negative sampling will be used, the int for negative specifies how many “noise words” should be drawn (usually between 5-20).
+        :param documents:
+        :param vector_size:
+        :param window:
+        :param min_count:
+        :param workers:
+        :param seed:
+        """
+        if os.path.exists(os.path.join(doc2vec_dir, doc2vec_model_file)):
+            doc2vec_model = doc2vec.Doc2Vec.load(os.path.join(doc2vec_dir, doc2vec_model_file))
+        else:
+            train_corpus = list(self.read_corpus(documents))
+            doc2vec_model = doc2vec.Doc2Vec(train_corpus, vector_size=vector_size, window=window, min_count=min_count,
+                                            workers=workers, seed=seed, negative=negative)
+            # doc2vec_model.build_vocab(train_corpus)
+            doc2vec_model.train(train_corpus, total_examples=doc2vec_model.corpus_count, epochs=doc2vec_model.epochs)
+            if save_model:
+                doc2vec_model.save(get_tmpfile(os.path.join(doc2vec_dir, doc2vec_model_file)))
+            if clean_tmp:  # Do this when finished training a model (no more updates, only querying, reduce memory usage)
+                doc2vec_model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
+        return doc2vec_model
+
+    def read_corpus(self, documents, tokens_only=False):
+        """
+        Read the documents, pre-process each line using a simple gensim pre-processing tool and return a list of words. The tag is simply the zero-based line number.
+
+        :param documents: List of documents.
+        :param tokens_only:
+        """
+        for i, line in enumerate(documents):
+            if tokens_only:
+                yield simple_preprocess(line)
+            else:  # For training data, add tags, tags are simply zero-based line number.
+                yield doc2vec.TaggedDocument(simple_preprocess(line), [i])
+
+    def get_doc2vectors(self,documents, doc2vec_model=None):
+        """
+        Generates vectors for documents.
+
+        :param doc2vec_model: doc2vec model object.
+        :param documents:
+        :return:
+        """
+        if doc2vec_model is None:  # If model is not supplied, need to create model.
+            doc2vec_model = self.load_doc2vec(documents)
+        doc2vectors = []
+        for doc in documents:
+            doc2vectors.append(doc2vec_model.infer_vector(doc))  # Infer vector for a new document
+        return np.asarray(doc2vectors)
 
     def load_word2vec(self, model_dir="D:\Datasets\pretrain", model_file_name="GoogleNews-vectors-negative300.bin", model_type='googlenews', encoding='utf-8', newline='\n', errors='ignore'):
         """
@@ -177,6 +227,7 @@ class Pretrain(object):
                 assert (len(vec) == self.embedding_dim)
                 if word not in pretrain_model:
                     pretrain_model[word] = vec
+            logger.debug('Found [{}] word vectors.'.format(len(pretrain_model)))
             assert (len(pretrain_model) == 400000)
         elif model_type == "bert_multi":
             # pretrain_model = FastText.load_fasttext_format(os.path.join(model_dir,model_file_name))
@@ -195,11 +246,10 @@ class Pretrain(object):
         else:
             raise ValueError('Unknown pretrain model type: %s!' % model_type)
 
-        logger.info(type(pretrain_model))
+        logger.info(pretrain_model["hello"].shape)
         return pretrain_model
 
-    def train_w2v(self,sentence_matrix, vocabulary_inv, embedding_dim=300,
-                  min_word_count=1, context=10):
+    def train_w2v(self,sentence_matrix, vocabulary_inv, embedding_dim=300, min_word_count=1, context=10):
         """
         Trains, saves, loads Word2Vec model
         Returns initial weights for embedding layer.
@@ -212,9 +262,7 @@ class Pretrain(object):
         context         # Context window size
         """
         model_dir = 'word2vec_models'
-        model_name = "{:d}features_{:d}minwords_{:d}context".format(embedding_dim,
-                                                                    min_word_count,
-                                                                    context)
+        model_name = "{:d}features_{:d}minwords_{:d}context".format(embedding_dim,min_word_count,context)
         model_name = join(model_dir, model_name)
         if exists(model_name):
             pretrain_model = word2vec.Word2Vec.load(model_name)
@@ -233,22 +281,18 @@ class Pretrain(object):
                                                 window=context,
                                                 sample=downsampling)
 
-            # If we don't plan to train the model any further, calling
-            # init_sims will make the model much more memory-efficient.
+            # If we don't plan to train the model any further, calling init_sims will make the model much more memory-efficient.
             pretrain_model.init_sims(replace=True)
 
-            # Saving the model for later use. You can load it later using
-            # Word2Vec.load()
+            # Saving the model for later use. You can load it later using Word2Vec.load()
             if not exists(model_dir):
                 os.mkdir(model_dir)
             logger.debug('Saving Word2Vec model \'%s\'' % split(model_name)[-1])
             pretrain_model.save(model_name)
 
         #  add unknown words
-        embedding_weights = [np.array([pretrain_model[w] if w in pretrain_model
-                                       else np.random.uniform(-0.25, 0.25,
-                                                              pretrain_model.vector_size)
-                                       for w in vocabulary_inv])]
+        embedding_weights = [np.array([pretrain_model[w] if w in pretrain_model else np.random.uniform(-0.25, 0.25,
+                                                              pretrain_model.vector_size) for w in vocabulary_inv])]
         return embedding_weights
 
     def get_embedding_matrix(self,vocabulary_inv:dict):
@@ -268,11 +312,16 @@ class Pretrain(object):
 
 if __name__ == '__main__':
     logger.debug("Loading pretrained...")
-    cls = Pretrain()
-    data_dict = cls.get_sim("hello","hi")
-    logger.debug("Word similarity: [{0}]".format(data_dict))
-
+    cls = TextEncoder()
+    # data_dict = cls.get_sim("hello","hi")
+    # logger.debug("Word similarity: [{0}]".format(data_dict))
+    #
     sentence_obama = 'Obama speaks to the media in Illinois'
     sentence_president = 'The president greets the press in Chicago'
-    sent_sim = cls.get_sent_sim(sentence_obama, sentence_president)
-    logger.debug("Sentence similarity: [{0}]".format(sent_sim))
+    # sent_sim = cls.get_sent_sim(sentence_obama, sentence_president)
+    # logger.debug("Sentence similarity: [{0}]".format(sent_sim))
+
+    docs = [sentence_obama,sentence_president]
+    doc2vec_model = cls.load_doc2vec(docs, vector_size=10, window=2, negative=2, save_model=False)
+    vectors = cls.get_doc2vectors(docs,doc2vec_model)
+    logger.debug(vectors)

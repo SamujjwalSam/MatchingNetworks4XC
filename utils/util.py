@@ -17,8 +17,9 @@ __variables__   :
 __methods__     :
 """
 
-import sys, json
+import os, sys, json
 import pickle as pk
+from smart_open import smart_open as sopen  # Better alternative to Python sopen().
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
 
@@ -54,7 +55,7 @@ def make_trans_table(specials="""< >  * ? " / \ : |""", replace=' '):
     return trans_table
 
 
-def clean_categories(categories: dict, specials=""" _ - @"""):
+def clean_categories(categories: dict, specials=""" _ - @""",replace=' '):
     """Cleans categories dict and returns set of cleaned categories and the dict of duplicate categories.
 
     :param: categories: dict of cat:id
@@ -65,7 +66,7 @@ def clean_categories(categories: dict, specials=""" _ - @"""):
     """
     category_cleaned_dict = OrderedDict()
     dup_cat_map = OrderedDict()
-    trans_table = make_trans_table(specials=specials, replace=' ')
+    trans_table = make_trans_table(specials=specials, replace=replace)
     for cat,cat_id in categories.items():
         cat_clean = unidecode(str(cat)).translate(trans_table)
         if cat_clean in category_cleaned_dict.keys():
@@ -75,7 +76,7 @@ def clean_categories(categories: dict, specials=""" _ - @"""):
     return category_cleaned_dict, dup_cat_map
 
 
-def clean_sentences(sentences: dict, specials=""" _ - @ * """):
+def clean_sentences(sentences: dict, specials=""" _ - @ * # ' " / \ """,replace=' '):
     """Cleans sentences dict and returns dict of cleaned sentences.
 
     :param: sentences: dict of id:label
@@ -83,7 +84,7 @@ def clean_sentences(sentences: dict, specials=""" _ - @ * """):
         sents_cleaned_dict : contains cleaned sentences.
     """
     sents_cleaned_dict = OrderedDict()
-    trans_table = make_trans_table(specials=specials, replace=' ')
+    trans_table = make_trans_table(specials=specials, replace=replace)
     for id,text in sentences.items():
         label_clean = unidecode(str(text)).translate(trans_table)
         sents_cleaned_dict[id] = label_clean
@@ -128,7 +129,7 @@ def inverse_dict_elm(labels: dict):
     """
     labels_inv = OrderedDict()
     for k, v in labels.items():
-        if v not in labels.keys():  # check if key does not exist.
+        if v not in labels:  # check if key does not exist.
             labels_inv[v] = k
     return labels_inv
 
@@ -181,7 +182,7 @@ def save_json(data, filename, file_path='', overwrite=False, indent=2, date_time
             os.path.join(file_path, date_time_tag + filename + ".json")))
         return True
     try:
-        with open(os.path.join(file_path, date_time_tag + filename + ".json"), 'w') as json_file:
+        with sopen(os.path.join(file_path, date_time_tag + filename + ".json"), 'w') as json_file:
             try:
                 json_file.write(json.dumps(data, indent=indent))
             except Exception as e:
@@ -210,7 +211,7 @@ def load_json(filename, file_path='', date_time_tag=''):
     """
     # logger.debug("Reading JSON file: ",os.path.join(file_path,date_time_tag+filename+".json"))
     if os.path.exists(os.path.join(file_path, date_time_tag + filename + ".json")):
-        with open(os.path.join(file_path, date_time_tag + filename + ".json"), encoding="utf-8") as file:
+        with sopen(os.path.join(file_path, date_time_tag + filename + ".json"), encoding="utf-8") as file:
             json_dict = OrderedDict(json.load(file))
         file.close()
         return json_dict
@@ -236,7 +237,7 @@ def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding
         logger.warning("File [{0}] already exists and Overwrite == False.".format(
             os.path.join(file_path, date_time_tag + filename + ".txt")))
         return True
-    with open(os.path.join(file_path, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
+    with sopen(os.path.join(file_path, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
         logger.debug("Saving text file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".txt")))
         text_file.write(str(data))
         text_file.write("\n")
@@ -305,7 +306,7 @@ def save_pickle(data, pkl_file_name, pkl_file_path, overwrite=False):
         if os.path.isfile(os.path.join(pkl_file_path, pkl_file_name + ".pkl")):
             logger.info(
                 "Overwriting on pickle file: [{0}]".format(os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
-        with open(os.path.join(pkl_file_path, pkl_file_name + ".pkl"), 'wb') as pkl_file:
+        with sopen(os.path.join(pkl_file_path, pkl_file_name + ".pkl"), 'wb') as pkl_file:
             pk.dump(data, pkl_file)
         pkl_file.close()
         return True
@@ -327,7 +328,7 @@ def load_pickle(pkl_file_name, pkl_file_path):
     logger.debug("Method: load_pickle(pkl_file)")
     if os.path.exists(os.path.join(pkl_file_path, pkl_file_name + ".pkl")):
         logger.debug("Reading pickle file: [{0}]".format(os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
-        with open(os.path.join(pkl_file_path, pkl_file_name + ".pkl"), 'rb') as pkl_file:
+        with sopen(os.path.join(pkl_file_path, pkl_file_name + ".pkl"), 'rb') as pkl_file:
             loaded = pk.load(pkl_file)
         return loaded
     else:

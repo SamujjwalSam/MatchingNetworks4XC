@@ -1,4 +1,4 @@
-from .pretrained import Pretrain
+from .TextEncoder import TextEncoder
 
 # These are not required
-del pretrained
+del TextEncoder

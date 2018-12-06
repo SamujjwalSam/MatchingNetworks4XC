@@ -45,8 +45,8 @@ class BuildMN:
         else:
             self.cuda_available = cuda_available
 
-    def build_experiment(self, classes_per_set, samples_per_class, input_size=28, lr=1e-03, lr_decay=1e-6,
-                         weight_decay=1e-4, optim="adam", dropout=0.2, num_categories=0, fce=True, batch_size=64):
+    def prepare_mn(self, classes_per_set, samples_per_class, input_size=28, lr=1e-03, lr_decay=1e-6,
+                   weight_decay=1e-4, optim="adam", dropout=0.2, num_categories=0, fce=True, batch_size=64):
         """
         Builds the network with all required parameters.
 
@@ -89,8 +89,8 @@ class BuildMN:
         """
         Runs one training epoch.
 
-        :param total_train_batches: Number of batches to train on
-        :return: mean_training_categorical_crossentropy_loss and mean_training_accuracy
+        :param total_train_batches: Number of batches to train.
+        :return: mean_training_multilabel_margin_loss and mean_training_accuracy.
         """
         total_c_loss = 0.
         total_accuracy = 0.
@@ -99,8 +99,7 @@ class BuildMN:
 
         with tqdm.tqdm(total=total_train_batches) as pbar:
             for i in range(total_train_batches):  # train epoch
-                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(str_type='train',
-                                                                                              rotate_flag=True)
+                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(batch_size=64)
 
                 x_support_set = Variable(torch.from_numpy(x_support_set)).float()
                 y_support_set = Variable(torch.from_numpy(y_support_set), requires_grad=False).long()

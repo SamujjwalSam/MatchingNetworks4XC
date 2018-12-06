@@ -28,14 +28,14 @@ from collections import OrderedDict
 from logger.logger import logger
 from utils import util
 from models.BuildMN import BuildMN
-from pretrained.pretrained import Pretrain
+from pretrained.TextEncoder import TextEncoder
 from neighborhood.neighborhood_graph import Neighborhood
 
 """
 Variable naming:
     Name used   ->  Meaning
 -----------------------------------------
-    Categories  ->  Labels / Classes
+    Categories  ->  Labels / Classes {}
     Sample      ->  [Feature, Categories]
     *_hot       ->  multi-hot format
     x_hat       ->  test sample
@@ -57,15 +57,18 @@ Data formats:
     
     categories : Dict of class texts.
     categories = {
+                    "label_text"       : class_id_0
                     "Computer Science" : class_id_1,
                     "Machine Learning" : class_id_2
                  }
 
-    datapoints : {
+    samples :    {
                     "sentences":"",
                     "classes":""
                  }
 ==========================================
+
+To solve MKL problem: Adding <conda-env-root>/Library/bin to the path in the run configuration solves the issue, but adding it to the interpreter paths in the project settings doesn't.
 """
 
 # Globals-----
@@ -73,7 +76,6 @@ PLATFORM = 'win'
 TIME_STAMP = datetime.utcnow().isoformat()
 dataset_name, dataset_url, dataset_dir, train_path, test_path, solution_path, pretrain_dir = None, None, None, None, None, None, None
 seed_val = 42
-
 
 # np.random.seed(seed_val)
 # torch.manual_seed(seed_val)

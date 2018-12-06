@@ -2,7 +2,7 @@
 # !/usr/bin/python3.6 ## Please use python 3.6 or above
 """
 __synopsis__    : Script to create Neighborhood graph.
-__description__ : Class to generate neighborhood graph based on label similarity between datapoints.
+__description__ : Class to generate neighborhood graph based on label similarity between samples.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
@@ -28,7 +28,7 @@ from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from utils import util
-from pretrained.pretrained import Pretrain
+from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
 
 # Globals----
@@ -37,7 +37,7 @@ RANDOM_INIT = 0
 
 class Neighborhood(object):
     """
-    Class to generate neighborhood graph based on label similarity between datapoints.
+    Class to generate neighborhood graph based on label similarity between samples.
 
     Supported models: glove, word2vec, fasttext, googlenews, bert, lex, etc.
     """
@@ -112,7 +112,7 @@ class Neighborhood(object):
         Finds the top k neighrest neighbors for each sample using cosine similarity.
 
         :type k: int
-        :param multihot_data: matrix of multi-hot vectors [datapoints * categories].
+        :param multihot_data: matrix of multi-hot vectors [samples * categories].
         :param k:
         :return:
         """
@@ -218,7 +218,7 @@ class Neighborhood(object):
         :return:
         TODO: handle multi-word categories and unknown words.
         """
-        pretrain_model = Pretrain(model_type=model_type, embedding_dim=embedding_dim)
+        pretrain_model = TextEncoder(model_type=model_type, embedding_dim=embedding_dim)
         # semantic_sim = OrderedDict()
         for (cat1, cat2) in E_cats.keys():
             E_cats[(cat1, cat2)] = (E_cats[(cat1, cat2)], pretrain_model.get_sim(cat1, cat2),
@@ -241,7 +241,7 @@ class Neighborhood(object):
 
     def find_single_labels(self):
         """
-        Finds the number of datapoints with only single label.
+        Finds the number of samples with only single label.
 
         """
         single_labels = []
@@ -250,7 +250,7 @@ class Neighborhood(object):
                 single_labels.append(i)
         if single_labels:
             logger.info(len(single_labels),
-                        'datapoints has only single category. These categories will not occur in the co-occurrence graph.')
+                        'samples has only single category. These categories will not occur in the co-occurrence graph.')
         return len(single_labels)
 
     def plot_occurance(E, plot_name='sample_co-occurance.jpg', clear=True, log=False):
