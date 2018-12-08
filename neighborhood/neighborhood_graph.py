@@ -273,7 +273,7 @@ def get_label_dict(label_filepath):
     :return:
     """
     if label_filepath is None:
-        return {}
+        return OrderedDict()
 
     try:
         with open(label_filepath, 'r') as file:
@@ -282,7 +282,7 @@ def get_label_dict(label_filepath):
         with open(label_filepath, 'r', encoding='latin-1') as file:  # 'latin-1' encoding for old files.
             content = file.read().splitlines()
 
-    label_dict = {}
+    label_dict = OrderedDict()
     for i, label in enumerate(content):
         label_dict[i] = str(label)
 
@@ -346,7 +346,7 @@ def get_subgraph(V, E, label_filepath, dataset_name, level=1, subgraph_count=5, 
         bfs_q = Queue()
         bfs_q.put(v)
         bfs_q.put(0)
-        node_check = {}
+        node_check = OrderedDict()
         ignored = []
 
         sub_g = nx.Graph()

@@ -19,7 +19,7 @@ __methods__     :
 
 import os, sys, json
 import pickle as pk
-from smart_open import smart_open as sopen  # Better alternative to Python sopen().
+from smart_open import smart_open as sopen  # Better alternative to Python open().
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
 
@@ -30,12 +30,31 @@ import unicodedata
 
 from logger.logger import logger
 
-RANDOM_INIT = 0
+seed_val = 0
 
 
-# Turn a Unicode string to plain ASCII, thanks to
-# http://stackoverflow.com/a/518232/2809427
+def split_docs(docs, criteria=' '):
+    """
+    Splits a dict of idx:documents based on [criteria].
+
+    :param docs: idx:documents
+    :param criteria:
+    :return:
+    """
+    splited_docs = OrderedDict()
+    for idx, doc in docs:
+        splited_docs[idx] = doc.split(criteria)
+    return splited_docs
+
+
 def unicodeToAscii(s):
+    """
+    Turn a Unicode string to plain ASCII.
+
+    Thanks to http://stackoverflow.com/a/518232/2809427
+    :param s:
+    :return:
+    """
     return ''.join(
         c for c in unicodedata.normalize('NFD', s)
         if unicodedata.category(c) != 'Mn'
@@ -55,7 +74,7 @@ def make_trans_table(specials="""< >  * ? " / \ : |""", replace=' '):
     return trans_table
 
 
-def clean_categories(categories: dict, specials=""" _ - @""",replace=' '):
+def clean_categories(categories: dict, specials="""_-@""", replace=' '):
     """Cleans categories dict and returns set of cleaned categories and the dict of duplicate categories.
 
     :param: categories: dict of cat:id
@@ -67,7 +86,7 @@ def clean_categories(categories: dict, specials=""" _ - @""",replace=' '):
     category_cleaned_dict = OrderedDict()
     dup_cat_map = OrderedDict()
     trans_table = make_trans_table(specials=specials, replace=replace)
-    for cat,cat_id in categories.items():
+    for cat, cat_id in categories.items():
         cat_clean = unidecode(str(cat)).translate(trans_table)
         if cat_clean in category_cleaned_dict.keys():
             dup_cat_map[categories[cat]] = category_cleaned_dict[cat_clean]
@@ -76,22 +95,26 @@ def clean_categories(categories: dict, specials=""" _ - @""",replace=' '):
     return category_cleaned_dict, dup_cat_map
 
 
-def clean_sentences(sentences: dict, specials=""" _ - @ * # ' " / \ """,replace=' '):
+def clean_sentences(sentences: dict, specials="""_-@*#'"/\\""", replace=' '):
     """Cleans sentences dict and returns dict of cleaned sentences.
 
-    :param: sentences: dict of id:label
+    :param: sentences: dict of idx:label
     :returns:
         sents_cleaned_dict : contains cleaned sentences.
     """
+    # TODO: Remove copyright and other common texts at the end
+    # TODO: Remove all headings with "##"
+    # TODO: Remove ### From Wikipedia, the free encyclopedia \n Jump to: navigation, search
+    # TODO: Remove Repeated special characters like ####,     , ,, etc.
     sents_cleaned_dict = OrderedDict()
     trans_table = make_trans_table(specials=specials, replace=replace)
-    for id,text in sentences.items():
+    for idx, text in sentences.items():
         label_clean = unidecode(str(text)).translate(trans_table)
-        sents_cleaned_dict[id] = label_clean
+        sents_cleaned_dict[idx] = label_clean
     return sents_cleaned_dict
 
 
-def remove_special_chars(text, specials="""< >  * ? " / \ : |""", replace=' '):
+def remove_special_chars(text, specials="""<>*?"/\:|""", replace=' '):
     """
     Replaces [specials] chars from [text] with [replace].
 
@@ -392,7 +415,7 @@ def read_inputs(dataset_path, dataset, read_test=False):
     return X, Y, V, E
 
 
-def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_path(), seed=RANDOM_INIT):
+def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_path(), seed=seed_val):
     """
     Splits the data into 2 parts.
 

@@ -59,9 +59,9 @@ def create_logger(logger_name='root',
                   log_filename=LOG_FILE,
                   file_path='logs',
                   file_level=logging.DEBUG,
-                  file_format="%(asctime)s[%(levelname)s %(funcName)s] %(message)s (%(module)s:%(lineno)d)",
+                  file_format="%(asctime)s [%(levelname)s %(funcName)s] (%(module)s:%(lineno)d) %(message)s",
                   console_level=logging.DEBUG,
-                  console_format="[%(levelname)s][%(funcName)s] %(message)s (%(module)s:%(lineno)d)",
+                  console_format="[%(levelname)s][%(funcName)s] (%(module)s:%(lineno)d) %(message)s",
                   color=True,
                   ):
     """

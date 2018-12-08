@@ -23,6 +23,7 @@ from gensim.models.keyedvectors import KeyedVectors
 from gensim.test.utils import get_tmpfile
 from gensim.utils import simple_preprocess
 from os.path import join, exists, split
+from collections import OrderedDict
 import os
 import numpy as np
 
@@ -174,7 +175,7 @@ class TextEncoder(object):
             else:  # For training data, add tags, tags are simply zero-based line number.
                 yield doc2vec.TaggedDocument(simple_preprocess(line), [i])
 
-    def get_doc2vectors(self,documents, doc2vec_model=None):
+    def get_doc2vectors(self,documents:dict, doc2vec_model=None):
         """
         Generates vectors for documents.
 
@@ -184,10 +185,10 @@ class TextEncoder(object):
         """
         if doc2vec_model is None:  # If model is not supplied, need to create model.
             doc2vec_model = self.load_doc2vec(documents)
-        doc2vectors = []
-        for doc in documents:
-            doc2vectors.append(doc2vec_model.infer_vector(doc))  # Infer vector for a new document
-        return np.asarray(doc2vectors)
+        doc2vectors = OrderedDict()
+        for idx,doc in documents.items():
+            doc2vectors[idx] = doc2vec_model.infer_vector(doc)  # Infer vector for a new document
+        return doc2vectors
 
     def load_word2vec(self, model_dir="D:\Datasets\pretrain", model_file_name="GoogleNews-vectors-negative300.bin", model_type='googlenews', encoding='utf-8', newline='\n', errors='ignore'):
         """
@@ -220,7 +221,7 @@ class TextEncoder(object):
             assert (exists(os.path.join(model_dir, model_file_name)))
             logger.debug('Loading existing Glove model: [{0}]'.format(os.path.join(model_dir, model_file_name)))
             # dictionary, where key is word, value is word vectors
-            pretrain_model = {}
+            pretrain_model = OrderedDict()
             for line in open(os.path.join(model_dir, model_file_name), encoding=encoding):
                 tmp = line.strip().split()
                 word, vec = tmp[0], map(float, tmp[1:])
@@ -237,7 +238,7 @@ class TextEncoder(object):
             # fin = io.open(os.path.join(model_dir, model_file_name), encoding=encoding, newline=newline,
             #               errors=errors)
             # n, d = map(int, fin.readline().split())
-            # pretrain_model = {}
+            # pretrain_model = OrderedDict()
             # for line in fin:
             #     tokens = line.rstrip().split(' ')
             #     pretrain_model[tokens[0]] = map(float, tokens[1:])
@@ -246,7 +247,7 @@ class TextEncoder(object):
         else:
             raise ValueError('Unknown pretrain model type: %s!' % model_type)
 
-        logger.info(pretrain_model["hello"].shape)
+        # logger.info(pretrain_model["hello"].shape)
         return pretrain_model
 
     def train_w2v(self,sentence_matrix, vocabulary_inv, embedding_dim=300, min_word_count=1, context=10):

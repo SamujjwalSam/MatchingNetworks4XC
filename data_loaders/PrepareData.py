@@ -16,10 +16,13 @@ __variables__   :
 
 __methods__     :
 """
+
 # import torchvision.transforms as transforms
 # import os.path
 import numpy as np
+import random
 from sklearn.preprocessing import MultiLabelBinarizer
+from collections import OrderedDict
 
 from data_loaders import html_loader as html
 from data_loaders import json_loader as json
@@ -29,6 +32,7 @@ from logger.logger import logger
 from utils import util
 
 seed_val = 0
+random.seed(seed_val)
 np.random.seed(seed_val)  # for reproducibility
 
 
@@ -41,37 +45,38 @@ class PrepareData():
         self.dataset_dir = dataset_dir
 
         if dataset_type == "html":
-            html_dataset = html.WIKI_HTML_Dataset(dataset_name=dataset_name,data_dir=self.dataset_dir)
-            (sentences, classes), categories = html_dataset.get_data()
+            self.dataset = html.WIKI_HTML_Dataset(dataset_name=dataset_name, data_dir=self.dataset_dir)
+            # sentences = self.dataset.get_sentences()
+            # classes = self.dataset.get_classes()
+            # categories = self.dataset.get_categories()
+            # sentences, classes, categories = self.dataset.get_data()
         elif dataset_type == "json":
-            json_dataset = json.JSONLoader(dataset_name=dataset_name,data_dir=self.dataset_dir)
-            (sentences, classes), categories = json_dataset.get_data()
+            self.dataset = json.JSONLoader(dataset_name=dataset_name, data_dir=self.dataset_dir)
+            # (sentences, classes), categories = self.dataset.get_data()
         elif dataset_type == "txt":
-            txt_dataset = txt.TXTLoader(dataset_name=dataset_name,data_dir=self.dataset_dir)
-            (sentences, classes), categories = txt_dataset.get_data()
+            self.dataset = txt.TXTLoader(dataset_name=dataset_name, data_dir=self.dataset_dir)
+            # (sentences, classes), categories = self.dataset.get_data()
         else:
-            raise Exception("Dataset type [{}] not found.".format(dataset_name))
+            raise Exception(
+                "Dataset type for dataset [{}] not found. \n Possible reason: Dataset not added in the config file.".format(
+                    dataset_name))
 
-        self.sentences = sentences
-        self.classes = classes
-        self.categories = categories
+        self.sentences_train = None
+        self.classes_train = None
+        self.sentences_val = None
+        self.classes_val = None
+        self.sentences_test = None
+        self.classes_test = None
+        self.categories = None
 
-        mlb = MultiLabelBinarizer()
-        self.classes_multihot = mlb.fit_transform(classes.values())
-
-        self.text_encoder = TextEncoder()
-
-        # self.txt2vec(sentences)
-        # self.normalization()
-
-    def txt2vec(self, docs, mode="word_avg", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
+    def txt2vec(self, sentences, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
         """
         Creates vectors from input_texts based on [mode].
 
         :param max_vec_len: Maximum vector length of each document.
         :param num_chunks: Number of chunks the input_texts are to be divided. (Applicable only when mode = "chunked")
         :param embedding_dim: Embedding dimension for each word.
-        :param docs:
+        :param sentences:
         :param mode: Decides how to create the vector.
             "chunked" : Partitions the whole text into equal length chunks and concatenates the avg of each chunk.
                         vec_len = num_chunks * embedding_dim
@@ -101,82 +106,127 @@ class PrepareData():
         """
         self.num_chunks = num_chunks
         self.embedding_dim = embedding_dim
+        self.text_encoder = TextEncoder()
+
+        sentences = util.clean_sentences(sentences, specials="""_-@*#'"/\\""", replace='')
 
         if mode == "doc2vec":
-            doc2vec_model = self.text_encoder.load_doc2vec(docs, vector_size=self.embedding_dim, window=7, seed=seed_val, negative=10,
-                                                           doc2vec_dir=self.dataset_dir, doc2vec_model_file=self.dataset_name+"_doc2vec")
-            vectors = self.text_encoder.get_doc2vectors(docs,doc2vec_model)
-            return vectors
+            doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
+                                                           seed=seed_val, negative=10,
+                                                           doc2vec_dir=self.dataset_dir,
+                                                           doc2vec_model_file=self.dataset_name + "_doc2vec")
+            vectors_dict = self.text_encoder.get_doc2vectors(sentences, doc2vec_model)
+            return vectors_dict
         else:
             w2v_model = self.text_encoder.load_word2vec()
-            return self.take_avg(docs, w2v_model, mode)
+            return self.create_doc_vecs(sentences, w2v_model, mode)
 
-    def take_avg(self, docs: dict, w2v_model, mode,concat_axis=1):
+    def create_doc_vecs(self, sentences: dict, w2v_model, mode, concat_axis=0):
         """
-        Calculates the average of vectors of all the words in items.
+        Calculates the average of vectors of all words within a chunk and concatenates the chunks.
 
         :param concat_axis: The axis the vectors should be concatenated.
         :param mode:
         :param w2v_model:
-        :param docs: Dict of texts.
-        :returns: Average of vectors of words. Dim: embedding_dim.
+        :param sentences: Dict of texts.
+        :returns: Average of vectors of chunks. Dim: embedding_dim.
         """
-        oov_words = {}  # To hold out-of-vocab words.
-        documents = {}
-        docs = util.clean_split(docs)
-        for idx, doc in docs.items():
+        oov_words = OrderedDict()  # To hold out-of-vocab words.
+        docs_vecs = OrderedDict()
+        # logger.debug(sentences)
+        # logger.debug(sentences)
+        for idx, doc in sentences.items():
             chunks = self.partition_doc(doc, mode)
-            logger.debug(chunks)
-            logger.debug(len(chunks))
-            avg_vec = np.zeros(self.embedding_dim)
-            for item in chunks:
-                if item in w2v_model.vocab:
-                    avg_vec = np.add(avg_vec,w2v_model[item])
-                    # logger.info(w2v_model[item].shape)
+            # logger.debug(chunks)
+            chunks = list(filter(None, chunks))  # Removing empty items.
+            # logger.debug(chunks)
+            # logger.debug(len(chunks))
+            for chunk in chunks:
+                # logger.debug(chunk)
+                # logger.debug(chunk, w2v_model.vocab)
+                avg_vec = None
+                for word in chunk:
+                    if word in w2v_model.vocab:
+                        if avg_vec is None:
+                            avg_vec = w2v_model[word]
+                        else:
+                            avg_vec = np.add(avg_vec, avg_vec)
+                        # logger.info(w2v_model[word].shape)
+                    else:
+                        new_oov_vec = np.random.uniform(-0.5, 0.5, self.embedding_dim)
+                        w2v_model.add(word, new_oov_vec)
+                        oov_words[word] = new_oov_vec
+                        if avg_vec is None:
+                            avg_vec = new_oov_vec
+                        else:
+                            avg_vec = np.add(avg_vec, new_oov_vec)
+                        # logger.debug(avg_vec)
+                        # logger.debug(avg_vec.shape)
+                        # logger.debug(self.embedding_dim)
+                        logger.debug(avg_vec)
+                chunk_avg_vec = np.divide(avg_vec, float(len(chunk)))
+                if idx in docs_vecs:
+                    logger.debug((docs_vecs[idx].shape, chunk_avg_vec.shape))
+                    docs_vecs[idx] = np.concatenate((docs_vecs[idx], chunk_avg_vec), axis=concat_axis)
+                    logger.debug(docs_vecs[idx].shape)
                 else:
-                    avg_vec = np.random.uniform(-0.5,0.5,self.embedding_dim)
-                    # logger.debug(avg_vec)
-                    # logger.debug(avg_vec.shape)
-                    # logger.debug(self.embedding_dim)
-                    w2v_model.add(item,avg_vec)
-                    oov_words[item] = avg_vec
-            chunk_vec = np.mean(avg_vec)
-            if idx in documents:
-                documents[idx] = np.concatenate((documents[idx],chunk_vec),axis=concat_axis)
-            else:
-                documents[idx] = chunk_vec
+                    docs_vecs[idx] = chunk_avg_vec
+        util.save_json(oov_words, "oov_words")
 
-        util.save_json(oov_words,"oov_words")
-        return documents
+        return docs_vecs
 
-    def partition_doc(self, doc, mode, num_chunks=10):
+    def partition_doc(self, sentence, mode, num_chunks=10):
         """
         Divides a document into chunks based on the mode.
 
         :param num_chunks:
-        :param doc:
+        :param sentence:
         :param mode:
         :param doc_len:
         :return:
         """
         chunks = []
+        # logger.debug(sentence)
+        # TODO: Use better word and sentence tokenizers.
         if mode == "concat":
-            logger.debug(doc)
-            words = doc.split(" ")
-            logger.debug(words)
+            words = sentence.split(" ")
+            # logger.debug(words)
             for word in words:
-                logger.debug(word)
+                # logger.debug(word)
                 chunks.append(word)
-            logger.debug(chunks)
+            # logger.debug(chunks)
         elif mode == "word_avg":
-            chunks = doc.split()
+            chunks = sentence.split(" ")
         elif mode == "sentences":
-            chunks = doc.split(". ")  # TODO: Clean all \n within sentences.
+            chunks = sentence.splitlines()
         elif mode == "chunked":
-            chunks = len(doc.split()) / num_chunks  # calculates how long each chunk should be.
+            splitted_doc = sentence.split()
+            # logger.debug(splitted_doc)
+            doc_len = len(splitted_doc)
+            # logger.debug(doc_len)
+            chunk_size = doc_len // num_chunks  # Calculates how large each chunk should be.
+            # logger.debug(chunk_size)
+            index_start = 0
+            for i in range(num_chunks):
+                batch_portion = doc_len / (chunk_size * (i + 1))
+                # logger.debug(batch_portion)
+                if batch_portion > 1.0:
+                    index_end = index_start + chunk_size
+                else:  # Available data is less than chunk_size
+                    # logger.debug("Am I here? {}".format(batch_portion))
+                    index_end = index_start + (doc_len - index_start)
+                logger.info('Making chunk of tokens from [{0}] to [{1}]'.format(index_start, index_end))
+                chunk = splitted_doc[index_start:index_end]
+                # logger.debug((len(chunk),(chunk_size)))
+                chunks.append(chunk)
+                index_start = index_end
         else:
-            raise Exception("Unknown Mode: [{}]".format(mode))
-        logger.debug(chunks)
+            raise Exception(
+                "Unknown document partition mode: [{}]. \n Available options: ['concat','word_avg','sentences','chunked (Default)']".format(
+                    mode))
+        logger.debug(len(chunks))
+        chunks = list(filter(None, chunks))  # Removing empty items.
+        logger.debug(len(chunks))
         return chunks
 
     def normalization(self):
@@ -194,18 +244,82 @@ class PrepareData():
         self.x_test = (self.x_test - self.mean) / self.std
         # print("after_normalization", "mean", self.mean, "max", self.max, "min", self.min, "std", self.std)
 
-    def get_batch(self, batch_size=64):
+    def create_onehot(self,batch_classes_dict):
+        """
+        Creates multi-hot vectors for a batch of data.
+        :param batch_classes_dict:
+        :return:
+        """
+        mlb = MultiLabelBinarizer()
+        classes_multihot = mlb.fit_transform(batch_classes_dict.values())
+        return classes_multihot
+
+    def create_batch(self,X,Y,keys):
+        """
+        Generates batch from keys.
+
+        :param X:
+        :param Y:
+        :param keys:
+        :return:
+        """
+        batch_x = []
+        batch_y = []
+        for k in keys:
+            batch_x = X[k]
+            batch_y = Y[k]
+        return batch_x, batch_y
+
+    def get_keys_batch(self,keys:list, batch_size=64):
+        """
+        Randomly selects [batch_size] numbers of key from keys list and remove them from the original list.
+        :param keys:
+        :param batch_size:
+        :return:
+        """
+        if len(keys) <= batch_size:
+            return keys
+        selected_keys = random.sample(keys,k=batch_size)
+        for item in selected_keys:
+            keys = keys.remove(item)
+        return keys, selected_keys
+
+    def get_batch(self, batch_size=64, run_mode="train"):
         """
         Get next batch
         :return: Next batch
         """
-        x_support_set, y_support_set, x_target, y_target = None, None, None, None
-        return x_support_set, y_support_set, x_target, y_target
+        if run_mode == "train":
+            self.sentences_train, self.classes_train = self.dataset.get_train_data()
+            sentences = self.sentences_train
+            classes = self.classes_train
+        elif run_mode == "val":
+            self.sentences_val, self.classes_val = self.dataset.get_val_data()
+            sentences = self.sentences_val
+            classes = self.classes_val
+        elif run_mode == "test":
+            self.sentences_test, self.classes_test = self.dataset.get_test_data()
+            sentences = self.sentences_test
+            classes = self.classes_test
+        else:
+            raise Exception("Unknown running mode: [{}]. \n Available options: ['train','val','test']".format(run_mode))
+
+        remaining_keys = random.shuffle(sentences.keys())
+
+        num_chunks = len(sentences) // batch_size
+        for i in range(num_chunks):
+            remaining_keys, batch_keys = self.get_keys_batch(remaining_keys,batch_size)
+            sentences_batch, classes_batch = self.create_batch(sentences,classes,batch_keys)
+            x_target = self.txt2vec(sentences_batch, mode="chunked")
+            y_target_hot = self.create_onehot(classes_batch)
+            # x_support = self.txt2vec(x_target, mode="chunked")
+            # y_support_hot = self.create_onehot(y_target)
+            yield x_target, y_target_hot#, x_support, y_support_hot
 
 
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
     cls = PrepareData()
     logger.debug(len(cls.sentences))
-    vectors = cls.txt2vec(cls.sentences,mode="concat")
+    vectors = cls.txt2vec(cls.sentences, mode="chunked")
     logger.debug(vectors.shape)

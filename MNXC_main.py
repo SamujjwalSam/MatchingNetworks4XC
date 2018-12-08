@@ -33,6 +33,7 @@ from neighborhood.neighborhood_graph import Neighborhood
 
 """
 Variable naming:
+
     Name used   ->  Meaning
 -----------------------------------------
     Categories  ->  Labels / Classes {}
@@ -69,6 +70,7 @@ Data formats:
 ==========================================
 
 To solve MKL problem: Adding <conda-env-root>/Library/bin to the path in the run configuration solves the issue, but adding it to the interpreter paths in the project settings doesn't.
+https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-error-cannot-load-mkl-intel-thread-dll
 """
 
 # Globals-----

@@ -24,11 +24,17 @@ from torch.autograd import Variable
 
 from logger.logger import logger
 from models.MatchingNetwork import MatchingNetwork
+from data_loaders.PrepareData import PrepareData
 
 global seed_val
 
 
 class BuildMN:
+    """
+    Initializes an BuildMN object. The BuildMN object takes care of setting up our experiment
+    and provides helper functions such as run_training_epoch and run_validation_epoch to simplify out training
+    and evaluation procedures.
+    """
 
     def __init__(self, data_loader, cuda_available=None, use_cuda=False):
         """
@@ -90,43 +96,27 @@ class BuildMN:
         Runs one training epoch.
 
         :param total_train_batches: Number of batches to train.
-        :return: mean_training_multilabel_margin_loss and mean_training_accuracy.
+        :return: mean_training_multilabel_margin_loss.
         """
         total_c_loss = 0.
-        total_accuracy = 0.
         # Create the optimizer
         optimizer = self.__create_optimizer(self.match_net, self.lr)
 
         with tqdm.tqdm(total=total_train_batches) as pbar:
             for i in range(total_train_batches):  # train epoch
-                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(batch_size=64)
+                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(batch_size=self.batch_size)
+                logger.info("Shapes: x_support_set [{}], y_support_set [{}], x_target [{}], y_target [{}]".format(x_support_set.shape, y_support_set.shape, x_target.shape, y_target.shape))
 
                 x_support_set = Variable(torch.from_numpy(x_support_set)).float()
                 y_support_set = Variable(torch.from_numpy(y_support_set), requires_grad=False).long()
                 x_target = Variable(torch.from_numpy(x_target)).float()
                 y_target = Variable(torch.from_numpy(y_target), requires_grad=False).long()
-
-                # y_support_set: Add extra dimension for the one_hot
-                # y_support_set = torch.unsqueeze(y_support_set, 2)
-                sequence_length = y_support_set.size()[1]
-                batch_size = y_support_set.size()[0]
-                y_support_set_one_hot = torch.FloatTensor(batch_size, sequence_length,
-                                                          self.classes_per_set).zero_()
-                y_support_set_one_hot.scatter_(2, y_support_set.data, 1)  # TODO
-                y_support_set_one_hot = Variable(y_support_set_one_hot)
-
-                # Reshape channels
-                size = x_support_set.size()
-                logger.debug(size)
-                x_support_set = x_support_set.view(size[0], size[1], size[4], size[2], size[3])
-                size = x_target.size()
-                logger.debug(size)
-                x_target = x_target.view(size[0], size[1], size[4], size[2], size[3])
+                
                 if self.cuda_available and self.use_cuda:
-                    acc, cc_loss = self.match_net(x_support_set.cuda(), y_support_set_one_hot.cuda(),
+                    cc_loss = self.match_net(x_support_set.cuda(), y_support_set.cuda(),
                                                   x_target.cuda(), y_target.cuda())
                 else:
-                    acc, cc_loss = self.match_net(x_support_set, y_support_set_one_hot,
+                    cc_loss = self.match_net(x_support_set, y_support_set,
                                                   x_target, y_target)
 
                 # Before the backward pass, use the optimizer object to zero all of the
@@ -143,12 +133,11 @@ class BuildMN:
                 # update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
 
-                iter_out = "tr_loss: {}, tr_accuracy: {}".format(cc_loss.data[0], acc.data[0])
+                iter_out = "tr_loss: {}".format(cc_loss.data[0])
                 pbar.set_description(iter_out)
 
                 pbar.update(1)
                 total_c_loss += cc_loss.data[0]
-                total_accuracy += acc.data[0]
 
                 self.total_train_iter += 1
                 if self.total_train_iter % 2000 == 0:
@@ -156,61 +145,42 @@ class BuildMN:
                     logger.debug("change learning rate: [{}]".format(self.lr))
 
         total_c_loss = total_c_loss / total_train_batches
-        total_accuracy = total_accuracy / total_train_batches
-        return total_c_loss, total_accuracy
+        return total_c_loss
 
     def run_validation_epoch(self, total_val_batches):
         """
         Runs one validation epoch.
 
         :param total_val_batches: Number of batches to train on
-        :return: mean_validation_categorical_crossentropy_loss and mean_validation_accuracy
+        :return: mean_validation_categorical_crossentropy_loss
         """
         total_val_c_loss = 0.
-        total_val_accuracy = 0.
 
         with tqdm.tqdm(total=total_val_batches) as pbar:
             for i in range(total_val_batches):  # validation epoch
-                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(str_type='val',
-                                                                                              rotate_flag=False)
+                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(batch_size=self.batch_size, data_type='val')
 
                 x_support_set = Variable(torch.from_numpy(x_support_set), volatile=True).float()
                 y_support_set = Variable(torch.from_numpy(y_support_set), volatile=True).long()
                 x_target = Variable(torch.from_numpy(x_target), volatile=True).float()
                 y_target = Variable(torch.from_numpy(y_target), volatile=True).long()
 
-                # y_support_set: Add extra dimension for the one_hot
-                y_support_set = torch.unsqueeze(y_support_set, 2)
-                sequence_length = y_support_set.size()[1]
-                batch_size = y_support_set.size()[0]
-                y_support_set_one_hot = torch.FloatTensor(batch_size, sequence_length,
-                                                          self.classes_per_set).zero_()
-                y_support_set_one_hot.scatter_(2, y_support_set.data, 1)
-                y_support_set_one_hot = Variable(y_support_set_one_hot)
-
-                # Reshape channels
-                size = x_support_set.size()
-                x_support_set = x_support_set.view(size[0], size[1], size[4], size[2], size[3])
-                size = x_target.size()
-                x_target = x_target.view(size[0], size[1], size[4], size[2], size[3])
                 if self.cuda_available and self.use_cuda:
-                    acc, cc_loss = self.match_net(x_support_set.cuda(), y_support_set_one_hot.cuda(),
+                    cc_loss = self.match_net(x_support_set.cuda(), y_support_set.cuda(),
                                                   x_target.cuda(), y_target.cuda())
                 else:
-                    acc, cc_loss = self.match_net(x_support_set, y_support_set_one_hot,
+                    cc_loss = self.match_net(x_support_set, y_support_set,
                                                   x_target, y_target)
 
-                iter_out = "val_loss: {}, val_accuracy: {}".format(cc_loss.data[0], acc.data[0])
+                iter_out = "val_loss: {}".format(cc_loss.data[0])
                 pbar.set_description(iter_out)
                 pbar.update(1)
 
                 total_val_c_loss += cc_loss.data[0]
-                total_val_accuracy += acc.data[0]
 
         total_val_c_loss = total_val_c_loss / total_val_batches
-        total_val_accuracy = total_val_accuracy / total_val_batches
 
-        return total_val_c_loss, total_val_accuracy
+        return total_val_c_loss
 
     def run_testing_epoch(self, total_test_batches):
         """
@@ -218,50 +188,32 @@ class BuildMN:
 
         :param total_test_batches: Number of batches to train on
         :param sess: Session object
-        :return: mean_testing_categorical_crossentropy_loss and mean_testing_accuracy
+        :return: mean_testing_categorical_crossentropy_loss
         """
         total_test_c_loss = 0.
-        total_test_accuracy = 0.
         with tqdm.tqdm(total=total_test_batches) as pbar:
             for i in range(total_test_batches):
-                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(str_type='test',
-                                                                                              rotate_flag=False)
+                x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(batch_size=self.batch_size, data_type='test')
 
                 x_support_set = Variable(torch.from_numpy(x_support_set), volatile=True).float()
                 y_support_set = Variable(torch.from_numpy(y_support_set), volatile=True).long()
                 x_target = Variable(torch.from_numpy(x_target), volatile=True).float()
                 y_target = Variable(torch.from_numpy(y_target), volatile=True).long()
-
-                # y_support_set: Add extra dimension for the one_hot
-                y_support_set = torch.unsqueeze(y_support_set, 2)
-                sequence_length = y_support_set.size()[1]
-                batch_size = y_support_set.size()[0]
-                y_support_set_one_hot = torch.FloatTensor(batch_size, sequence_length,
-                                                          self.classes_per_set).zero_()
-                y_support_set_one_hot.scatter_(2, y_support_set.data, 1)
-                y_support_set_one_hot = Variable(y_support_set_one_hot)
-
-                # Reshape channels
-                size = x_support_set.size()
-                x_support_set = x_support_set.view(size[0], size[1], size[4], size[2], size[3])
-                size = x_target.size()
-                x_target = x_target.view(size[0], size[1], size[4], size[2], size[3])
+                
                 if self.cuda_available and self.use_cuda:
-                    acc, cc_loss = self.match_net(x_support_set.cuda(), y_support_set_one_hot.cuda(),
+                    cc_loss = self.match_net(x_support_set.cuda(), y_support_set.cuda(),
                                                   x_target.cuda(), y_target.cuda())
                 else:
-                    acc, cc_loss = self.match_net(x_support_set, y_support_set_one_hot,
+                    cc_loss = self.match_net(x_support_set, y_support_set,
                                                   x_target, y_target)
 
-                iter_out = "test_loss: {}, test_accuracy: {}".format(cc_loss.data[0], acc.data[0])
+                iter_out = "test_loss: {}".format(cc_loss.data[0])
                 pbar.set_description(iter_out)
                 pbar.update(1)
 
                 total_test_c_loss += cc_loss.data[0]
-                total_test_accuracy += acc.data[0]
             total_test_c_loss = total_test_c_loss / total_test_batches
-            total_test_accuracy = total_test_accuracy / total_test_batches
-        return total_test_c_loss, total_test_accuracy
+        return total_test_c_loss
 
     def __adjust_learning_rate(self, optimizer):
         """
