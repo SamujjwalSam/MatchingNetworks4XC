@@ -17,7 +17,7 @@ __variables__   :
 __methods__     :
 """
 
-import os, sys, json
+import os, sys, json, random
 import pickle as pk
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
@@ -31,6 +31,39 @@ import unicodedata
 from logger.logger import logger
 
 seed_val = 0
+
+
+def create_batch(X, Y, keys):
+    """
+    Generates batch from keys.
+
+    :param X:
+    :param Y:
+    :param keys:
+    :return:
+    """
+    batch_x = []
+    batch_y = []
+    for k in keys:
+        batch_x = X[k]
+        batch_y = Y[k]
+    return batch_x, batch_y
+
+
+def get_batch_keys(keys: list, batch_size=64):
+    """
+    Randomly selects [batch_size] numbers of key from keys list and remove them from the original list.
+
+    :param keys:
+    :param batch_size:
+    :return:
+    """
+    if len(keys) <= batch_size:
+        return keys
+    selected_keys = random.sample(keys, k=batch_size)
+    for item in selected_keys:
+        keys = keys.remove(item)
+    return keys, selected_keys
 
 
 def split_docs(docs, criteria=' '):

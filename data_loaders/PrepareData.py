@@ -17,8 +17,6 @@ __variables__   :
 __methods__     :
 """
 
-# import torchvision.transforms as transforms
-# import os.path
 import numpy as np
 import random
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -244,7 +242,7 @@ class PrepareData():
         self.x_test = (self.x_test - self.mean) / self.std
         # print("after_normalization", "mean", self.mean, "max", self.max, "min", self.min, "std", self.std)
 
-    def create_onehot(self,batch_classes_dict):
+    def create_multihot(self, batch_classes_dict):
         """
         Creates multi-hot vectors for a batch of data.
         :param batch_classes_dict:
@@ -254,39 +252,10 @@ class PrepareData():
         classes_multihot = mlb.fit_transform(batch_classes_dict.values())
         return classes_multihot
 
-    def create_batch(self,X,Y,keys):
-        """
-        Generates batch from keys.
-
-        :param X:
-        :param Y:
-        :param keys:
-        :return:
-        """
-        batch_x = []
-        batch_y = []
-        for k in keys:
-            batch_x = X[k]
-            batch_y = Y[k]
-        return batch_x, batch_y
-
-    def get_keys_batch(self,keys:list, batch_size=64):
-        """
-        Randomly selects [batch_size] numbers of key from keys list and remove them from the original list.
-        :param keys:
-        :param batch_size:
-        :return:
-        """
-        if len(keys) <= batch_size:
-            return keys
-        selected_keys = random.sample(keys,k=batch_size)
-        for item in selected_keys:
-            keys = keys.remove(item)
-        return keys, selected_keys
-
     def get_batch(self, batch_size=64, run_mode="train"):
         """
-        Get next batch
+        Yields a batch of features and classes based on [run_mode].
+
         :return: Next batch
         """
         if run_mode == "train":
@@ -308,12 +277,12 @@ class PrepareData():
 
         num_chunks = len(sentences) // batch_size
         for i in range(num_chunks):
-            remaining_keys, batch_keys = self.get_keys_batch(remaining_keys,batch_size)
+            remaining_keys, batch_keys = self.get_batch_keys(remaining_keys, batch_size)
             sentences_batch, classes_batch = self.create_batch(sentences,classes,batch_keys)
             x_target = self.txt2vec(sentences_batch, mode="chunked")
-            y_target_hot = self.create_onehot(classes_batch)
+            y_target_hot = self.create_multihot(classes_batch)
             # x_support = self.txt2vec(x_target, mode="chunked")
-            # y_support_hot = self.create_onehot(y_target)
+            # y_support_hot = self.create_multihot(y_target)
             yield x_target, y_target_hot#, x_support, y_support_hot
 
 
