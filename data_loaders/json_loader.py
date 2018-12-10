@@ -28,6 +28,7 @@ from logger.logger import logger
 class JSONLoader(torch.utils.data.Dataset):
     """
     Class to process and load json files from data directory.
+
     sentences : Wikipedia english texts after parsing and cleaning.
     sentences = {"id1": "wiki_text_1", "id2": "wiki_text_2"}
     
@@ -41,7 +42,7 @@ class JSONLoader(torch.utils.data.Dataset):
                   "classes":""
                  }
     """
-    def __init__(self, dataset_name, data_dir: str = "D:\Datasets\Extreme Classification"):
+    def __init__(self, dataset_name="Wiki10-31k", run_mode="train",data_dir: str = "D:\Datasets\Extreme Classification"):
         """
         Initializes the html loader.
 
@@ -52,18 +53,52 @@ class JSONLoader(torch.utils.data.Dataset):
         super(JSONLoader, self).__init__()
         self.data_dir = data_dir
         self.dataset_name = dataset_name
+        self.dataset_dir = os.path.join(self.data_dir,self.dataset_name)
         logger.debug("Dataset name:%s" % self.dataset_name)
         logger.debug("JSON directory:%s" % self.data_dir)
-        logger.debug("Check if json file already exists, then load.")
-        if os.path.isfile(os.path.join(self.data_dir, dataset_name + "_sentences.json")) \
-                and os.path.isfile(os.path.join(self.data_dir, dataset_name + "_classes.json")) \
-                and os.path.isfile(os.path.join(self.data_dir, dataset_name + "_categories.json")):
-            logger.info("Loading pre-processed json files from: [{}]".format(os.path.join(self.data_dir, dataset_name + "_sentences.json")))
-            self.sentences = util.load_json(dataset_name + "_sentences", file_path=self.data_dir)
-            self.classes = util.load_json(dataset_name + "_classes", file_path=self.data_dir)
-            self.categories = util.load_json(dataset_name + "_categories", file_path=self.data_dir)
+        logger.debug("Check if processed json file already exists at [{}], then load."
+                     .format(os.path.join(self.dataset_dir, self.dataset_name + "_sentences.json")))
+
+        if run_mode == "train":
+            if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences_train.json")) \
+                    and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes_train.json")):
+                self.sentences_train = util.load_json("_sentences_train", file_path=self.dataset_dir)
+                self.classes_train = util.load_json("_classes_train", file_path=self.dataset_dir)
+            else:
+                self.load_full_json()
+        elif run_mode == "val":
+            if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences_val.json")) \
+                    and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes_val.json")):
+                self.sentences_val = util.load_json("_sentences_val", file_path=self.dataset_dir)
+                self.classes_train = util.load_json("_classes_val", file_path=self.dataset_dir)
+            else:
+                self.load_full_json()
+        elif run_mode == "test":
+            if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences_test.json")) \
+                    and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes_test.json")):
+                self.sentences_test = util.load_json("_sentences_test", file_path=self.dataset_dir)
+                self.classes_test = util.load_json("_classes_test", file_path=self.dataset_dir)
+            else:
+                self.load_full_json()
+        else:
+            raise Exception("Unknown running mode: [{}]. \n Available options: ['train','val','test']".format(run_mode))
+
+    def load_full_json(self):
+        """
+        Loads dataset.
+
+        :param dataset_name:
+        """
+        if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences.json")) \
+                and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes.json")) \
+                and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_categories.json")):
+            logger.info("Loading pre-processed json files from: [{}]".format(os.path.join(self.dataset_dir, self.dataset_name + "_sentences.json")))
+            self.sentences = util.load_json(self.dataset_name + "_sentences", file_path=self.dataset_dir)
+            self.classes = util.load_json(self.dataset_name + "_classes", file_path=self.dataset_dir)
+            self.categories = util.load_json(self.dataset_name + "_categories", file_path=self.dataset_dir)
             assert len(self.sentences) == len(self.classes),\
                 "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),len(self.classes))
+            self.split_data()
         else:
             logger.debug("Load data from JSON files.")
             logger.debug("Create 3 separate dicts of sentences, classes and categories from HTML.")
@@ -73,15 +108,14 @@ class JSONLoader(torch.utils.data.Dataset):
             # self.categories_filter_regex = None
             logger.debug("Creating 3 separate dicts of sentences[id->texts], classes[id->class_ids]"
                          "and categories[class_name : class_id] from HTML.")
-            sentences, classes, categories, no_cat_ids = self.filter_wiki(self.samples)
-            util.save_json(no_cat_ids, dataset_name + "_no_cat_ids",
-                           file_path=self.data_dir)  # Storing the ids which was not processed.
+            sentences, classes, categories, no_cat_ids = self.filter_text(self.samples)
+            util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids", file_path=self.dataset_dir)  # Storing the ids which were not processed.
             self.classes = classes
             # logger.debug("Cleaning categories.")
             categories_cleaned, categories_dup_dict = util.clean_categories(categories)
             # logger.debug(type(categories_dup_dict))
             if categories_dup_dict:
-                util.save_json(categories_dup_dict, dataset_name + "categories_dup_dict", file_path=self.data_dir)  # Storing the duplicate categories.
+                util.save_json(categories_dup_dict, self.dataset_name + "categories_dup_dict", file_path=self.dataset_dir)  # Storing the duplicate categories for future dedup removal.
                 self.classes = util.dedup_data(self.classes, categories_dup_dict)
             sentences_cleaned = util.clean_sentences(sentences)
             self.sentences = sentences_cleaned
@@ -89,13 +123,14 @@ class JSONLoader(torch.utils.data.Dataset):
             self.n_categories = len(categories)
             assert len(self.sentences) == len(self.classes), \
                 "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences), len(self.classes))
-            util.save_json(self.sentences, dataset_name + "_sentences", file_path=self.data_dir)
-            util.save_json(self.classes, dataset_name + "_classes", file_path=self.data_dir)
-            util.save_json(self.categories, dataset_name + "_categories", file_path=self.data_dir)
+            util.save_json(self.sentences, self.dataset_name + "_sentences", file_path=self.dataset_dir)
+            util.save_json(self.classes, self.dataset_name + "_classes", file_path=self.dataset_dir)
+            util.save_json(self.categories, self.dataset_name + "_categories", file_path=self.dataset_dir)
             logger.debug("Saved sentences [{0}], classes [{1}] and categories [{2}] as json files.".format(
-                os.path.join(self.data_dir, dataset_name + "_sentences.json"),
-                os.path.join(self.data_dir, dataset_name + "_classes.json"),
-                os.path.join(self.data_dir, dataset_name + "_categories.json")))
+                os.path.join(self.dataset_dir + "_sentences.json"),
+                os.path.join(self.dataset_dir + "_classes.json"),
+                os.path.join(self.dataset_dir + "_categories.json")))
+            self.split_data()
         self.num_samples = len(self.sentences)
         # return self.sentences,self.classes,self.categories
 
@@ -103,8 +138,29 @@ class JSONLoader(torch.utils.data.Dataset):
         logger.debug("Number of samples: [{}] for dataset: [{}]".format(self.num_samples, self.dataset_name))
         return self.num_samples
 
+    def split_data(self):
+        """
+        Splits a dict
+        :param data:
+        :param split_size:
+        :return:
+        """
+        keys = self.sentences.keys()
+        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
+        self.sentences_train, self.classes_train, self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
+        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
+        self.sentences_train, self.classes_train, self.sentences_val, self.classes_val = util.create_batch(self.sentences_train,self.classes_train, selected_keys)
+
+        util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.dataset_dir)
+        util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.dataset_dir)
+        util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.dataset_dir)
+        util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.dataset_dir)
+        util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.dataset_dir)
+        util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.dataset_dir)
+        # return train, test
+
     def __getitem__(self, idx):
-        # TODO: correct this part.
+        # TODO: correct this part. -> Probably not required.
         return (torch.from_numpy(self.sentences[idx].todense().reshape(-1)),
                 torch.from_numpy(self.classes[idx].todense().reshape(-1)))
 
@@ -112,7 +168,25 @@ class JSONLoader(torch.utils.data.Dataset):
         """
         Function to get the entire dataset
         """
-        return (self.sentences, self.classes), self.categories
+        return self.sentences, self.classes, self.categories
+
+    def get_train_data(self):
+        """
+        Function to get the entire dataset
+        """
+        return self.sentences_train, self.classes_train
+
+    def get_val_data(self):
+        """
+        Function to get the entire dataset
+        """
+        return self.sentences_val, self.classes_val
+
+    def get_test_data(self):
+        """
+        Function to get the entire dataset
+        """
+        return self.sentences_test, self.classes_test
 
     def get_batch(self, batch_size=64):
         """

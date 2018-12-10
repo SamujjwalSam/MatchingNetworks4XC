@@ -58,31 +58,31 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         super(WIKI_HTML_Dataset, self).__init__()
         self.data_dir = data_dir
         self.dataset_name = dataset_name
-        self.dataset_dir = os.path.join(self.data_dir,self.dataset_name)
-        logger.debug("Dataset name:%s" % self.dataset_name)
-        logger.debug("HTML directory:%s" % self.data_dir)
+        self.raw_html_dir = os.path.join(self.data_dir,"test_data")
+        logger.debug("Dataset name: %s" % self.dataset_name)
+        logger.debug("HTML directory: %s" % self.data_dir)
         logger.debug("Check if processed json file already exists at [{}], then load."
-                     .format(os.path.join(self.dataset_dir, self.dataset_name + "_sentences.json")))
+                     .format(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")))
 
         if run_mode == "train":
-            if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences_train.json")) \
-                    and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes_train.json")):
-                self.sentences_train = util.load_json("_sentences_train", file_path=self.dataset_dir)
-                self.classes_train = util.load_json("_classes_train", file_path=self.dataset_dir)
+            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")) \
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_train.json")):
+                self.sentences_train = util.load_json(self.dataset_name + "_sentences_train", file_path=self.data_dir)
+                self.classes_train = util.load_json(self.dataset_name + "_classes_train", file_path=self.data_dir)
             else:
                 self.load_full_json()
         elif run_mode == "val":
-            if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences_val.json")) \
-                    and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes_val.json")):
-                self.sentences_val = util.load_json("_sentences_val", file_path=self.dataset_dir)
-                self.classes_train = util.load_json("_classes_val", file_path=self.dataset_dir)
+            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_val.json")) \
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_val.json")):
+                self.sentences_val = util.load_json(self.dataset_name + "_sentences_val", file_path=self.data_dir)
+                self.classes_val = util.load_json(self.dataset_name + "_classes_val", file_path=self.data_dir)
             else:
                 self.load_full_json()
         elif run_mode == "test":
-            if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences_test.json")) \
-                    and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes_test.json")):
-                self.sentences_test = util.load_json("_sentences_test", file_path=self.dataset_dir)
-                self.classes_test = util.load_json("_classes_test", file_path=self.dataset_dir)
+            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_test.json")) \
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_test.json")):
+                self.sentences_test = util.load_json(self.dataset_name + "_sentences_test", file_path=self.data_dir)
+                self.classes_test = util.load_json(self.dataset_name + "_classes_test", file_path=self.data_dir)
             else:
                 self.load_full_json()
         else:
@@ -94,13 +94,14 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
 
         :param dataset_name:
         """
-        if os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_sentences.json")) \
-                and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_classes.json")) \
-                and os.path.isfile(os.path.join(self.dataset_dir, self.dataset_name + "_categories.json")):
-            logger.info("Loading pre-processed json files from: [{}]".format(os.path.join(self.dataset_dir, self.dataset_name + "_sentences.json")))
-            self.sentences = util.load_json(self.dataset_name + "_sentences", file_path=self.dataset_dir)
-            self.classes = util.load_json(self.dataset_name + "_classes", file_path=self.dataset_dir)
-            self.categories = util.load_json(self.dataset_name + "_categories", file_path=self.dataset_dir)
+        logger.debug(os.path.join(self.data_dir, self.dataset_name + "_sentences.json"))
+        if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")) \
+                and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes.json")) \
+                and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories.json")):
+            logger.info("Loading pre-processed json files from: [{}]".format(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")))
+            self.sentences = util.load_json(self.dataset_name + "_sentences", file_path=self.data_dir)
+            self.classes = util.load_json(self.dataset_name + "_classes", file_path=self.data_dir)
+            self.categories = util.load_json(self.dataset_name + "_categories", file_path=self.data_dir)
             assert len(self.sentences) == len(self.classes),\
                 "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),len(self.classes))
             self.split_data()
@@ -113,14 +114,16 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
             # self.categories_filter_regex = None
             logger.debug("Creating 3 separate dicts of sentences[id->texts], classes[id->class_ids]"
                          "and categories[class_name : class_id] from HTML.")
-            sentences, classes, categories, no_cat_ids = self.filter_wiki(self.samples)
-            util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids", file_path=self.dataset_dir)  # Storing the ids which were not processed.
+            sentences, classes, categories, hid_classes, hid_categories, no_cat_ids = self.filter_wiki(self.samples)
+            util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids", file_path=self.data_dir)  # Storing the ids which were not processed.
+            util.save_json(hid_classes, self.dataset_name + "_hid_classes", file_path=self.data_dir)  # Storing details of file id to hidden categories map.
+            util.save_json(hid_categories, self.dataset_name + "_hid_categories", file_path=self.data_dir)  # Storing dict of hidden categories.
             self.classes = classes
             # logger.debug("Cleaning categories.")
             categories_cleaned, categories_dup_dict = util.clean_categories(categories)
             # logger.debug(type(categories_dup_dict))
             if categories_dup_dict:
-                util.save_json(categories_dup_dict, self.dataset_name + "categories_dup_dict", file_path=self.dataset_dir)  # Storing the duplicate categories for future dedup removal.
+                util.save_json(categories_dup_dict, self.dataset_name + "categories_dup_dict", file_path=self.data_dir)  # Storing the duplicate categories for future dedup removal.
                 self.classes = util.dedup_data(self.classes, categories_dup_dict)
             sentences_cleaned = util.clean_sentences(sentences)
             self.sentences = sentences_cleaned
@@ -128,13 +131,13 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
             self.n_categories = len(categories)
             assert len(self.sentences) == len(self.classes), \
                 "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences), len(self.classes))
-            util.save_json(self.sentences, self.dataset_name + "_sentences", file_path=self.dataset_dir)
-            util.save_json(self.classes, self.dataset_name + "_classes", file_path=self.dataset_dir)
-            util.save_json(self.categories, self.dataset_name + "_categories", file_path=self.dataset_dir)
+            util.save_json(self.sentences, self.dataset_name + "_sentences", file_path=self.data_dir)
+            util.save_json(self.classes, self.dataset_name + "_classes", file_path=self.data_dir)
+            util.save_json(self.categories, self.dataset_name + "_categories", file_path=self.data_dir)
             logger.debug("Saved sentences [{0}], classes [{1}] and categories [{2}] as json files.".format(
-                os.path.join(self.dataset_dir + "_sentences.json"),
-                os.path.join(self.dataset_dir + "_classes.json"),
-                os.path.join(self.dataset_dir + "_categories.json")))
+                os.path.join(self.data_dir + "_sentences.json"),
+                os.path.join(self.data_dir + "_classes.json"),
+                os.path.join(self.data_dir + "_categories.json")))
             self.split_data()
         self.num_samples = len(self.sentences)
         # return self.sentences,self.classes,self.categories
@@ -150,18 +153,23 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         :param split_size:
         :return:
         """
-        keys = self.sentences.keys()
+        keys = list(self.sentences.keys())
+        logger.debug(keys)
+        logger.debug(int(len(keys) * 0.3))
         keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
-        self.sentences_train, self.classes_train, self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
+        logger.debug((keys,selected_keys))
+        self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
+        self.sentences_train, self.classes_train = util.create_batch(self.sentences, self.classes, keys)
         keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
-        self.sentences_train, self.classes_train, self.sentences_val, self.classes_val = util.create_batch(self.sentences_train,self.classes_train, selected_keys)
+        self.sentences_val, self.classes_val = util.create_batch(self.sentences_train,self.classes_train, selected_keys)
+        self.sentences_train, self.classes_train = util.create_batch(self.sentences_train,self.classes_train, keys)
 
-        util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.dataset_dir)
-        util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.dataset_dir)
-        util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.dataset_dir)
-        util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.dataset_dir)
-        util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.dataset_dir)
-        util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.dataset_dir)
+        util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
+        util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
+        util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.data_dir)
+        util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.data_dir)
+        util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.data_dir)
+        util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.data_dir)
         # return train, test
 
     def __getitem__(self, idx):
@@ -208,14 +216,15 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         """
         Reads all html files in a folder as str and returns a OrderedDict[str(filename)]=str(content).
 
+        :param encoding:
         :param html_parser:
         :param data_dir: Path to directory of html files.
         """
         # html_parser = get_html_parser()
         data = OrderedDict()
-        if os.path.isdir(self.data_dir):
-            for i in os.listdir(self.data_dir):
-                if os.path.isfile(os.path.join(self.data_dir, i)):
+        if os.path.isdir(self.raw_html_dir):
+            for i in os.listdir(self.raw_html_dir):
+                if os.path.isfile(os.path.join(self.raw_html_dir, i)):
                     # if not os.path.exists(os.path.join(self.data_dir,"txt_files")):
                     # try:
                     # os.makedirs(os.path.join(self.data_dir,"txt_files"))
@@ -223,7 +232,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                     # if exc.errno != errno.EEXIST:
                     # raise
                     os.makedirs(os.path.join(self.data_dir, "txt_files"), exist_ok=True)
-                    with open(os.path.join(self.data_dir, i), encoding=encoding) as html_ptr:
+                    with open(os.path.join(self.raw_html_dir, i), encoding=encoding) as html_ptr:
                         h_content = html_parser.handle(html_ptr.read())
                         # txt_ptr.write(h_content)
                         util.write_file(h_content, i, file_path=os.path.join(self.data_dir, "txt_files"))
@@ -243,32 +252,38 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         remove_first_chars = 12  # Length of "Categories:", to be removed from that line.
         for i, line in enumerate(txt):
             # Categories are written in multiple lines, need to read all lines (till "##### Views").
-            # logger.info(line)
+            logger.info(line)
             if "Categories:" in line or "Category: " in line:
                 del_start = i  # start index of lines to be removed.
                 copy_flag = True
                 remove_first_chars = 12
+                logger.debug("Categories")
             if "Category: " in line:
                 del_start = i  # start index of lines to be removed.
                 copy_flag = True
                 remove_first_chars = 11
+                logger.debug("Category")
             if "Hidden categories:" in line:
                 hid_copy_flag = True
                 copy_flag = False  # Stop "Categories:" as "Hidden categories:" start.
                 # filtered_categories.append(line[19:].split(" | "))
+                logger.debug("Hidden")
             if "##### Views" in line:
                 # logger.info(copy_flag)
-                copy_flag = False  # Stop "Categories:" as "##### Views" start.
-                hid_copy_flag = False  # Stop "Hidden categories:" as "##### Views" start.
+                copy_flag = False  # Stop coping "Categories:" as "##### Views" start.
+                hid_copy_flag = False  # Stop coping "Hidden categories:" as "##### Views" start.
                 # del_end = i  # end index of lines to be removed.
+                logger.debug("Views")
             if copy_flag:
                 # logger.debug((category_lines,line))
                 # logger.debug(txt[i-1])
                 category_lines = category_lines + " " + line
+                logger.debug("copy_flag")
             if hid_copy_flag:
                 hid_category_lines = hid_category_lines + " " + line
+                logger.debug("hid_copy_flag")
             # del txt[del_start:del_end]  # Delete lines containing category info. -> below line.
-            del txt[del_start:]  # After category info all lines are either copyright or not required.
+        del txt[del_start:]  # After category info all lines are either copyright or not required.
 
         filtered_categories = category_lines[remove_first_chars:].split(" | ")
         filtered_hid_categories = (hid_category_lines[19:].split(" | ")[0])  # Do not add hidden categories to categories.
@@ -280,17 +295,20 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         # logger.debug(filtered_categories)
         return txt, filtered_categories, filtered_hid_categories
 
-    def filter_wiki(self, datapoints: dict):
+    def filter_wiki(self, samples: dict):
         """Filters sentences, classes and categories from wikipedia text.
 
         :return: Dict of sentences, classes and categories filtered from samples.
         """
         classes = OrderedDict()
+        hid_classes = OrderedDict()
         categories = OrderedDict()
+        hid_categories = OrderedDict()
         sentences = OrderedDict()
         i = 0
+        j = 0
         no_cat_ids = []  # List to store failed parsing cases.
-        for id, txt in datapoints.items():
+        for id, txt in samples.items():
             # logger.debug(type(txt))
             clean_txt, filtered_categories, filtered_hid_categories = self.filter_wiki_categories(txt)
             # assert filtered_categories, "No category information was found for id: [{0}].".format(id)
@@ -310,13 +328,29 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                 logger.warn("Storing id [{0}] for future use.".format(id))
                 no_cat_ids.append(id)
                 # return False
+            if filtered_hid_categories:  # Check at least one category was successfully filtered from html file.
+                # categories_list.append(set(filtered_categories))
+                for lbl in filtered_hid_categories:
+                    if lbl not in hid_categories:  # If lbl does not exists in hid_categories already, add it and assign a new hid_category index.
+                        hid_categories[lbl] = j
+                        j += 1
+                    if id in hid_classes:  # Check if id exists, append if yes.
+                        hid_classes[id].append(hid_categories[lbl])
+                    else:  # Create entry for id if does not exist.
+                        hid_classes[id] = [hid_categories[lbl]]
+            # else:  # If no category was found, store the id in a separate place for later inspection.
+            #     logger.warn("No categories[{0}] found for id: [{1}]".format(filtered_hid_categories,id))
+            #     logger.warn("Storing id [{0}] for future use.".format(id))
+                # no_cat_ids.append(id)
+                # return False
+
         # assert len(self.samples) == len(classes), "Count of samples and classes should match."
         # assert len(self.samples) == len(sentences), "Count of samples and sentences should also match."
-        # logger.info(categories)
+        # logger.debug(categories)
         # categories = OrderedDict([(k,v) for k,v in categories.items() if len(k)>0])  #
-        logger.info(no_cat_ids)
-        # logger.info((len(sentences), classes, categories))
-        return sentences, classes, categories, no_cat_ids
+        logger.debug(no_cat_ids)
+        # logger.debug((len(sentences), classes, categories))
+        return sentences, classes, categories, hid_classes, hid_categories, no_cat_ids
 
     def get_data(self):
         """

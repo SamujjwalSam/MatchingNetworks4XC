@@ -28,8 +28,8 @@ from collections import OrderedDict
 from logger.logger import logger
 from utils import util
 from models.BuildMN import BuildMN
-from pretrained.TextEncoder import TextEncoder
-from neighborhood.neighborhood_graph import Neighborhood
+# from pretrained.TextEncoder import TextEncoder
+# from neighborhood.neighborhood_graph import Neighborhood
 
 """
 Variable naming:

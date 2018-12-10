@@ -17,8 +17,9 @@ __variables__   :
 __methods__     :
 """
 
-import os, sys, json, random
+import os, sys, json
 import pickle as pk
+from random import sample
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
@@ -33,7 +34,7 @@ from logger.logger import logger
 seed_val = 0
 
 
-def create_batch(X, Y, keys):
+def create_batch(X:dict, Y:dict, keys):
     """
     Generates batch from keys.
 
@@ -42,27 +43,37 @@ def create_batch(X, Y, keys):
     :param keys:
     :return:
     """
-    batch_x = []
-    batch_y = []
+    batch_x = OrderedDict()
+    batch_y = OrderedDict()
+    logger.debug(X.keys())
+    logger.debug(keys)
     for k in keys:
-        batch_x = X[k]
-        batch_y = Y[k]
+        # batch_x[k] = X.pop(k, None)
+        # batch_y[k] = Y.pop(k, None)
+        batch_x[k] = X[k]
+        batch_y[k] = Y[k]
     return batch_x, batch_y
 
 
-def get_batch_keys(keys: list, batch_size=64):
+def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     """
     Randomly selects [batch_size] numbers of key from keys list and remove them from the original list.
 
+    :param remove_keys: Flag to indicate if selected keys should be removed. It should be False for support set selection.
     :param keys:
     :param batch_size:
     :return:
     """
     if len(keys) <= batch_size:
-        return keys
-    selected_keys = random.sample(keys, k=batch_size)
-    for item in selected_keys:
-        keys = keys.remove(item)
+        return None, keys
+    selected_keys = sample(keys, k=batch_size)
+    # logger.debug((keys))
+    if remove_keys:
+        logger.debug("Removing selected keys: {}".format(selected_keys))
+        for item in selected_keys:
+            # logger.debug((keys,item))
+            keys.remove(item)
+            # logger.debug((keys,item))
     return keys, selected_keys
 
 
@@ -135,7 +146,6 @@ def clean_sentences(sentences: dict, specials="""_-@*#'"/\\""", replace=' '):
     :returns:
         sents_cleaned_dict : contains cleaned sentences.
     """
-    # TODO: Remove copyright and other common texts at the end
     # TODO: Remove all headings with "##"
     # TODO: Remove ### From Wikipedia, the free encyclopedia \n Jump to: navigation, search
     # TODO: Remove Repeated special characters like ####,     , ,, etc.
@@ -277,7 +287,7 @@ def load_json(filename, file_path='', date_time_tag=''):
         return False
 
 
-def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding="utf-8", date_time_tag=''):
+def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding="utf-8", date_time_tag='', verbose=False):
     """
 
     :param encoding:
@@ -294,7 +304,8 @@ def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding
             os.path.join(file_path, date_time_tag + filename + ".txt")))
         return True
     with sopen(os.path.join(file_path, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
-        logger.debug("Saving text file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".txt")))
+        if verbose:
+            logger.debug("Saving text file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".txt")))
         text_file.write(str(data))
         text_file.write("\n")
         text_file.write("\n")

@@ -105,7 +105,8 @@ class BuildMN:
         with tqdm.tqdm(total=total_train_batches) as pbar:
             for i in range(total_train_batches):  # train epoch
                 x_support_set, y_support_set, x_target, y_target = self.data_loader.get_batch(batch_size=self.batch_size)
-                logger.info("Shapes: x_support_set [{}], y_support_set [{}], x_target [{}], y_target [{}]".format(x_support_set.shape, y_support_set.shape, x_target.shape, y_target.shape))
+                logger.info("Shapes: x_support_set [{}], y_support_set [{}], x_target [{}], y_target [{}]"
+                            .format(x_support_set.shape, y_support_set.shape, x_target.shape, y_target.shape))
 
                 x_support_set = Variable(torch.from_numpy(x_support_set)).float()
                 y_support_set = Variable(torch.from_numpy(y_support_set), requires_grad=False).long()
