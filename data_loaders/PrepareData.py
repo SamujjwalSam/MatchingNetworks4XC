@@ -253,7 +253,8 @@ class PrepareData():
 
     def normalization(self):
         """
-        Normalizes our data, to have a mean of 0 and sdt of 1
+        Normalizes our data, to have a mean of 0 and sdt of 1.
+
         """
         self.mean = np.mean(self.x_train)
         self.std = np.std(self.x_train)
@@ -277,25 +278,35 @@ class PrepareData():
         classes_multihot = self.mlb.fit_transform(batch_classes_dict.values())
         return classes_multihot
 
-    def get_batch(self, support_cat_ids, min_match=1, batch_size=25, mode="doc2vec"):
+    def get_batch(self, support_cat_ids, batch_size=2, mode="doc2vec"):
         """
         Returns a batch of feature vectors and multi-hot classes.
 
         :return: Next batch
+        :param min_match: Minimum number of categories should match.
+        :param support_cat_ids:
+        :param batch_size:
+        :param mode:
         """
-        selected_ids = []
-        i = 0
-        for idx, cls_ids in self.selected_classes.items():
-            if i < batch_size:
-                if len(list(set(support_cat_ids) & set(cls_ids))) >= min_match:
-                    selected_ids.append(idx)
-                    logger.debug((idx,self.selected_classes[idx]))
-                    i += 1
-            else:
-                break
-
+        selected_ids = OrderedDict()
+        selected_ids_list = []
+        for cat in support_cat_ids:
+            i = 0
+            for idx, cls_ids in self.selected_classes.items():
+                if i <= batch_size:
+                    if cat in cls_ids:
+                        if cat not in selected_ids:
+                            selected_ids[cat] = []
+                        # logger.debug(idx)
+                        # logger.debug(selected_ids[cat])
+                        selected_ids[cat].append(idx)
+                        selected_ids_list.append(idx)
+                        i += 1
+                else:
+                    break
+        # logger.debug(selected_ids)
         sentences_batch, classes_batch = util.create_batch(self.selected_sentences, self.selected_classes,
-                                                           selected_ids)
+                                                           selected_ids_list)
         x_target = self.txt2vec(sentences_batch, mode=mode)
         y_target_hot = self.mlb.transform(classes_batch.values())
         return x_target, y_target_hot
@@ -320,53 +331,70 @@ class PrepareData():
             logger.warn("No remain_sample_ids.")
             return
 
-    def get_support_cats(self, class_count=5):
+    def get_support_cats(self, num_cat=5):
         """
-        Randomly selects [class_count] number of classes from which support set will be created.
+        Randomly selects [num_cat] number of classes from which support set will be created.
 
         Will remove the selected classes from self.remain_cat_ids.
-        :param class_count: Number of samples to draw.
+        :param num_cat: Number of samples to draw.
         :return:
         """
-        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=class_count)
+        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=num_cat, remove_keys=False)
+        # logger.debug(selected_cat_ids)
+        # logger.debug(num_cat)
         return selected_cat_ids
 
-    def get_batch_iter(self, class_count=5, batch_size=25, min_match=1, mode="doc2vec"):
+    def get_batches(self, iter=32, num_cat=5, batch_size=25, mode="doc2vec"):
         """
         Returns an iterator over data.
 
+        :param num_cat:
         :param min_match:
         :param batch_size:
         :param mode:
         :returns: An iterator over data.
         """
         # logger.debug(self.remain_sample_ids)
-        support_cat_ids = self.get_support_cats(class_count=5)
+        support_cat_ids = self.get_support_cats(num_cat=num_cat)
         support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
         for a in support_cat_ids:
             support_cat_ids_list.append([a])
-        cls.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
-        num_chunks = len(self.remain_cat_ids) // class_count
+        self.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
+        # num_chunks = len(self.remain_cat_ids) // num_cat
         # logger.info((self.remain_sample_ids,batch_size))
         # logger.debug(num_chunks)
-        for i in range(num_chunks - 1):
-            x_target, y_target_hot = self.get_batch(support_cat_ids, min_match=min_match, batch_size=batch_size, mode=mode)
-            # logger.debug(self.remain_sample_ids)
-            x_support, y_support_hot = self.get_supports(support_size=batch_size, mode=mode)
-            yield x_target, y_target_hot, x_support, y_support_hot
+        x_supports = []
+        y_support_hots = []
+        for i in range(iter):
+            x_target, y_target_hot = self.get_batch(support_cat_ids, batch_size=batch_size, mode=mode)
+            # logger.debug(x_target.shape)
+            # logger.debug(y_target_hot.shape)
+            # x_support, y_support_hot = self.get_supports(support_size=batch_size, mode=mode)
+            # yield x_target, y_target_hot, x_support, y_support_hot
+            x_supports.append(x_target)
+            y_support_hots.append(y_target_hot)
+        x_supports = np.stack(x_supports)
+        y_support_hots = np.stack(y_support_hots)
+        return x_supports, y_support_hots
 
 
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
     cls = PrepareData(run_mode="train")
-    selected_class_keys = cls.get_support_cats(class_count=20)
+    supports, hots = cls.get_batches(iter=32, num_cat=25, batch_size=20)
+    logger.debug(supports.shape)
+    logger.debug(hots.shape)
+    exit(0)
+    selected_class_keys = cls.get_support_cats(num_cat=15)
     selected_class_keys2 = []
     for a in selected_class_keys:
         selected_class_keys2.append([a])
     selected_class_hot = cls.mlb.fit_transform(selected_class_keys2)
-    selected_class_keys = cls.get_batch(selected_class_keys, min_match=1, batch_size=6, mode="doc2vec")
+    x_target, y_target_hot = cls.get_batch(selected_class_keys, batch_size=6, mode="doc2vec")
+    logger.debug(x_target.shape)
+    logger.debug(y_target_hot.shape)
     exit(0)
-    for x_target, y_target_hot, x_support, y_support_hot in cls.get_batch_iter(batch_size=25, mode="doc2vec"):
+    for x_target, y_target_hot, x_support, y_support_hot in cls.get_batches(batch_size=25, mode="doc2vec"):
         # logger.debug(cls.remain_sample_ids)
         # logger.debug(x_target)
         # logger.debug(y_target_hot)

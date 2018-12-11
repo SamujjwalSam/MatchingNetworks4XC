@@ -66,6 +66,7 @@ def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     """
     if len(keys) <= batch_size:
         return None, keys
+    # logger.debug(batch_size)
     selected_keys = sample(keys, k=batch_size)
     if remove_keys:
         # logger.debug("Removing selected keys: {}".format(selected_keys))

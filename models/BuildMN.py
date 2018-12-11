@@ -105,8 +105,8 @@ class BuildMN:
         # Create the optimizer
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=total_train_batches) as pbar:
-            for x_target, y_target_hot, x_support, y_support_hot in self.cls.get_batch_iter(batch_size=batch_size,
-                                                                                            mode="doc2vec"):
+            for x_target, y_target_hot, x_support, y_support_hot in self.cls.get_batches(batch_size=batch_size,
+                                                                                         mode="doc2vec"):
                 # for i in range(total_train_batches):  # train epoch
                 #     x_target, y_target_hot, x_support, y_support_hot = self.data_loader.get_batch(batch_size=self.batch_size)
                 logger.info("Shapes: x_support [{}], y_support_hot [{}], x_target [{}], y_target_hot [{}]"
@@ -167,8 +167,8 @@ class BuildMN:
 
         with tqdm.tqdm(total=total_val_batches) as pbar:
             self.cls.load_val()
-            for x_target, y_target_hot, x_support, y_support_hot in self.cls.get_batch_iter(batch_size=1,
-                                                                                            mode="doc2vec"):
+            for x_target, y_target_hot, x_support, y_support_hot in self.cls.get_batches(batch_size=1,
+                                                                                         mode="doc2vec"):
                 # for i in range(total_val_batches):  # validation epoch
                 #     x_support, y_support_hot, x_target, y_target = self.data_loader.get_batch(batch_size=self.batch_size, data_type='val')
 
@@ -205,8 +205,8 @@ class BuildMN:
         total_test_c_loss = 0.
         with tqdm.tqdm(total=total_test_batches) as pbar:
             self.cls.load_test()
-            for x_target, y_target_hot, x_support, y_support_hot in self.cls.get_batch_iter(batch_size=1,
-                                                                                            mode="doc2vec"):
+            for x_target, y_target_hot, x_support, y_support_hot in self.cls.get_batches(batch_size=1,
+                                                                                         mode="doc2vec"):
                 # for i in range(total_test_batches):
                 #     x_support, y_support_hot, x_target, y_target = self.data_loader.get_batch(batch_size=self.batch_size, data_type='test')
 
