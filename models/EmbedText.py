@@ -68,7 +68,7 @@ class EmbedText(nn.Module):
             # self.weights_init(self.layer3)
             # self.weights_init(self.layer4)
 
-    def forward(self, inputs, batch_size=32, dropout_extrenal=False):
+    def forward(self, inputs, batch_size=64, dropout_extrenal=False):
         """
         Runs the CNNText producing the embeddings and the gradients.
 

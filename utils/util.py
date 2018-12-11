@@ -45,8 +45,8 @@ def create_batch(X:dict, Y:dict, keys):
     """
     batch_x = OrderedDict()
     batch_y = OrderedDict()
-    logger.debug(X.keys())
-    logger.debug(keys)
+    # logger.debug(X.keys())
+    # logger.debug(keys)
     for k in keys:
         # batch_x[k] = X.pop(k, None)
         # batch_y[k] = Y.pop(k, None)
@@ -67,9 +67,8 @@ def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     if len(keys) <= batch_size:
         return None, keys
     selected_keys = sample(keys, k=batch_size)
-    # logger.debug((keys))
     if remove_keys:
-        logger.debug("Removing selected keys: {}".format(selected_keys))
+        # logger.debug("Removing selected keys: {}".format(selected_keys))
         for item in selected_keys:
             # logger.debug((keys,item))
             keys.remove(item)

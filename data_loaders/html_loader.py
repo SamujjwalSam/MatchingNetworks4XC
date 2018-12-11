@@ -64,6 +64,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         logger.debug("Check if processed json file already exists at [{}], then load."
                      .format(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")))
 
+        self.categories = util.load_json(self.dataset_name + "_categories", file_path=self.data_dir)
         if run_mode == "train":
             if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")) \
                     and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_train.json")):
@@ -154,10 +155,10 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         :return:
         """
         keys = list(self.sentences.keys())
-        logger.debug(keys)
-        logger.debug(int(len(keys) * 0.3))
+        # logger.debug(keys)
+        # logger.debug(int(len(keys) * 0.3))
         keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
-        logger.debug((keys,selected_keys))
+        # logger.debug((keys,selected_keys))
         self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
         self.sentences_train, self.classes_train = util.create_batch(self.sentences, self.classes, keys)
         keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
@@ -252,36 +253,36 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         remove_first_chars = 12  # Length of "Categories:", to be removed from that line.
         for i, line in enumerate(txt):
             # Categories are written in multiple lines, need to read all lines (till "##### Views").
-            logger.info(line)
+            # logger.info(line)
             if "Categories:" in line or "Category: " in line:
                 del_start = i  # start index of lines to be removed.
                 copy_flag = True
                 remove_first_chars = 12
-                logger.debug("Categories")
+                # logger.debug("Categories")
             if "Category: " in line:
                 del_start = i  # start index of lines to be removed.
                 copy_flag = True
                 remove_first_chars = 11
-                logger.debug("Category")
+                # logger.debug("Category")
             if "Hidden categories:" in line:
                 hid_copy_flag = True
                 copy_flag = False  # Stop "Categories:" as "Hidden categories:" start.
                 # filtered_categories.append(line[19:].split(" | "))
-                logger.debug("Hidden")
+                # logger.debug("Hidden")
             if "##### Views" in line:
                 # logger.info(copy_flag)
                 copy_flag = False  # Stop coping "Categories:" as "##### Views" start.
                 hid_copy_flag = False  # Stop coping "Hidden categories:" as "##### Views" start.
                 # del_end = i  # end index of lines to be removed.
-                logger.debug("Views")
+                # logger.debug("Views")
             if copy_flag:
                 # logger.debug((category_lines,line))
                 # logger.debug(txt[i-1])
                 category_lines = category_lines + " " + line
-                logger.debug("copy_flag")
+                # logger.debug("copy_flag")
             if hid_copy_flag:
                 hid_category_lines = hid_category_lines + " " + line
-                logger.debug("hid_copy_flag")
+                # logger.debug("hid_copy_flag")
             # del txt[del_start:del_end]  # Delete lines containing category info. -> below line.
         del txt[del_start:]  # After category info all lines are either copyright or not required.
 

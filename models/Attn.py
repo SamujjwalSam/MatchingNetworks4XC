@@ -36,12 +36,17 @@ class Attn(nn.Module):
         :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
         :return: Softmax pdf
         """
+        logger.info("(similarities.shape: [{}], [{}] :support_set_y.shape)".format(similarities.shape, support_set_y.shape))
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
         # logger.debug(softmax_similarities)
-        # logger.debug(softmax_similarities.shape)
+        logger.debug(softmax_similarities.shape)
         # logger.debug(support_set_y.shape)
         preds = softmax_similarities.mm(support_set_y)
+        # softmax_similarities_3 = softmax_similarities.unsqueeze(1)
+        logger.debug(preds.shape)
+        # support_set_y_2 = softmax_similarities_3.bmm(support_set_y)
+        # preds = support_set_y_2.squeeze()
         # logger.debug(preds)
         # logger.debug(preds.shape)
         return preds
@@ -61,22 +66,23 @@ if __name__ == '__main__':
                        [0., 1.5]],
                       [[1., 0.4],
                        [1., 1.5]]])
-    # a = torch.ones(2,2,3)
-    logger.debug(a)
+    a = torch.ones(25,25,5)
+    # logger.debug(a)
     logger.debug(a.shape)
-    # b = torch.ones(2,3)
-    logger.debug(b)
+    b = torch.ones(32,25,5)
+    # logger.debug(b)
     logger.debug(b.shape)
     test_DN = C.PairCosineSim()
     sim = test_DN(a, b)
     logger.debug(sim.shape)
-    logger.debug("sim: {}".format(sim))
+    # logger.debug("sim: {}".format(sim))
 
-    # y = torch.ones(3, 2)
     y = torch.tensor([[1., 0.],
                       [0., 1.],
                       [1., 0.]])
+    y = torch.ones(32, 25, 5)
     logger.debug("y.shape: {}".format(y.shape))
     test_attn = Attn()
     result = test_attn(sim, y)
-    logger.info("result: {}".format(result))
+    # logger.info("result: {}".format(result))
+    logger.info("result.shape: {}".format(result.shape))

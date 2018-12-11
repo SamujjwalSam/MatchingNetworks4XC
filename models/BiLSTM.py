@@ -88,7 +88,7 @@ class BiLSTM(nn.Module):
             h0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
                           requires_grad=requires_grad)
         # logger.debug(self.lstm)
-        logger.debug(inputs.shape)
+        logger.debug((inputs.shape,h0.shape, c0.shape))
         output, (hn, cn) = self.lstm(inputs, (h0, c0))
         if dropout_extrenal and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM uses dropout only on
             # last layer and if there is only one layer, dropout will not be used.

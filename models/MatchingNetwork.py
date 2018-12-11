@@ -30,8 +30,9 @@ from models import EmbedText as E
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
 
-    def __init__(self, input_size=28, hid_size=10, fce=True, num_classes_per_set=5,
-                 num_samples_per_class=1,
+    def __init__(self, input_size=28, hid_size=1, fce=True,
+                 # num_classes_per_set=5,
+                 # num_samples_per_class=1,
                  num_categories=0, dropout=0.2):
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
@@ -42,8 +43,8 @@ class MatchingNetwork(nn.Module):
         :param is_training: Flag indicating whether we are training or evaluating
         :param rotate_flag: Flag indicating whether to rotate the samples.
         :param fce: Flag indicating whether to use full context embeddings (i.e. apply an LSTM on the CNNText embeddings)
-        :param num_classes_per_set: Integer indicating the number of classes per set
-        :param num_samples_per_class: Integer indicating the number of samples per class
+        # :param num_classes_per_set: Integer indicating the number of classes per set
+        # :param num_samples_per_class: Integer indicating the number of samples per class
         :param num_categories: total number of classes. It changes the text_lstm size of the classifier g with a final FC layer.
         :param sample_input: size of the input sample. It is needed in case we want to create the last FC classification.
         """
@@ -54,14 +55,17 @@ class MatchingNetwork(nn.Module):
         # self.learning_rate = learning_rate
         self.fce = fce
 
-        self.g = E.EmbedText(num_layers=1, model_type="lstm", num_categories=num_categories,
-                             input_size=input_size, dropout=dropout)
+        self.g = E.EmbedText(num_layers=1, model_type="lstm",
+                             num_categories=num_categories,
+                             input_size=input_size,
+                             hid_size=hid_size,
+                             dropout=dropout)
         if self.fce:
             self.lstm = B.BiLSTM(hid_size=hid_size, input_size=self.g.output_size, dropout=dropout)
         self.cosine_dis = C.PairCosineSim()
         self.attn = A.Attn()
 
-    def forward(self, support_set, support_set_hot, x_hat, x_hat_hot, batch_size=32):
+    def forward(self, support_set, support_set_hot, x_hat, x_hat_hot, batch_size=64):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
@@ -108,11 +112,11 @@ class MatchingNetwork(nn.Module):
         # similarities = similarities.t()  # TODO: need to transpose?
 
         # produce predictions for target probabilities
-        preds = self.attn(similarities, support_set_y=support_set_hot)
+        preds = self.attn(similarities, support_set_y=support_set_hot)  # batch_size x Multi-hot vector size == x_hat_hot.shape
         logger.debug(preds)
         logger.debug(preds.shape)
 
-        assert preds.shape == x_hat_hot.shape, "preds.shape ({}) == ({}) x_hat_hot.shape"
+        # assert preds.shape == x_hat_hot.shape, "preds.shape ({}) == ({}) x_hat_hot.shape".format(preds.shape, x_hat_hot.shape)
 
         # calculate accuracy and crossentropy loss
         values, indices = preds.max(1)
@@ -124,7 +128,7 @@ class MatchingNetwork(nn.Module):
         # logger.debug(indices.squeeze().shape)
 
         # accuracy = torch.mean((indices.squeeze() == x_hat_hot).float())
-        logger.info("preds.shape ({}) == ({}) x_hat_hot.shape".format(preds, x_hat_hot))
+        # logger.info("preds.shape ({}) == ({}) x_hat_hot.shape".format(preds, x_hat_hot))
         logger.info("preds.shape ({}) == ({}) x_hat_hot.shape".format(preds.shape, x_hat_hot.shape))
         crossentropy_loss = F.multilabel_margin_loss(preds, x_hat_hot.long())
 

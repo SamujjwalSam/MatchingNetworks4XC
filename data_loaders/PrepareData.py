@@ -71,23 +71,25 @@ class PrepareData():
         if run_mode == "train": self.load_train()
         if run_mode == "val": self.load_val()
         if run_mode == "test": self.load_test()
+        self.categories = self.dataset.get_categories()
+        self.remain_cat_ids = list(self.categories.values())
 
         self.mlb = MultiLabelBinarizer()
 
     def load_train(self):
         self.sentences_train, self.classes_train = self.dataset.get_train_data()
         self.selected_sentences, self.selected_classes = self.sentences_train, self.classes_train
-        self.remaining_keys = list(self.selected_sentences.keys())
+        self.remain_sample_ids = list(self.selected_sentences.keys())
 
     def load_val(self):
         self.sentences_val, self.classes_val = self.dataset.get_val_data()
         self.selected_sentences, self.selected_classes = self.sentences_val, self.classes_val
-        self.remaining_keys = list(self.selected_sentences.keys())
+        self.remain_sample_ids = list(self.selected_sentences.keys())
 
     def load_test(self):
         self.sentences_test, self.classes_test = self.dataset.get_test_data()
         self.selected_sentences, self.selected_classes = self.sentences_test, self.classes_test
-        self.remaining_keys = list(self.selected_sentences.keys())
+        self.remain_sample_ids = list(self.selected_sentences.keys())
 
     def txt2vec(self, sentences, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
         """
@@ -245,7 +247,7 @@ class PrepareData():
             raise Exception("Unknown document partition mode: [{}]. \n"
                             "Available options: ['concat','word_avg','sentences','chunked (Default)']".format(mode))
         # logger.debug(len(chunks))
-        chunks = list(filter(None, chunks))  # Removing empty items.
+        chunks = list(filter(None, chunks))  # Removing empty items: ""
         # logger.debug(len(chunks))
         return chunks
 
@@ -275,65 +277,81 @@ class PrepareData():
         classes_multihot = self.mlb.fit_transform(batch_classes_dict.values())
         return classes_multihot
 
-    def get_batch(self, batch_size=64, mode="doc2vec"):
+    def get_batch(self, support_cat_ids, min_match=1, batch_size=25, mode="doc2vec"):
         """
         Returns a batch of feature vectors and multi-hot classes.
 
         :return: Next batch
         """
-        # logger.debug(sentences.keys())
-        # remaining_keys = random.shuffle(list(sentences.keys()))
-        if self.remaining_keys is not None:
-            # logger.debug("remaining keys: {}".format(self.remaining_keys))
-            self.remaining_keys, batch_keys = util.get_batch_keys(self.remaining_keys, batch_size)
-            # logger.debug((self.remaining_keys, batch_keys))
-            # logger.debug("batch keys: {}".format(batch_keys))
-            # logger.debug("selected_classes values: {}".format(self.selected_classes.values()))
-            # logger.debug("selected_classes keys: {}".format(self.selected_classes.keys()))
-            sentences_batch, classes_batch = util.create_batch(self.selected_sentences, self.selected_classes,
-                                                               batch_keys)
-            x_target = self.txt2vec(sentences_batch, mode=mode)
-            y_target_hot = self.create_multihot(classes_batch)
-            return x_target, y_target_hot
-        else:
-            logger.warn("No remaining_keys.")
-            return
+        selected_ids = []
+        i = 0
+        for idx, cls_ids in self.selected_classes.items():
+            if i < batch_size:
+                if len(list(set(support_cat_ids) & set(cls_ids))) >= min_match:
+                    selected_ids.append(idx)
+                    logger.debug((idx,self.selected_classes[idx]))
+                    i += 1
+            else:
+                break
 
-    def get_supports(self, support_size=64, mode="doc2vec"):
+        sentences_batch, classes_batch = util.create_batch(self.selected_sentences, self.selected_classes,
+                                                           selected_ids)
+        x_target = self.txt2vec(sentences_batch, mode=mode)
+        y_target_hot = self.mlb.transform(classes_batch.values())
+        return x_target, y_target_hot
+
+    def get_supports(self, support_size=32, mode="doc2vec"):
         """
-        Returns a batch of feature vectors and multi-hot classes of support set.
+        Returns a batch of feature vectors and multi-hot classes of randomly selected support set.
 
         :return: Next batch of support set.
         """
         # logger.debug(sentences.keys())
-        # remaining_keys = random.shuffle(list(sentences.keys()))
-        if self.remaining_keys is not None:
-            _, batch_supports = util.get_batch_keys(self.remaining_keys, support_size, remove_keys=False)
-            # logger.debug((self.remaining_keys, batch_supports))
+        # remain_sample_ids = random.shuffle(list(sentences.keys()))
+        if self.remain_sample_ids is not None:
+            _, batch_supports = util.get_batch_keys(self.remain_sample_ids, support_size, remove_keys=False)
+            # logger.debug((self.remain_sample_ids, batch_supports))
             support_sentences_batch, support_classes_batch = util.create_batch(self.selected_sentences,
                                                                                self.selected_classes, batch_supports)
             x_support = self.txt2vec(support_sentences_batch, mode=mode)
             y_support_hot = self.create_multihot(support_classes_batch)
             return x_support, y_support_hot
         else:
-            logger.warn("No remaining_keys.")
+            logger.warn("No remain_sample_ids.")
             return
 
-    def get_batch_iter(self, batch_size=64, mode="doc2vec"):
+    def get_support_cats(self, class_count=5):
+        """
+        Randomly selects [class_count] number of classes from which support set will be created.
+
+        Will remove the selected classes from self.remain_cat_ids.
+        :param class_count: Number of samples to draw.
+        :return:
+        """
+        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=class_count)
+        return selected_cat_ids
+
+    def get_batch_iter(self, class_count=5, batch_size=25, min_match=1, mode="doc2vec"):
         """
         Returns an iterator over data.
 
+        :param min_match:
         :param batch_size:
         :param mode:
         :returns: An iterator over data.
         """
-        # logger.debug(self.remaining_keys)
-        num_chunks = len(self.remaining_keys) // batch_size
-        # logger.info((self.remaining_keys,batch_size))
+        # logger.debug(self.remain_sample_ids)
+        support_cat_ids = self.get_support_cats(class_count=5)
+        support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
+        for a in support_cat_ids:
+            support_cat_ids_list.append([a])
+        cls.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
+        num_chunks = len(self.remain_cat_ids) // class_count
+        # logger.info((self.remain_sample_ids,batch_size))
         # logger.debug(num_chunks)
-        for i in range(num_chunks-1):
-            x_target, y_target_hot = self.get_batch(batch_size=batch_size, mode=mode)
-            # logger.debug(self.remaining_keys)
+        for i in range(num_chunks - 1):
+            x_target, y_target_hot = self.get_batch(support_cat_ids, min_match=min_match, batch_size=batch_size, mode=mode)
+            # logger.debug(self.remain_sample_ids)
             x_support, y_support_hot = self.get_supports(support_size=batch_size, mode=mode)
             yield x_target, y_target_hot, x_support, y_support_hot
 
@@ -341,10 +359,15 @@ class PrepareData():
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
     cls = PrepareData(run_mode="train")
-    # logger.debug(len(cls.sentences))
-    # cls.load_val()
-    for x_target, y_target_hot, x_support, y_support_hot in cls.get_batch_iter(batch_size=1, mode="doc2vec"):
-        # logger.debug(cls.remaining_keys)
+    selected_class_keys = cls.get_support_cats(class_count=20)
+    selected_class_keys2 = []
+    for a in selected_class_keys:
+        selected_class_keys2.append([a])
+    selected_class_hot = cls.mlb.fit_transform(selected_class_keys2)
+    selected_class_keys = cls.get_batch(selected_class_keys, min_match=1, batch_size=6, mode="doc2vec")
+    exit(0)
+    for x_target, y_target_hot, x_support, y_support_hot in cls.get_batch_iter(batch_size=25, mode="doc2vec"):
+        # logger.debug(cls.remain_sample_ids)
         # logger.debug(x_target)
         # logger.debug(y_target_hot)
         # logger.debug(x_support)
@@ -353,4 +376,4 @@ if __name__ == '__main__':
         logger.debug(y_target_hot.shape)
         logger.debug(x_support.shape)
         logger.debug(y_support_hot.shape)
-        # logger.debug(cls.remaining_keys)
+        # logger.debug(cls.remain_sample_ids)
