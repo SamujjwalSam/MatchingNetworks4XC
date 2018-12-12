@@ -175,23 +175,7 @@ class TextEncoder(object):
             else:  # For training data, add tags, tags are simply zero-based line number.
                 yield doc2vec.TaggedDocument(simple_preprocess(line), [i])
 
-    def get_doc2vectors(self,documents:dict, doc2vec_model=None):
-        """
-        Generates vectors for documents.
-
-        :param doc2vec_model: doc2vec model object.
-        :param documents:
-        :return:
-        """
-        if doc2vec_model is None:  # If model is not supplied, need to create model.
-            doc2vec_model = self.load_doc2vec(documents)
-        doc2vectors = OrderedDict()
-        for idx,doc in documents.items():
-            doc2vectors[idx] = doc2vec_model.infer_vector(doc)  # Infer vector for a new document
-        doc2vectors = np.asarray(list(doc2vectors.values()))  # Converting Dict values to Numpy array.
-        return doc2vectors
-
-    def get_doc2vectors_list(self,documents:list, doc2vec_model=None):
+    def get_doc2vecs(self, documents:list, doc2vec_model=None):
         """
         Generates vectors for documents.
 

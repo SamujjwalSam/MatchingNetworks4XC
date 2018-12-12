@@ -112,59 +112,6 @@ class PrepareData():
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
 
-    def txt2vec(self, sentences, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
-        """
-        Creates vectors from input_texts based on [mode].
-
-        :param max_vec_len: Maximum vector length of each document.
-        :param num_chunks: Number of chunks the input_texts are to be divided. (Applicable only when mode = "chunked")
-        :param embedding_dim: Embedding dimension for each word.
-        :param sentences:
-        :param mode: Decides how to create the vector.
-            "chunked" : Partitions the whole text into equal length chunks and concatenates the avg of each chunk.
-                        vec_len = num_chunks * embedding_dim
-                        [["these", "are"], ["chunks", "."]]
-
-            "sentences" : Same as chunked except each sentence forms a chunk. "\n" is sentence separator.
-                        vec_len = max(num_sents, max_len) * embedding_dim
-                        ["this", "is", "a", "sentence", "."]
-                        NOTE: This will create variable length vectors.
-
-            "concat" : Concatenates the vectors of each word, adds padding to make equal length.
-                       vec_len = max(num_words) * embedding_dim
-
-            "word_avg" : Take the average of vectors of all the words.
-                       vec_len = embedding_dim
-                       [["these"], ["are"], ["words"], ["."]]
-
-            "doc2vec" : Use Gensim Doc2Vec to generate vectors.
-                        https://radimrehurek.com/gensim/models/doc2vec.html
-                        vec_len = embedding_dim
-                        ["this", "is", "a", "document", "."]
-
-        :param tfidf_avg: If tf-idf weighted avg is to be taken or simple. # TODO
-            True  : Take average based on each words tf-idf value.
-            False : Take simple average.
-
-        :returns: Vector length, numpy.ndarray(batch_size, vec_len)
-        """
-        self.num_chunks = num_chunks
-        self.embedding_dim = embedding_dim
-        self.text_encoder = TextEncoder()
-
-        sentences = util.clean_sentences(sentences, specials="""_-@*#'"/\\""", replace='')
-
-        if mode == "doc2vec":
-            doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
-                                                           seed=seed_val, negative=10,
-                                                           doc2vec_dir=self.dataset_dir,
-                                                           doc2vec_model_file=self.dataset_name + "_doc2vec")
-            vectors_dict = self.text_encoder.get_doc2vectors(sentences, doc2vec_model)
-            return vectors_dict
-        else:
-            w2v_model = self.text_encoder.load_word2vec()
-            return self.create_doc_vecs(sentences, w2v_model, mode)
-
     def txt2vec(self, sentences:list, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
         """
         Creates vectors from input_texts based on [mode].
@@ -195,7 +142,7 @@ class PrepareData():
                         vec_len = embedding_dim
                         ["this", "is", "a", "document", "."]
 
-        :param tfidf_avg: If tf-idf weighted avg is to be taken or simple. # TODO
+        :param tfidf_avg: If tf-idf weighted avg is to be taken or simple.
             True  : Take average based on each words tf-idf value.
             False : Take simple average.
 
@@ -205,14 +152,14 @@ class PrepareData():
         self.embedding_dim = embedding_dim
         self.text_encoder = TextEncoder()
 
-        sentences = util.clean_sentences_list(sentences, specials="""_-@*#'"/\\""", replace='')
+        sentences = util.clean_sentences(sentences, specials="""_-@*#'"/\\""", replace='')
 
         if mode == "doc2vec":
             doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
                                                            seed=seed_val, negative=10,
                                                            doc2vec_dir=self.dataset_dir,
                                                            doc2vec_model_file=self.dataset_name + "_doc2vec")
-            vectors_dict = self.text_encoder.get_doc2vectors_list(sentences, doc2vec_model)
+            vectors_dict = self.text_encoder.get_doc2vecs(sentences, doc2vec_model)
             return vectors_dict
         else:
             w2v_model = self.text_encoder.load_word2vec()
@@ -424,25 +371,6 @@ class PrepareData():
                         selected_ids.append(cat2id_map[cat][sample(range(length), 1)])
                 else:
                     raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
-        '''
-        for cat in support_cat_ids:
-            i = 0
-            for idx, cls_ids in self.selected_classes.items():
-                if i <= batch_size:
-                    if cat in cls_ids:
-                        # if cat not in cat_selected_ids:  # If category wise sample ids are required.
-                            # cat_selected_ids[cat] = []
-                        # cat_selected_ids[cat].append(idx)
-                        # logger.debug(cat_selected_ids[cat])
-                        # logger.debug(idx)
-                        selected_ids.append(idx)
-                        i += 1
-                else:
-                    break
-            # logger.debug(i)
-            # logger.debug(len(selected_ids))
-        # logger.debug(len(selected_ids))
-        '''
         sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes, selected_ids)
         x_target = self.txt2vec(sentences_batch, mode=mode)
         y_target_hot = self.mlb.transform(classes_batch)

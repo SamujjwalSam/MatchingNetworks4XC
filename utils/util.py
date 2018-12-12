@@ -160,25 +160,7 @@ def clean_categories(categories: dict, specials="""_-@""", replace=' '):
     return category_cleaned_dict, dup_cat_map
 
 
-def clean_sentences(sentences: dict, specials="""_-@*#'"/\\""", replace=' '):
-    """Cleans sentences dict and returns dict of cleaned sentences.
-
-    :param: sentences: dict of idx:label
-    :returns:
-        sents_cleaned_dict : contains cleaned sentences.
-    """
-    # TODO: Remove all headings with "##"
-    # TODO: Remove ### From Wikipedia, the free encyclopedia \n Jump to: navigation, search
-    # TODO: Remove Repeated special characters like ####,     , ,, etc.
-    sents_cleaned_dict = OrderedDict()
-    trans_table = make_trans_table(specials=specials, replace=replace)
-    for idx, text in sentences.items():
-        label_clean = unidecode(str(text)).translate(trans_table)
-        sents_cleaned_dict[idx] = label_clean
-    return sents_cleaned_dict
-
-
-def clean_sentences_list(sentences: list, specials="""_-@*#'"/\\""", replace=' '):
+def clean_sentences(sentences: list, specials="""_-@*#'"/\\""", replace=' '):
     """Cleans sentences dict and returns dict of cleaned sentences.
 
     :param: sentences: dict of idx:label
