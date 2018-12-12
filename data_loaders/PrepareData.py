@@ -19,6 +19,7 @@ __methods__     :
 
 import numpy as np
 import random
+from random import sample
 from sklearn.preprocessing import MultiLabelBinarizer
 from collections import OrderedDict
 
@@ -45,11 +46,13 @@ class PrepareData():
 
         self.sentences_train = None
         self.classes_train = None
+        self.categories_train = None
         self.sentences_val = None
         self.classes_val = None
+        self.categories_val = None
         self.sentences_test = None
         self.classes_test = None
-        self.categories = None
+        self.categories_test = None
 
         if dataset_type == "html":
             self.dataset = html.WIKI_HTML_Dataset(dataset_name=dataset_name, data_dir=self.dataset_dir,
@@ -71,25 +74,43 @@ class PrepareData():
         if run_mode == "train": self.load_train()
         if run_mode == "val": self.load_val()
         if run_mode == "test": self.load_test()
-        self.categories = self.dataset.get_categories()
-        self.remain_cat_ids = list(self.categories.values())
+        # self.categories = self.dataset.get_categories()
+        self.remain_cat_ids = list(self.selected_categories.keys())
 
         self.mlb = MultiLabelBinarizer()
 
+    def cat2samples(self, classes_dict: dict = None):
+        """
+        Converts sample : categories to  categories : samples
+
+        :returns: A dictionary of categories to sample mapping.
+        """
+        cat2id = OrderedDict()
+        if classes_dict is None: classes_dict = self.selected_classes
+        for k, v in classes_dict.items():
+            for cat in v:
+                if cat not in cat2id:
+                    cat2id[cat] = []
+                cat2id[cat].append(k)
+        return cat2id
+
     def load_train(self):
-        self.sentences_train, self.classes_train = self.dataset.get_train_data()
-        self.selected_sentences, self.selected_classes = self.sentences_train, self.classes_train
+        self.sentences_train, self.classes_train, self.categories_train = self.dataset.get_train_data()
+        self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_train, self.classes_train, self.categories_train
         self.remain_sample_ids = list(self.selected_sentences.keys())
+        self.cat2id_map = self.cat2samples(self.selected_classes)
 
     def load_val(self):
-        self.sentences_val, self.classes_val = self.dataset.get_val_data()
-        self.selected_sentences, self.selected_classes = self.sentences_val, self.classes_val
+        self.sentences_val, self.classes_val, self.categories_val = self.dataset.get_val_data()
+        self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_val, self.classes_val, self.categories_val
         self.remain_sample_ids = list(self.selected_sentences.keys())
+        self.cat2id_map = self.cat2samples(self.selected_classes)
 
     def load_test(self):
-        self.sentences_test, self.classes_test = self.dataset.get_test_data()
-        self.selected_sentences, self.selected_classes = self.sentences_test, self.classes_test
+        self.sentences_test, self.classes_test, self.categories_test = self.dataset.get_test_data()
+        self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_test, self.classes_test, self.categories_test
         self.remain_sample_ids = list(self.selected_sentences.keys())
+        self.cat2id_map = self.cat2samples(self.selected_classes)
 
     def txt2vec(self, sentences, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
         """
@@ -139,6 +160,59 @@ class PrepareData():
                                                            doc2vec_dir=self.dataset_dir,
                                                            doc2vec_model_file=self.dataset_name + "_doc2vec")
             vectors_dict = self.text_encoder.get_doc2vectors(sentences, doc2vec_model)
+            return vectors_dict
+        else:
+            w2v_model = self.text_encoder.load_word2vec()
+            return self.create_doc_vecs(sentences, w2v_model, mode)
+
+    def txt2vec(self, sentences:list, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
+        """
+        Creates vectors from input_texts based on [mode].
+
+        :param max_vec_len: Maximum vector length of each document.
+        :param num_chunks: Number of chunks the input_texts are to be divided. (Applicable only when mode = "chunked")
+        :param embedding_dim: Embedding dimension for each word.
+        :param sentences:
+        :param mode: Decides how to create the vector.
+            "chunked" : Partitions the whole text into equal length chunks and concatenates the avg of each chunk.
+                        vec_len = num_chunks * embedding_dim
+                        [["these", "are"], ["chunks", "."]]
+
+            "sentences" : Same as chunked except each sentence forms a chunk. "\n" is sentence separator.
+                        vec_len = max(num_sents, max_len) * embedding_dim
+                        ["this", "is", "a", "sentence", "."]
+                        NOTE: This will create variable length vectors.
+
+            "concat" : Concatenates the vectors of each word, adds padding to make equal length.
+                       vec_len = max(num_words) * embedding_dim
+
+            "word_avg" : Take the average of vectors of all the words.
+                       vec_len = embedding_dim
+                       [["these"], ["are"], ["words"], ["."]]
+
+            "doc2vec" : Use Gensim Doc2Vec to generate vectors.
+                        https://radimrehurek.com/gensim/models/doc2vec.html
+                        vec_len = embedding_dim
+                        ["this", "is", "a", "document", "."]
+
+        :param tfidf_avg: If tf-idf weighted avg is to be taken or simple. # TODO
+            True  : Take average based on each words tf-idf value.
+            False : Take simple average.
+
+        :returns: Vector length, numpy.ndarray(batch_size, vec_len)
+        """
+        self.num_chunks = num_chunks
+        self.embedding_dim = embedding_dim
+        self.text_encoder = TextEncoder()
+
+        sentences = util.clean_sentences_list(sentences, specials="""_-@*#'"/\\""", replace='')
+
+        if mode == "doc2vec":
+            doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
+                                                           seed=seed_val, negative=10,
+                                                           doc2vec_dir=self.dataset_dir,
+                                                           doc2vec_model_file=self.dataset_name + "_doc2vec")
+            vectors_dict = self.text_encoder.get_doc2vectors_list(sentences, doc2vec_model)
             return vectors_dict
         else:
             w2v_model = self.text_encoder.load_word2vec()
@@ -278,39 +352,6 @@ class PrepareData():
         classes_multihot = self.mlb.fit_transform(batch_classes_dict.values())
         return classes_multihot
 
-    def get_batch(self, support_cat_ids, batch_size=2, mode="doc2vec"):
-        """
-        Returns a batch of feature vectors and multi-hot classes.
-
-        :return: Next batch
-        :param min_match: Minimum number of categories should match.
-        :param support_cat_ids:
-        :param batch_size:
-        :param mode:
-        """
-        selected_ids = OrderedDict()
-        selected_ids_list = []
-        for cat in support_cat_ids:
-            i = 0
-            for idx, cls_ids in self.selected_classes.items():
-                if i <= batch_size:
-                    if cat in cls_ids:
-                        if cat not in selected_ids:
-                            selected_ids[cat] = []
-                        # logger.debug(idx)
-                        # logger.debug(selected_ids[cat])
-                        selected_ids[cat].append(idx)
-                        selected_ids_list.append(idx)
-                        i += 1
-                else:
-                    break
-        # logger.debug(selected_ids)
-        sentences_batch, classes_batch = util.create_batch(self.selected_sentences, self.selected_classes,
-                                                           selected_ids_list)
-        x_target = self.txt2vec(sentences_batch, mode=mode)
-        y_target_hot = self.mlb.transform(classes_batch.values())
-        return x_target, y_target_hot
-
     def get_supports(self, support_size=32, mode="doc2vec"):
         """
         Returns a batch of feature vectors and multi-hot classes of randomly selected support set.
@@ -339,10 +380,73 @@ class PrepareData():
         :param num_cat: Number of samples to draw.
         :return:
         """
-        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=num_cat, remove_keys=False)
+        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=num_cat,
+                                                                    remove_keys=False)
         # logger.debug(selected_cat_ids)
         # logger.debug(num_cat)
+        selected_cat_ids = [int(cat) for cat in selected_cat_ids]  # For some reason returned values are not int.
         return selected_cat_ids
+
+    def get_batch(self, support_cat_ids, cat2id_map=None, batch_size=2, mode="doc2vec", repeat_mode='append'):
+        """
+        Returns a batch of feature vectors and multi-hot classes.
+
+        :param repeat_mode: How to repeat sample if available data is less than batch_size. ["append (default)", "sample"].
+        :param cat2id_map: A dictionary of categories to sample mapping.
+        :return: Next batch
+        :param min_match: Minimum number of categories should match.
+        :param support_cat_ids:
+        :param batch_size:
+        :param mode:
+        """
+        # cat_selected_ids = OrderedDict()
+        selected_ids = []
+        if cat2id_map is None: cat2id_map = self.cat2id_map
+        for cat in support_cat_ids:
+            if len(cat2id_map[cat]) == batch_size:
+                selected_ids = selected_ids + cat2id_map[cat]
+                # for sid in cat2id_map[cat]:
+                #     selected_ids.append(sid)
+            elif len(cat2id_map[cat]) > batch_size:  # More than required, sample [batch_size] from the list.
+                # selected_keys = sample(cat2id_map[cat], k=batch_size)
+                selected_ids = selected_ids + sample(cat2id_map[cat], k=batch_size)
+                # for sid in selected_keys:
+                #     selected_ids.append(sid)
+            else:  # Less than required, repeat the available classes.
+                selected_ids = selected_ids + cat2id_map[cat]
+                length = len(cat2id_map[cat])
+                if repeat_mode == "append":
+                    for i in range(batch_size-length):
+                        selected_ids.append(cat2id_map[cat][i % length])
+                elif repeat_mode == "sample":
+                    empty_count = batch_size - length
+                    for i in range(empty_count):  # Sampling [batch_size] number of elements from cat2id_map[cat].
+                        selected_ids.append(cat2id_map[cat][sample(range(length), 1)])
+                else:
+                    raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
+        '''
+        for cat in support_cat_ids:
+            i = 0
+            for idx, cls_ids in self.selected_classes.items():
+                if i <= batch_size:
+                    if cat in cls_ids:
+                        # if cat not in cat_selected_ids:  # If category wise sample ids are required.
+                            # cat_selected_ids[cat] = []
+                        # cat_selected_ids[cat].append(idx)
+                        # logger.debug(cat_selected_ids[cat])
+                        # logger.debug(idx)
+                        selected_ids.append(idx)
+                        i += 1
+                else:
+                    break
+            # logger.debug(i)
+            # logger.debug(len(selected_ids))
+        # logger.debug(len(selected_ids))
+        '''
+        sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes, selected_ids)
+        x_target = self.txt2vec(sentences_batch, mode=mode)
+        y_target_hot = self.mlb.transform(classes_batch)
+        return x_target, y_target_hot
 
     def get_batches(self, iter=32, num_cat=5, batch_size=25, mode="doc2vec"):
         """
@@ -381,7 +485,7 @@ class PrepareData():
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
     cls = PrepareData(run_mode="train")
-    supports, hots = cls.get_batches(iter=32, num_cat=25, batch_size=20)
+    supports, hots = cls.get_batches(iter=10, num_cat=5, batch_size=7)
     logger.debug(supports.shape)
     logger.debug(hots.shape)
     exit(0)

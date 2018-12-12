@@ -55,6 +55,27 @@ def create_batch(X:dict, Y:dict, keys):
     return batch_x, batch_y
 
 
+def create_batch_repeat(X:dict, Y:dict, keys):
+    """
+    Generates batch from keys.
+
+    :param X:
+    :param Y:
+    :param keys:
+    :return:
+    """
+    batch_x = []
+    batch_y = []
+    # logger.debug(X.keys())
+    # logger.debug(keys)
+    for k in keys:
+        # batch_x[k] = X.pop(k, None)
+        # batch_y[k] = Y.pop(k, None)
+        batch_x.append(X[k])
+        batch_y.append(Y[k])
+    return batch_x, batch_y
+
+
 def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     """
     Randomly selects [batch_size] numbers of key from keys list and remove them from the original list.
@@ -154,6 +175,24 @@ def clean_sentences(sentences: dict, specials="""_-@*#'"/\\""", replace=' '):
     for idx, text in sentences.items():
         label_clean = unidecode(str(text)).translate(trans_table)
         sents_cleaned_dict[idx] = label_clean
+    return sents_cleaned_dict
+
+
+def clean_sentences_list(sentences: list, specials="""_-@*#'"/\\""", replace=' '):
+    """Cleans sentences dict and returns dict of cleaned sentences.
+
+    :param: sentences: dict of idx:label
+    :returns:
+        sents_cleaned_dict : contains cleaned sentences.
+    """
+    # TODO: Remove all headings with "##"
+    # TODO: Remove ### From Wikipedia, the free encyclopedia \n Jump to: navigation, search
+    # TODO: Remove Repeated special characters like ####,     , ,, etc.
+    sents_cleaned_dict = []
+    trans_table = make_trans_table(specials=specials, replace=replace)
+    for text in sentences:
+        label_clean = unidecode(str(text)).translate(trans_table)
+        sents_cleaned_dict.append(label_clean)
     return sents_cleaned_dict
 
 
@@ -300,8 +339,8 @@ def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding
     :return:
     """
     if not overwrite and os.path.exists(os.path.join(file_path, date_time_tag + filename + ".txt")):
-        logger.warning("File [{0}] already exists and Overwrite == False.".format(
-            os.path.join(file_path, date_time_tag + filename + ".txt")))
+        # logger.warning("File [{0}] already exists and Overwrite == False.".format(
+        #     os.path.join(file_path, date_time_tag + filename + ".txt")))
         return True
     with sopen(os.path.join(file_path, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
         if verbose:

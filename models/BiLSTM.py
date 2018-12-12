@@ -72,6 +72,7 @@ class BiLSTM(nn.Module):
         :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
         """
         self.batch_size = batch_size
+        logger.debug(batch_size)
         num_directions = 2  # For bidirectional, num_layers should be multiplied by 2.
         if not self.bidirectional:
             num_directions = 1

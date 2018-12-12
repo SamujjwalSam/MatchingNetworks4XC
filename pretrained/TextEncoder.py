@@ -191,6 +191,22 @@ class TextEncoder(object):
         doc2vectors = np.asarray(list(doc2vectors.values()))  # Converting Dict values to Numpy array.
         return doc2vectors
 
+    def get_doc2vectors_list(self,documents:list, doc2vec_model=None):
+        """
+        Generates vectors for documents.
+
+        :param doc2vec_model: doc2vec model object.
+        :param documents:
+        :return:
+        """
+        if doc2vec_model is None:  # If model is not supplied, need to create model.
+            doc2vec_model = self.load_doc2vec(documents)
+        doc2vectors = []
+        for doc in documents:
+            doc2vectors.append(doc2vec_model.infer_vector(doc))  # Infer vector for a new document
+        doc2vectors = np.asarray(list(doc2vectors))  # Converting Dict values to Numpy array.
+        return doc2vectors
+
     def load_word2vec(self, model_dir="D:\Datasets\pretrain", model_file_name="GoogleNews-vectors-negative300.bin", model_type='googlenews', encoding='utf-8', newline='\n', errors='ignore'):
         """
         Loads Word2Vec model

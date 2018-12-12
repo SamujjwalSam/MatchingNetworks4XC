@@ -28,7 +28,7 @@ class PairCosineSim(nn.Module):
     def __init__(self):
         super(PairCosineSim, self).__init__()
 
-    def forward(self, support_set, X_hats, normalize=False, dim=1):
+    def forward(self, support_set, X_hats, normalize=False, dim=0):
         """
         Calculates pairwise cosine similarity of support sets with target sample.
 
@@ -49,19 +49,22 @@ class PairCosineSim(nn.Module):
         assert len(
             support_set.shape) == 3, "support_set tensors should be 3D (batch_size, sequence_size, input_size), got {}".format(
             support_set.shape)
-        # print(X_hats.shape[1:],support_set.shape[1:])
+        logger.debug("X_hats.shape[{}],support_set.shape[{}]".format(X_hats.shape,support_set.shape))
         assert X_hats.shape[1:] == support_set.shape[
                                    1:], "support_set [{}] and X_hats [{}] should be of same shape except batch dimension (batch_size, sequence_size, input_size).".format(
             support_set.shape, X_hats.shape)
 
-        support_set_flat = self.flatten_except_batchdim(support_set, batch_dim=0)
+        support_set_flat = self.flatten_except_batchdim(support_set, batch_dim=dim)
+        logger.debug("support_set_flat.shape: {}".format(support_set_flat.shape))
         for x_hat in X_hats:
-            # logger.debug(x_hat.shape)
-            x_hat_flat = self.flatten_except_batchdim(x_hat, batch_dim=0)
-            # logger.debug(x_hat_flat.shape)
+            logger.debug("x_hat.shape: {}".format(x_hat.shape))
+            x_hat_flat = self.flatten_except_batchdim(x_hat, batch_dim=dim)
+            logger.debug("x_hat_flat.shape: {}".format(x_hat_flat.shape))
             cosine_similarity = F.cosine_similarity(x_hat_flat, support_set_flat, eps=eps)
+            logger.debug("cosine_similarity.shape: {}".format(cosine_similarity.shape))
             similarities.append(cosine_similarity)
         similarities = torch.stack(similarities)
+        logger.debug("similarities.shape: {}".format(similarities.shape))
         # logger.debug(similarities)
         # logger.debug(similarities.shape)
         if normalize:
