@@ -88,7 +88,8 @@ class EmbedText(nn.Module):
             output = self.layer4(output)
             output = output.view(output.size(0), -1)
         else:
-            raise Exception("Unknown model_type: [{}]. Supported types are: ['lstm','cnn'].".format(self.model_type))
+            raise Exception("Unknown model_type: [{}]. \n"
+                            "Supported types are: ['lstm','cnn'].".format(self.model_type))
 
         if self.use_linear_last:
             output = self.last_linear_layer(output)

@@ -132,6 +132,7 @@ class TextEncoder(object):
 
     def load_doc2vec(self, documents, vector_size=100, window=2, min_count=1, workers=4, seed=seed_val, negative=10,
                      doc2vec_dir="", doc2vec_model_file="doc2vec_model_file", clean_tmp=False, save_model=True):
+        full_model_name = doc2vec_model_file+str(vector_size)+str(window)+str(min_count)+str(negative)
         """
         Generates vectors from documents.
         https://radimrehurek.com/gensim/models/doc2vec.html
@@ -148,8 +149,9 @@ class TextEncoder(object):
         :param workers:
         :param seed:
         """
-        if os.path.exists(os.path.join(doc2vec_dir, doc2vec_model_file)):
-            doc2vec_model = doc2vec.Doc2Vec.load(os.path.join(doc2vec_dir, doc2vec_model_file))
+        if os.path.exists(os.path.join(doc2vec_dir, full_model_name)):
+            logger.info("Loading doc2vec model from: [{}]".format(os.path.join(doc2vec_dir, full_model_name)))
+            doc2vec_model = doc2vec.Doc2Vec.load(os.path.join(doc2vec_dir, full_model_name))
         else:
             train_corpus = list(self.read_corpus(documents))
             doc2vec_model = doc2vec.Doc2Vec(train_corpus, vector_size=vector_size, window=window, min_count=min_count,
@@ -157,7 +159,9 @@ class TextEncoder(object):
             # doc2vec_model.build_vocab(train_corpus)
             doc2vec_model.train(train_corpus, total_examples=doc2vec_model.corpus_count, epochs=doc2vec_model.epochs)
             if save_model:
-                doc2vec_model.save(get_tmpfile(os.path.join(doc2vec_dir, doc2vec_model_file)))
+                save_path = get_tmpfile(os.path.join(doc2vec_dir,full_model_name))
+                doc2vec_model.save(save_path)
+                logger.info("Saved doc2vec model to: [{}]".format(save_path))
             if clean_tmp:  # Do this when finished training a model (no more updates, only querying, reduce memory usage)
                 doc2vec_model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
         return doc2vec_model

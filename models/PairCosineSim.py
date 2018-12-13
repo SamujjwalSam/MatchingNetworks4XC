@@ -17,6 +17,7 @@ __variables__   :
 __methods__     :
 """
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -27,52 +28,6 @@ from logger.logger import logger
 class PairCosineSim(nn.Module):
     def __init__(self):
         super(PairCosineSim, self).__init__()
-
-    def forward(self, support_set, X_hats, normalize=False, dim=0):
-        """
-        Calculates pairwise cosine similarity of support sets with target sample.
-
-        :param normalize: Whether to normalize the matrix to range: (0,1) from (-1,+1)
-        :param support_set: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
-        :param X_hats: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]
-        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
-        """
-        eps = 1e-10
-        # logger.debug(support_set.shape)
-        # logger.debug(X_hats.shape)
-        similarities = []
-        # similarities = F.cosine_similarity(support_set, X_hats, eps=eps, dim=dim)
-        # logger.debug(similarities.shape)
-        assert len(
-            X_hats.shape) == 3, "X_hats tensors should be 3D (batch_size, sequence_size, input_size), got [{}]. For single samples make [1, , ] shape.".format(
-            X_hats.shape)
-        assert len(
-            support_set.shape) == 3, "support_set tensors should be 3D (batch_size, sequence_size, input_size), got {}".format(
-            support_set.shape)
-        logger.debug("X_hats.shape[{}],support_set.shape[{}]".format(X_hats.shape,support_set.shape))
-        assert X_hats.shape[1:] == support_set.shape[
-                                   1:], "support_set [{}] and X_hats [{}] should be of same shape except batch dimension (batch_size, sequence_size, input_size).".format(
-            support_set.shape, X_hats.shape)
-
-        support_set_flat = self.flatten_except_batchdim(support_set, batch_dim=dim)
-        logger.debug("support_set_flat.shape: {}".format(support_set_flat.shape))
-        for x_hat in X_hats:
-            logger.debug("x_hat.shape: {}".format(x_hat.shape))
-            x_hat_flat = self.flatten_except_batchdim(x_hat, batch_dim=dim)
-            logger.debug("x_hat_flat.shape: {}".format(x_hat_flat.shape))
-            cosine_similarity = F.cosine_similarity(x_hat_flat, support_set_flat, eps=eps)
-            logger.debug("cosine_similarity.shape: {}".format(cosine_similarity.shape))
-            similarities.append(cosine_similarity)
-        similarities = torch.stack(similarities)
-        logger.debug("similarities.shape: {}".format(similarities.shape))
-        # logger.debug(similarities)
-        # logger.debug(similarities.shape)
-        if normalize:
-            similarities = torch.add(similarities,1)
-            similarities = torch.mul(similarities,0.5)
-            # logger.debug(similarities)
-            # logger.debug(similarities.shape)
-        return similarities
 
     def flatten_except_batchdim(self, tensor_data, batch_dim=0):
         """
@@ -113,30 +68,88 @@ class PairCosineSim(nn.Module):
 
         return cosine_sim
 
+    def forward(self, support_set, X_hats, normalize=False, dim=0):
+        """
+        Calculates pairwise cosine similarity of support sets with target sample.
+
+        :param dim:
+        :param normalize: Whether to normalize the matrix to range: (0,1) from (-1,+1)
+        :param support_set: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
+        :param X_hats: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]
+        :return: Tensor with cosine similarities of shape [batch_size, target_size, support_size]
+        """
+        eps = 1e-10
+        batch_x_hats_similarities = []
+        # logger.debug((support_set.shape,X_hats.shape))
+        for i in np.arange(X_hats.size(0)):
+            x_hats_similarities = []
+            for j in np.arange(X_hats.size(1)):
+                # logger.debug((X_hats[i,j,:], support_set[i,:,:]))
+                # logger.debug((X_hats[i,j,:].shape, support_set[i,:,:].shape))
+                x_hat_similarities = F.cosine_similarity(X_hats[i,j,:].unsqueeze(0), support_set[i,:,:],eps=eps)
+                # logger.debug("x_hat_similarities: {}".format(x_hat_similarities))
+                # logger.debug("x_hat_similarities.shape: {}".format(x_hat_similarities.shape))
+                x_hats_similarities.append(x_hat_similarities)
+            batch_x_hat_similarities = torch.stack(x_hats_similarities)
+            # logger.debug("batch_x_hat_similarities.shape: {}".format(batch_x_hat_similarities.shape))
+            batch_x_hats_similarities.append(batch_x_hat_similarities)
+        # logger.debug("batch_x_hats_similarities: {}".format(batch_x_hats_similarities))
+        batch_x_hats_similarities = torch.stack(batch_x_hats_similarities)
+        # logger.debug("batch_x_hats_similarities.shape: {}".format(batch_x_hats_similarities.shape))
+        if normalize:
+            batch_x_hats_similarities = torch.add(batch_x_hats_similarities,1)
+            batch_x_hats_similarities = torch.mul(batch_x_hats_similarities,0.5)
+        # logger.debug(batch_x_hats_similarities)
+        logger.debug(batch_x_hats_similarities.shape)
+        return batch_x_hats_similarities
+
+    def forward2(self, support_set, input_image):
+
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param support_set: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, 64]
+        :param input_image: The embedding of the target image, tensor of shape [batch_size, 64]
+        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        """
+        logger.debug(("support_set.shape,input_image.shape: ",support_set.shape,input_image.shape))
+        eps = 1e-10
+        similarities = []
+        for support_image in support_set:
+            logger.debug(("support_image.shape: ",support_image.shape))
+            sum_support = torch.sum(torch.pow(support_image, 2), 1)
+            support_magnitude = sum_support.clamp(eps, float("inf")).rsqrt()
+            dot_product = input_image.unsqueeze(1).bmm(support_image.unsqueeze(2)).squeeze()
+            cosine_similarity = dot_product * support_magnitude
+            logger.debug(("cosine_similarity.shape: ",cosine_similarity.shape))
+            similarities.append(cosine_similarity)
+        similarities = torch.stack(similarities)
+        logger.debug(("similarities.shape: ",similarities.shape))
+        return similarities
+
 
 if __name__ == '__main__':
     a = torch.tensor([[[1., 0.4],
-                       [1., 1.]],
-                      [[1., 0.4],
+                       [1., 1.],
                        [0., 1.5]],
-                      [[1., 0.4],
-                       [1., 1.5]]])
+                      [[1., 0.6],
+                       [1., 1.],
+                       [0., 1.5]]])
 
     b = torch.tensor([[[1., 0.4],
-                       [0., 1.5]],
-                      [[1., 0.4],
+                       [1., 1.5]],
+                      [[1., 0.7],
                        [1., 1.5]]])
 
     output = torch.tensor([[0.8103, 1.0000, 0.8793],
                            [0.9804, 0.8793, 1.0000]])
 
-    # a = torch.rand(10,2,3)
-    # b = torch.rand(2,2,3)
-    logger.debug(a)
+    a = torch.rand(5, 8, 7)
+    b = torch.rand(5, 2, 7)
+    # logger.debug(a)
     logger.debug(a.shape)
-    logger.debug(b)
+    # logger.debug(b)
     logger.debug(b.shape)
     test_DN = PairCosineSim()
-    sim = test_DN.forward(a, b, dim=1)
-    logger.debug(sim.shape)
+    sim = test_DN.forward(a, b)
     logger.debug(sim)
+    logger.debug(sim.shape)

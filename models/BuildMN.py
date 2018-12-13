@@ -80,6 +80,7 @@ class BuildMN:
         self.lr = lr
         # self.current_lr = 1e-03
         self.lr_decay = lr_decay
+        self.input_size = input_size
         self.weight_decay = weight_decay
         self.total_train_iter = 0
         self.match_net = MatchingNetwork(dropout=dropout,
@@ -95,10 +96,14 @@ class BuildMN:
             torch.cuda.manual_seed_all(seed=seed_val)
             self.match_net.cuda()
 
-    def run_training_epoch(self, total_train_batches, batch_size, iter=10, num_cat=5,):
+    def run_training_epoch(self, total_train_batches, batch_size=32, samples_per_category=10,num_cat=15):
         """
         Runs one training epoch.
 
+        :param input_size:
+        :param batch_size:
+        :param samples_per_category:
+        :param num_cat:
         :param total_train_batches: Number of batches to train.
         :return: mean_training_multilabel_margin_loss.
         """
@@ -108,27 +113,31 @@ class BuildMN:
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=total_train_batches) as pbar:
             for i in range(total_train_batches):  # 1 train epoch
-                x_hat, y_hot = self.cls.get_batches(iter=iter,num_cat=num_cat,batch_size=batch_size,mode="doc2vec")
-                # x_support, y_support_hot = self.cls.get_batches(iter=iter,num_cat=num_cat,batch_size=batch_size,mode="doc2vec")
-                x_support, y_support_hot = x_hat, y_hot
-                logger.info("Shapes: x_support [{}], y_support_hot [{}], x_hat [{}], y_hot [{}]"
-                            .format(x_support.shape, y_support_hot.shape, x_hat.shape, y_hot.shape))
+                x_supports, y_support_hots, x_targets, y_target_hots = self.cls.get_batches(batch_size=batch_size,
+                                                                                            categories_per_set=num_cat,
+                                                                                            samples_per_category=samples_per_category,
+                                                                                            mode="doc2vec",
+                                                                                            input_size=self.input_size)
+                logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
+                            .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
 
-                x_support = Variable(torch.from_numpy(x_support)).float()
-                y_support_hot = Variable(torch.from_numpy(y_support_hot), requires_grad=False).float()
-                x_hat = Variable(torch.from_numpy(x_hat)).float()
-                y_hot = Variable(torch.from_numpy(y_hot), requires_grad=False).float()
+                x_supports = Variable(torch.from_numpy(x_supports)).float()
+                y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
+                x_targets = Variable(torch.from_numpy(x_targets)).float()
+                y_target_hots = Variable(torch.from_numpy(y_target_hots), requires_grad=False).float()
 
                 # Adding dimention for sequence_length to feature vectors.
-                # x_support = torch.unsqueeze(x_support, 1)
-                # x_hat = torch.unsqueeze(x_hat, 1)
+                # x_supports = torch.unsqueeze(x_supports, 1)
+                # x_targets = torch.unsqueeze(x_targets, 1)
 
                 if self.cuda_available and self.use_cuda:
-                    cc_loss = self.match_net(x_support.cuda(), y_support_hot.cuda(),
-                                             x_hat.cuda(), y_hot.cuda(),batch_size=batch_size)
+                    cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                             x_targets.cuda(), y_target_hots.cuda(),
+                                             batch_size=batch_size)
                 else:
-                    cc_loss = self.match_net(x_support, y_support_hot,
-                                             x_hat, y_hot,batch_size=batch_size)
+                    cc_loss = self.match_net(x_supports, y_support_hots,
+                                             x_targets, y_target_hots,
+                                             batch_size=batch_size)
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable weights
@@ -169,10 +178,10 @@ class BuildMN:
 
         with tqdm.tqdm(total=total_val_batches) as pbar:
             self.cls.load_val()
-            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(batch_size=1,
-                                                                                         mode="doc2vec"):
+            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(samples_per_category=1,
+                                                                               mode="doc2vec"):
                 # for i in range(total_val_batches):  # validation epoch
-                #     x_support, y_support_hot, x_hat, y_target = self.data_loader.get_batch(batch_size=self.batch_size, data_type='val')
+                #     x_support, y_support_hot, x_hat, y_target = self.data_loader.get_supports(batch_size=self.batch_size, data_type='val')
 
                 x_support = Variable(torch.from_numpy(x_support), volatile=True).float()
                 y_support_hot = Variable(torch.from_numpy(y_support_hot), volatile=True).long()
@@ -207,10 +216,10 @@ class BuildMN:
         total_test_c_loss = 0.
         with tqdm.tqdm(total=total_test_batches) as pbar:
             self.cls.load_test()
-            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(batch_size=1,
-                                                                                         mode="doc2vec"):
+            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(samples_per_category=1,
+                                                                               mode="doc2vec"):
                 # for i in range(total_test_batches):
-                #     x_support, y_support_hot, x_hat, y_target = self.data_loader.get_batch(batch_size=self.batch_size, data_type='test')
+                #     x_support, y_support_hot, x_hat, y_target = self.data_loader.get_supports(batch_size=self.batch_size, data_type='test')
 
                 x_support = Variable(torch.from_numpy(x_support), volatile=True).float()
                 y_support_hot = Variable(torch.from_numpy(y_support_hot), volatile=True).long()
@@ -282,5 +291,5 @@ class BuildMN:
 if __name__ == '__main__':
     logger.debug("Building Model...")
     cls = BuildMN()
-    cls.prepare_mn()
-    cls.run_training_epoch(total_train_batches=1, batch_size=10)
+    cls.prepare_mn(input_size=7, hid_size=2, fce=False, batch_size=32)
+    cls.run_training_epoch(total_train_batches=1, batch_size=32, samples_per_category=4,num_cat=5)

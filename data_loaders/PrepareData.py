@@ -55,12 +55,7 @@ class PrepareData():
         self.categories_test = None
 
         if dataset_type == "html":
-            self.dataset = html.WIKI_HTML_Dataset(dataset_name=dataset_name, data_dir=self.dataset_dir,
-                                                  run_mode=run_mode)
-            # sentences = self.dataset.get_sentences()
-            # classes = self.dataset.get_classes()
-            # categories = self.dataset.get_categories()
-            # sentences, classes, categories = self.dataset.get_data()
+            self.dataset = html.WIKI_HTML_Dataset(dataset_name=dataset_name, data_dir=self.dataset_dir,run_mode=run_mode)
         elif dataset_type == "json":
             self.dataset = json.JSONLoader(dataset_name=dataset_name, data_dir=self.dataset_dir)
             # (sentences, classes), categories = self.dataset.get_data()
@@ -148,13 +143,13 @@ class PrepareData():
 
         :returns: Vector length, numpy.ndarray(batch_size, vec_len)
         """
-        self.num_chunks = num_chunks
         self.embedding_dim = embedding_dim
         self.text_encoder = TextEncoder()
 
         sentences = util.clean_sentences(sentences, specials="""_-@*#'"/\\""", replace='')
 
         if mode == "doc2vec":
+            logger.debug(self.embedding_dim)
             doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
                                                            seed=seed_val, negative=10,
                                                            doc2vec_dir=self.dataset_dir,
@@ -162,6 +157,7 @@ class PrepareData():
             vectors_dict = self.text_encoder.get_doc2vecs(sentences, doc2vec_model)
             return vectors_dict
         else:
+            self.num_chunks = num_chunks
             w2v_model = self.text_encoder.load_word2vec()
             return self.create_doc_vecs(sentences, w2v_model, mode)
 
@@ -177,16 +173,11 @@ class PrepareData():
         """
         oov_words = []  # To hold out-of-vocab words.
         docs_vecs = OrderedDict()
-        # logger.debug(sentences)
-        # logger.debug(sentences)
         for idx, doc in sentences.items():
             chunks = self.partition_doc(doc, mode)
-            # logger.debug(chunks)
             chunks = list(filter(None, chunks))  # Removing empty items.
-            # logger.debug(chunks)
             # logger.debug(len(chunks))
             for chunk in chunks:
-                # logger.debug(chunk)
                 # logger.debug(chunk, w2v_model.vocab)
                 avg_vec = None
                 for word in chunk:
@@ -204,9 +195,6 @@ class PrepareData():
                             avg_vec = new_oov_vec
                         else:
                             avg_vec = np.add(avg_vec, new_oov_vec)
-                        # logger.debug(avg_vec)
-                        # logger.debug(avg_vec.shape)
-                        # logger.debug(self.embedding_dim)
                         # logger.debug(avg_vec)
                 chunk_avg_vec = np.divide(avg_vec, float(len(chunk)))
                 if idx in docs_vecs:
@@ -267,9 +255,7 @@ class PrepareData():
         else:
             raise Exception("Unknown document partition mode: [{}]. \n"
                             "Available options: ['concat','word_avg','sentences','chunked (Default)']".format(mode))
-        # logger.debug(len(chunks))
-        chunks = list(filter(None, chunks))  # Removing empty items: ""
-        # logger.debug(len(chunks))
+        chunks = list(filter(None, chunks))  # Removes empty items, like: ""
         return chunks
 
     def normalization(self):
@@ -281,12 +267,10 @@ class PrepareData():
         self.std = np.std(self.x_train)
         self.max = np.max(self.x_train)
         self.min = np.min(self.x_train)
-        print("train_shape", self.x_train.shape, "test_shape", self.x_test.shape, "val_shape", self.x_val.shape)
-        # print("before_normalization", "mean", self.mean, "max", self.max, "min", self.min, "std", self.std)
+        logger.debug(("train_shape", self.x_train.shape, "test_shape", self.x_test.shape, "val_shape", self.x_val.shape))
         self.x_train = (self.x_train - self.mean) / self.std
         self.x_val = (self.x_val - self.mean) / self.std
         self.x_test = (self.x_test - self.mean) / self.std
-        # print("after_normalization", "mean", self.mean, "max", self.max, "min", self.min, "std", self.std)
 
     def create_multihot(self, batch_classes_dict):
         """
@@ -295,20 +279,69 @@ class PrepareData():
         :param batch_classes_dict:
         :return:
         """
-        # logger.debug(batch_classes_dict)
         classes_multihot = self.mlb.fit_transform(batch_classes_dict.values())
         return classes_multihot
 
-    def get_supports(self, support_size=32, mode="doc2vec"):
+    def get_support_cats(self, categories_per_set=5):
         """
-        Returns a batch of feature vectors and multi-hot classes of randomly selected support set.
+        Randomly selects [num_cat] number of classes from which support set will be created.
 
-        :return: Next batch of support set.
+        Will remove the selected classes from self.remain_cat_ids.
+        :param categories_per_set: Number of samples to draw.
+        :return:
         """
-        # logger.debug(sentences.keys())
+        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=categories_per_set,
+                                                                    remove_keys=False)
+        selected_cat_ids = [int(cat) for cat in selected_cat_ids]  # For some reason returned values are not int, converting to int.
+        return selected_cat_ids
+
+    def get_supports(self, support_cat_ids, cat2id_map=None, input_size=300, samples_per_category=4, mode="doc2vec", repeat_mode='append'):
+        """
+        Returns a batch of feature vectors and multi-hot classes.
+
+        :param repeat_mode: How to repeat sample if available data is less than samples_per_class. ["append (default)", "sample"].
+        :param cat2id_map: A dictionary of categories to sample mapping.
+        :return: Next batch
+        :param min_match: Minimum number of categories should match.
+        :param support_cat_ids:
+        :param samples_per_category:
+        :param mode:
+        """
+        # cat_selected_ids = OrderedDict()
+        selected_ids = []
+        if cat2id_map is None: cat2id_map = self.cat2id_map
+        for cat in support_cat_ids:
+            if len(cat2id_map[cat]) == samples_per_category:
+                selected_ids = selected_ids + cat2id_map[cat]
+            elif len(cat2id_map[cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
+                selected_ids = selected_ids + sample(cat2id_map[cat], k=samples_per_category)
+            else:  # Less than required, repeat the available classes.
+                selected_ids = selected_ids + cat2id_map[cat]
+                length = len(cat2id_map[cat])
+                if repeat_mode == "append":
+                    for i in range(samples_per_category - length):
+                        selected_ids.append(cat2id_map[cat][i % length])
+                elif repeat_mode == "sample":
+                    empty_count = samples_per_category - length
+                    for i in range(empty_count):  # Sampling [samples_per_category] number of elements from cat2id_map[cat].
+                        selected_ids.append(cat2id_map[cat][sample(range(length), 1)])
+                else:
+                    raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
+        sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes, selected_ids)
+        logger.debug(input_size)
+        x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, mode=mode)
+        y_target_hot = self.mlb.transform(classes_batch)
+        return x_target, y_target_hot
+
+    def get_targets(self, target_size=4, mode="doc2vec"):
+        """
+        Returns a batch of feature vectors and multi-hot classes of randomly selected targets.
+
+        :return: Next batch of targets.
+        """
         # remain_sample_ids = random.shuffle(list(sentences.keys()))
         if self.remain_sample_ids is not None:
-            _, batch_supports = util.get_batch_keys(self.remain_sample_ids, support_size, remove_keys=False)
+            _, batch_supports = util.get_batch_keys(self.remain_sample_ids, target_size, remove_keys=False)
             # logger.debug((self.remain_sample_ids, batch_supports))
             support_sentences_batch, support_classes_batch = util.create_batch(self.selected_sentences,
                                                                                self.selected_classes, batch_supports)
@@ -319,121 +352,50 @@ class PrepareData():
             logger.warn("No remain_sample_ids.")
             return
 
-    def get_support_cats(self, num_cat=5):
-        """
-        Randomly selects [num_cat] number of classes from which support set will be created.
-
-        Will remove the selected classes from self.remain_cat_ids.
-        :param num_cat: Number of samples to draw.
-        :return:
-        """
-        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=num_cat,
-                                                                    remove_keys=False)
-        # logger.debug(selected_cat_ids)
-        # logger.debug(num_cat)
-        selected_cat_ids = [int(cat) for cat in selected_cat_ids]  # For some reason returned values are not int.
-        return selected_cat_ids
-
-    def get_batch(self, support_cat_ids, cat2id_map=None, batch_size=2, mode="doc2vec", repeat_mode='append'):
-        """
-        Returns a batch of feature vectors and multi-hot classes.
-
-        :param repeat_mode: How to repeat sample if available data is less than batch_size. ["append (default)", "sample"].
-        :param cat2id_map: A dictionary of categories to sample mapping.
-        :return: Next batch
-        :param min_match: Minimum number of categories should match.
-        :param support_cat_ids:
-        :param batch_size:
-        :param mode:
-        """
-        # cat_selected_ids = OrderedDict()
-        selected_ids = []
-        if cat2id_map is None: cat2id_map = self.cat2id_map
-        for cat in support_cat_ids:
-            if len(cat2id_map[cat]) == batch_size:
-                selected_ids = selected_ids + cat2id_map[cat]
-                # for sid in cat2id_map[cat]:
-                #     selected_ids.append(sid)
-            elif len(cat2id_map[cat]) > batch_size:  # More than required, sample [batch_size] from the list.
-                # selected_keys = sample(cat2id_map[cat], k=batch_size)
-                selected_ids = selected_ids + sample(cat2id_map[cat], k=batch_size)
-                # for sid in selected_keys:
-                #     selected_ids.append(sid)
-            else:  # Less than required, repeat the available classes.
-                selected_ids = selected_ids + cat2id_map[cat]
-                length = len(cat2id_map[cat])
-                if repeat_mode == "append":
-                    for i in range(batch_size-length):
-                        selected_ids.append(cat2id_map[cat][i % length])
-                elif repeat_mode == "sample":
-                    empty_count = batch_size - length
-                    for i in range(empty_count):  # Sampling [batch_size] number of elements from cat2id_map[cat].
-                        selected_ids.append(cat2id_map[cat][sample(range(length), 1)])
-                else:
-                    raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
-        sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes, selected_ids)
-        x_target = self.txt2vec(sentences_batch, mode=mode)
-        y_target_hot = self.mlb.transform(classes_batch)
-        return x_target, y_target_hot
-
-    def get_batches(self, iter=32, num_cat=5, batch_size=25, mode="doc2vec"):
+    def get_batches(self, batch_size=32,input_size=300,categories_per_set=5, samples_per_category=4, mode="doc2vec"):
         """
         Returns an iterator over data.
 
-        :param num_cat:
-        :param min_match:
         :param batch_size:
+        :param categories_per_set:
+        :param min_match:
+        :param samples_per_category:
         :param mode:
         :returns: An iterator over data.
         """
         # logger.debug(self.remain_sample_ids)
-        support_cat_ids = self.get_support_cats(num_cat=num_cat)
+        support_cat_ids = self.get_support_cats(categories_per_set=categories_per_set)
         support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
-        for a in support_cat_ids:
-            support_cat_ids_list.append([a])
+        for ids in support_cat_ids:
+            support_cat_ids_list.append([ids])
         self.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
-        # num_chunks = len(self.remain_cat_ids) // num_cat
-        # logger.info((self.remain_sample_ids,batch_size))
-        # logger.debug(num_chunks)
         x_supports = []
         y_support_hots = []
-        for i in range(iter):
-            x_target, y_target_hot = self.get_batch(support_cat_ids, batch_size=batch_size, mode=mode)
-            # logger.debug(x_target.shape)
-            # logger.debug(y_target_hot.shape)
-            # x_support, y_support_hot = self.get_supports(support_size=batch_size, mode=mode)
-            # yield x_target, y_target_hot, x_support, y_support_hot
-            x_supports.append(x_target)
-            y_support_hots.append(y_target_hot)
+        x_targets = []
+        y_target_hots = []
+        for i in range(batch_size):
+            x_support, y_support_hot = self.get_supports(support_cat_ids, samples_per_category=samples_per_category, mode=mode, input_size=input_size)
+            sel_cat = sample(support_cat_ids, k=1)
+            # logger.debug(sel_cat)
+            x_target, y_target_hot = self.get_supports(sel_cat, samples_per_category=samples_per_category, mode=mode, input_size=input_size)
+            # logger.debug(x_support.shape)
+            # logger.debug(y_support_hot.shape)
+            x_supports.append(x_support)
+            y_support_hots.append(y_support_hot)
+            x_targets.append(x_target)
+            y_target_hots.append(y_target_hot)
         x_supports = np.stack(x_supports)
         y_support_hots = np.stack(y_support_hots)
-        return x_supports, y_support_hots
+        x_targets = np.stack(x_targets)
+        y_target_hots = np.stack(y_target_hots)
+        return x_supports, y_support_hots, x_targets, y_target_hots
 
 
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
     cls = PrepareData(run_mode="train")
-    supports, hots = cls.get_batches(iter=10, num_cat=5, batch_size=7)
-    logger.debug(supports.shape)
-    logger.debug(hots.shape)
-    exit(0)
-    selected_class_keys = cls.get_support_cats(num_cat=15)
-    selected_class_keys2 = []
-    for a in selected_class_keys:
-        selected_class_keys2.append([a])
-    selected_class_hot = cls.mlb.fit_transform(selected_class_keys2)
-    x_target, y_target_hot = cls.get_batch(selected_class_keys, batch_size=6, mode="doc2vec")
-    logger.debug(x_target.shape)
-    logger.debug(y_target_hot.shape)
-    exit(0)
-    for x_target, y_target_hot, x_support, y_support_hot in cls.get_batches(batch_size=25, mode="doc2vec"):
-        # logger.debug(cls.remain_sample_ids)
-        # logger.debug(x_target)
-        # logger.debug(y_target_hot)
-        # logger.debug(x_support)
-        # logger.debug(y_support_hot)
-        logger.debug(x_target.shape)
-        logger.debug(y_target_hot.shape)
-        logger.debug(x_support.shape)
-        logger.debug(y_support_hot.shape)
-        # logger.debug(cls.remain_sample_ids)
+    x_supports, y_support_hots, x_targets, y_target_hots = cls.get_batches(batch_size=32, categories_per_set=5, samples_per_category=4)
+    logger.debug(x_supports.shape)
+    logger.debug(y_support_hots.shape)
+    logger.debug(x_targets.shape)
+    logger.debug(y_target_hots.shape)

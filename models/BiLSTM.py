@@ -26,7 +26,7 @@ from logger.logger import logger
 
 
 class BiLSTM(nn.Module):
-    def __init__(self, input_size, hid_size, num_layers=1, dropout=0.2, bidirectional=True, bias=True, use_cuda=True):
+    def __init__(self, input_size, hid_size, num_layers=1, dropout=0.2, bidirectional=True, bias=True, use_cuda=False):
         """
         Initializes a multi layer bidirectional LSTM based on parameter values.
 
