@@ -17,6 +17,8 @@ __variables__   :
 __methods__     :
 """
 
+import numpy as np
+import torch
 import torch.nn as nn
 
 from logger.logger import logger
@@ -28,6 +30,32 @@ class Attn(nn.Module):
         super(Attn, self).__init__()
 
     def forward(self, similarities, support_set_y, dim=1):
+        """
+        Produces pdfs over the support set classes for the target samples.
+
+        :param dim: Dimension along which Softmax will be computed (so every slice along dim will sum to 1).
+        :param similarities: A tensor with cosine similarities of size [batch_size, sequence_length]
+        :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
+        :return: Softmax pdf
+        """
+        logger.info("(similarities.shape: [{}], [{}] :support_set_y.shape)".format(similarities.shape, support_set_y.shape))
+        softmax = nn.Softmax(dim=dim)
+        softmax_similarities = softmax(similarities)
+        x_hats_preds = []
+        # logger.debug(softmax_similarities)
+        # logger.debug(softmax_similarities.shape)
+        for j in np.arange(softmax_similarities.size(1)):
+            softmax_similarities_unsqueeze = softmax_similarities[:,j,:].unsqueeze(1)
+            logger.debug("softmax_similarities_unsqueeze.shape: {}".format(softmax_similarities_unsqueeze.shape))
+            support_set_y_bmm = softmax_similarities_unsqueeze.bmm(support_set_y)
+            logger.debug("support_set_y_bmm.shape: {}".format(support_set_y_bmm.shape))
+            x_hat_pred = support_set_y_bmm.squeeze()
+            x_hats_preds.append(x_hat_pred)
+        x_hats_preds = torch.stack(x_hats_preds,dim=1)
+        logger.debug("x_hats_preds.shape: {}".format(x_hats_preds.shape))
+        return x_hats_preds
+
+    def forward2(self, similarities, support_set_y, dim=1):
         """
         Produces pdfs over the support set classes for the target samples.
 
@@ -82,9 +110,10 @@ if __name__ == '__main__':
     y = torch.tensor([[1., 0.],
                       [0., 1.],
                       [1., 0.]])
-    y = torch.ones(32, 25, 5)
+    y = torch.ones(32, 20, 5)
     logger.debug("y.shape: {}".format(y.shape))
     test_attn = Attn()
     result = test_attn(sim, y)
     # logger.info("result: {}".format(result))
+    logger.info("result.shape: {}".format(result))
     logger.info("result.shape: {}".format(result.shape))

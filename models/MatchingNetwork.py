@@ -19,6 +19,7 @@ __methods__     :
 
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 from logger.logger import logger
 from models import Attn as A
@@ -65,7 +66,7 @@ class MatchingNetwork(nn.Module):
         self.cosine_dis = C.PairCosineSim()
         self.attn = A.Attn()
 
-    def forward(self, support_set, support_set_hot, x_hat, x_hat_hot, batch_size=64):
+    def forward(self, support_set, support_set_hot, x_hats, x_hats_hots, batch_size=64):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
@@ -76,16 +77,16 @@ class MatchingNetwork(nn.Module):
         :param support_set_hot: A tensor containing the support set labels.
             [batch_size, sequence_size, n_classes]
             torch.Size([32, 25, 5])
-        :param x_hat: A tensor containing the target sample (sample to produce label for).
+        :param x_hats: A tensor containing the target sample (sample to produce label for).
             [batch_size, n_channels, 28]
             torch.Size([32, 5, 1, 28])
-        :param x_hat_hot: A tensor containing the target label.
+        :param x_hats_hots: A tensor containing the target label.
             [batch_size, 1]
             torch.Size([32, 5])
         :return:
         """
-        logger.debug("support_set: {}, support_set_hot: {}, x_hat: {}, x_hat_hot: {}".format(
-              support_set.shape, support_set_hot.shape, x_hat.shape, x_hat_hot.shape))
+        logger.debug("support_set: {}, support_set_hot: {}, x_hats: {}, x_hats_hots: {}".format(
+              support_set.shape, support_set_hot.shape, x_hats.shape, x_hats_hots.shape))
         # produce embeddings for support set samples
         logger.debug(support_set.shape)
         encoded_supports = self.g(support_set, batch_size=batch_size)
@@ -98,7 +99,7 @@ class MatchingNetwork(nn.Module):
         # encoded_supports = torch.stack(encoded_supports)
 
         # produce embeddings for target samples
-        encoded_x_hat = self.g(x_hat, batch_size=batch_size)
+        encoded_x_hat = self.g(x_hats, batch_size=batch_size)
         logger.debug(encoded_x_hat.shape)
         if self.fce:
             logger.debug(encoded_supports.shape)
@@ -112,14 +113,14 @@ class MatchingNetwork(nn.Module):
         # similarities = similarities.t()  # TODO: need to transpose?
 
         # produce predictions for target probabilities
-        preds = self.attn(similarities, support_set_y=support_set_hot)  # batch_size x Multi-hot vector size == x_hat_hot.shape
-        logger.debug(preds)
-        logger.debug(preds.shape)
+        x_hats_preds = self.attn(similarities, support_set_y=support_set_hot)  # batch_size x Multi-hot vector size == x_hats_hots.shape
+        logger.debug(x_hats_preds)
+        logger.debug(x_hats_preds.shape)
 
-        # assert preds.shape == x_hat_hot.shape, "preds.shape ({}) == ({}) x_hat_hot.shape".format(preds.shape, x_hat_hot.shape)
+        # assert x_hats_preds.shape == x_hats_hots.shape, "x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape)
 
         # calculate accuracy and crossentropy loss
-        values, indices = preds.max(1)
+        values, indices = x_hats_preds.max(1)
         # logger.debug(values)
         # logger.debug(values.shape)
         # logger.debug(indices)
@@ -127,12 +128,17 @@ class MatchingNetwork(nn.Module):
         # logger.debug(indices.squeeze())
         # logger.debug(indices.squeeze().shape)
 
-        # accuracy = torch.mean((indices.squeeze() == x_hat_hot).float())
-        # logger.info("preds.shape ({}) == ({}) x_hat_hot.shape".format(preds, x_hat_hot))
-        logger.info("preds.shape ({}) == ({}) x_hat_hot.shape".format(preds.shape, x_hat_hot.shape))
-        crossentropy_loss = F.multilabel_margin_loss(preds, x_hat_hot.long())
+        # accuracy = torch.mean((indices.squeeze() == x_hats_hots).float())
+        # logger.info("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds, x_hats_hots))
+        logger.info("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape))
 
-        return crossentropy_loss / x_hat.size(1)
+        # Need to calculate loss for each sample but for whole batch.
+        crossentropy_loss_x_hats = 0
+        for j in np.arange(x_hats_preds.size(1)):
+            crossentropy_loss_x_hats += F.multilabel_margin_loss(x_hats_preds[:,j,:], x_hats_hots.long()[:, j, :])
+        crossentropy_loss = crossentropy_loss_x_hats / x_hats.size(1)
+
+        return crossentropy_loss
 
 
 if __name__ == '__main__':

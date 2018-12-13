@@ -138,6 +138,9 @@ class BuildMN:
                     cc_loss = self.match_net(x_supports, y_support_hots,
                                              x_targets, y_target_hots,
                                              batch_size=batch_size)
+                logger.debug(cc_loss)
+                logger.debug(cc_loss.shape)
+                logger.debug(cc_loss.item())
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable weights
@@ -153,11 +156,11 @@ class BuildMN:
                 # update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
 
-                iter_out = "tr_loss: {}".format(cc_loss.data[0])
+                iter_out = "tr_loss: {}".format(cc_loss.item())
                 pbar.set_description(iter_out)
 
                 pbar.update(1)
-                total_c_loss += cc_loss.data[0]
+                total_c_loss += cc_loss.item()
 
                 self.total_train_iter += 1
                 if self.total_train_iter % 2000 == 0:
