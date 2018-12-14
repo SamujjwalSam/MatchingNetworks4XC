@@ -30,6 +30,10 @@ from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
 from utils import util
 
+# import warnings
+# from sklearn.exceptions import Warning
+# warnings.filterwarnings(action='ignore', category=UserWarning)
+
 seed_val = 0
 random.seed(seed_val)
 np.random.seed(seed_val)  # for reproducibility
@@ -38,8 +42,8 @@ np.random.seed(seed_val)  # for reproducibility
 class PrepareData():
     """Loads datasets and prepare data into proper format."""
 
-    def __init__(self, dataset_type="html", dataset_name="Wiki10-31k", run_mode="val",
-                 dataset_dir="D:\Datasets\Extreme Classification\Wiki10-31k"):
+    def __init__(self, dataset_type="html", dataset_name="Wiki10-31K", run_mode="val",
+                 dataset_dir="D:\Datasets\Extreme Classification\Wiki10-31K"):
         self.dataset_name = dataset_name
         self.dataset_dir = dataset_dir
         self.run_mode = run_mode
@@ -53,18 +57,19 @@ class PrepareData():
         self.sentences_test = None
         self.classes_test = None
         self.categories_test = None
+        self.doc2vec_model = None
 
         if dataset_type == "html":
-            self.dataset = html.WIKI_HTML_Dataset(dataset_name=dataset_name, data_dir=self.dataset_dir,run_mode=run_mode)
+            self.dataset = html.WIKI_HTML_Dataset(dataset_name=self.dataset_name, data_dir=self.dataset_dir,run_mode=run_mode)
         elif dataset_type == "json":
-            self.dataset = json.JSONLoader(dataset_name=dataset_name, data_dir=self.dataset_dir)
+            self.dataset = json.JSONLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir)
             # (sentences, classes), categories = self.dataset.get_data()
         elif dataset_type == "txt":
-            self.dataset = txt.TXTLoader(dataset_name=dataset_name, data_dir=self.dataset_dir)
+            self.dataset = txt.TXTLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir)
             # (sentences, classes), categories = self.dataset.get_data()
         else:
             raise Exception("Dataset type for dataset [{}] not found. \n"
-                            "Possible reasons: Dataset not added in the config file.".format(dataset_name))
+                            "Possible reasons: Dataset not added in the config file.".format(self.dataset_name))
 
         if run_mode == "train": self.load_train()
         if run_mode == "val": self.load_val()
@@ -149,12 +154,13 @@ class PrepareData():
         sentences = util.clean_sentences(sentences, specials="""_-@*#'"/\\""", replace='')
 
         if mode == "doc2vec":
-            logger.debug(self.embedding_dim)
-            doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
-                                                           seed=seed_val, negative=10,
-                                                           doc2vec_dir=self.dataset_dir,
-                                                           doc2vec_model_file=self.dataset_name + "_doc2vec")
-            vectors_dict = self.text_encoder.get_doc2vecs(sentences, doc2vec_model)
+            # logger.debug(self.embedding_dim)
+            if self.doc2vec_model is None:
+                self.doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
+                                                               seed=seed_val, negative=10,
+                                                               doc2vec_dir=self.dataset_dir,
+                                                               doc2vec_model_file=self.dataset_name + "_doc2vec")
+            vectors_dict = self.text_encoder.get_doc2vecs(sentences, self.doc2vec_model)
             return vectors_dict
         else:
             self.num_chunks = num_chunks
@@ -186,7 +192,7 @@ class PrepareData():
                             avg_vec = w2v_model[word]
                         else:
                             avg_vec = np.add(avg_vec, avg_vec)
-                        # logger.info(w2v_model[word].shape)
+                        # logger.debug(w2v_model[word].shape)
                     else:
                         new_oov_vec = np.random.uniform(-0.5, 0.5, self.embedding_dim)
                         w2v_model.add(word, new_oov_vec)
@@ -311,6 +317,7 @@ class PrepareData():
         selected_ids = []
         if cat2id_map is None: cat2id_map = self.cat2id_map
         for cat in support_cat_ids:
+            logger.debug((cat2id_map,cat,samples_per_category))
             if len(cat2id_map[cat]) == samples_per_category:
                 selected_ids = selected_ids + cat2id_map[cat]
             elif len(cat2id_map[cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
@@ -328,7 +335,7 @@ class PrepareData():
                 else:
                     raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
         sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes, selected_ids)
-        logger.debug(input_size)
+        # logger.debug(input_size)
         x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, mode=mode)
         y_target_hot = self.mlb.transform(classes_batch)
         return x_target, y_target_hot

@@ -26,7 +26,7 @@ from logger.logger import logger
 
 
 class BiLSTM(nn.Module):
-    def __init__(self, input_size, hid_size, num_layers=1, dropout=0.2, bidirectional=True, bias=True, use_cuda=False):
+    def __init__(self, input_size, hid_size, num_layers=1, dropout=0.2, bidirectional=True, bias=True, use_cuda=True):
         """
         Initializes a multi layer bidirectional LSTM based on parameter values.
 
@@ -72,11 +72,12 @@ class BiLSTM(nn.Module):
         :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
         """
         self.batch_size = batch_size
-        logger.debug(batch_size)
+        # logger.debug(batch_size)
         num_directions = 2  # For bidirectional, num_layers should be multiplied by 2.
         if not self.bidirectional:
             num_directions = 1
 
+        # logger.debug("Use cuda? {}".format(self.use_cuda))
         if self.use_cuda and torch.cuda.is_available():
             c0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
                           requires_grad=requires_grad).cuda()
@@ -89,11 +90,11 @@ class BiLSTM(nn.Module):
             h0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
                           requires_grad=requires_grad)
         # logger.debug(self.lstm)
-        logger.debug((inputs.shape,h0.shape, c0.shape))
+        # logger.debug((inputs.shape,h0.shape, c0.shape))
         output, (hn, cn) = self.lstm(inputs, (h0, c0))
         if dropout_extrenal and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM uses dropout only on
             # last layer and if there is only one layer, dropout will not be used.
-            logger.debug("Applying dropout externally.")
+            logger.info("Applying dropout externally.")
             # logger.debug(output)
             output = F.dropout(output, p=dropout, training=training, inplace=False)
         # logger.debug(output)

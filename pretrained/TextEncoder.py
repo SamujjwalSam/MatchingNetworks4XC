@@ -132,7 +132,6 @@ class TextEncoder(object):
 
     def load_doc2vec(self, documents, vector_size=100, window=2, min_count=1, workers=4, seed=seed_val, negative=10,
                      doc2vec_dir="", doc2vec_model_file="doc2vec_model_file", clean_tmp=False, save_model=True):
-        full_model_name = doc2vec_model_file+str(vector_size)+str(window)+str(min_count)+str(negative)
         """
         Generates vectors from documents.
         https://radimrehurek.com/gensim/models/doc2vec.html
@@ -149,6 +148,7 @@ class TextEncoder(object):
         :param workers:
         :param seed:
         """
+        full_model_name = doc2vec_model_file+str(vector_size)+str(window)+str(min_count)+str(negative)
         if os.path.exists(os.path.join(doc2vec_dir, full_model_name)):
             logger.info("Loading doc2vec model from: [{}]".format(os.path.join(doc2vec_dir, full_model_name)))
             doc2vec_model = doc2vec.Doc2Vec.load(os.path.join(doc2vec_dir, full_model_name))
@@ -252,7 +252,7 @@ class TextEncoder(object):
         else:
             raise ValueError('Unknown pretrain model type: %s!' % model_type)
 
-        # logger.info(pretrain_model["hello"].shape)
+        # logger.debug(pretrain_model["hello"].shape)
         return pretrain_model
 
     def train_w2v(self,sentence_matrix, vocabulary_inv, embedding_dim=300, min_word_count=1, context=10):

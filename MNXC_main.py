@@ -28,6 +28,7 @@ from collections import OrderedDict
 from logger.logger import logger
 from utils import util
 from models.BuildMN import BuildMN
+
 # from pretrained.TextEncoder import TextEncoder
 # from neighborhood.neighborhood_graph import Neighborhood
 
@@ -79,31 +80,11 @@ TIME_STAMP = datetime.utcnow().isoformat()
 dataset_name, dataset_url, dataset_dir, train_path, test_path, solution_path, pretrain_dir = None, None, None, None, None, None, None
 seed_val = 42
 
+
 # np.random.seed(seed_val)
 # torch.manual_seed(seed_val)
 # torch.cuda.manual_seed_all(seed=seed_val)
 # Globals-----
-
-
-def read_config(args):
-    """
-    Reads config file and sets global values.
-
-    :param args:
-    """
-    config = util.load_json(args.config)
-
-    global dataset_name, dataset_url, dataset_dir, train_path, test_path, solution_path, pretrain_dir
-
-    dataset_name = config["data_loader"]["dataset_name"]
-    dataset_url = config["paths"]["dataset_url"]
-    dataset_dir = config["paths"]["dataset_dir"]
-    train_path = config["paths"]["train_dir"]
-    test_path = config["paths"]["test_dir"]
-    solution_path = config["paths"]["result_file"]
-    pretrain_dir = config["paths"]["pretrain_dir"]
-
-    return config
 
 
 def read_csv_pd(config):
@@ -227,13 +208,38 @@ def remove_dup_list(seq, case=False):  # Dave Kirby
 
 
 def main(args):
-    # config = read_config(args)
-    cls = BuildMN(dataset_name="Wiki10-31K")
-    # data_dict = cls.test_cosine()
-    # exit(0)
-    G, stats = cls.load_neighborhood_graph()
-    # stats = cls.plot_occurance(list(stats["degree_sequence"]))
-    logger.info("Neighborhood graph statistics: [{0}]".format(stats))
+    config = util.load_json(args.config, ext=False)
+    logger.debug("Config: [{}]".format(config))
+    plat = util.get_platform()
+
+    use_cuda = False
+    if plat == "Linux": use_cuda = True
+
+    cls = BuildMN(dataset_name=config["data"]["dataset_name"],
+                  dataset_dir=config["paths"]["dataset_dir"][plat],
+                  use_cuda=use_cuda)
+
+    cls.prepare_mn(num_categories=0,
+                   fce=True,
+                   input_size=config["model"]["input_size"],
+                   hid_size=config["model"]["hid_size"],
+                   lr=config["model"]["learning_rate"],
+                   lr_decay=config["model"]["lr_decay"],
+                   weight_decay=config["model"]["weight_decay"],
+                   optim=config["model"]["optim"],
+                   dropout=config["model"]["dropout"])
+
+    num_epochs = config["model"]["num_epochs"]
+
+    for epoch in range(num_epochs):
+        train_epoch_loss = cls.run_training_epoch(total_train_batches=config["model"]["total_train_batches"],
+                                                  batch_size=config["model"]["batch_size"],
+                                                  samples_per_category=config["model"]["samples_per_category"],
+                                                  num_cat=config["model"]["num_cat"])
+
+        logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
+        val_epoch_loss = cls.run_validation_epoch(total_val_batches=1)
+        logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
 
 
 if __name__ == '__main__':
@@ -271,9 +277,9 @@ if __name__ == '__main__':
                         help='PyTorch device string <device_name>:<device_id>')
     parser.add_argument('--seed', type=int, default=None,
                         help='Manually set the seed for the experiments for reproducibility.')
-    parser.add_argument('--batch_size', type=int, default=64,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size for training.')
-    parser.add_argument('--epochs', type=int, default=10,
+    parser.add_argument('--epochs', type=int, default=20,
                         help='Number of epochs to train.')
     parser.add_argument('--interval', type=int, default=-1,
                         help='Interval between two status updates during training.')
@@ -288,5 +294,5 @@ if __name__ == '__main__':
                         help='Options to save the model partially or completely.')
 
     args = parser.parse_args()
-    logger.debug("Arguments:%s".format(args))
+    logger.debug("Arguments: {}".format(args))
     main(args)

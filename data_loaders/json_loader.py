@@ -42,7 +42,7 @@ class JSONLoader(torch.utils.data.Dataset):
                   "classes":""
                  }
     """
-    def __init__(self, dataset_name="Wiki10-31k", run_mode="train",data_dir: str = "D:\Datasets\Extreme Classification"):
+    def __init__(self, dataset_name="Wiki10-31K", run_mode="train",data_dir: str = "D:\Datasets\Extreme Classification"):
         """
         Initializes the html loader.
 
@@ -115,7 +115,7 @@ class JSONLoader(torch.utils.data.Dataset):
             categories_cleaned, categories_dup_dict = util.clean_categories(categories)
             # logger.debug(type(categories_dup_dict))
             if categories_dup_dict:
-                util.save_json(categories_dup_dict, self.dataset_name + "categories_dup_dict", file_path=self.dataset_dir)  # Storing the duplicate categories for future dedup removal.
+                util.save_json(categories_dup_dict, self.dataset_name + "_categories_dup_dict", file_path=self.dataset_dir)  # Storing the duplicate categories for future dedup removal.
                 self.classes = util.dedup_data(self.classes, categories_dup_dict)
             sentences_cleaned = util.clean_sentences(sentences)
             self.sentences = sentences_cleaned

@@ -100,31 +100,8 @@ class PairCosineSim(nn.Module):
             batch_x_hats_similarities = torch.add(batch_x_hats_similarities,1)
             batch_x_hats_similarities = torch.mul(batch_x_hats_similarities,0.5)
         # logger.debug(batch_x_hats_similarities)
-        logger.debug(batch_x_hats_similarities.shape)
+        # logger.debug(batch_x_hats_similarities.shape)
         return batch_x_hats_similarities
-
-    def forward2(self, support_set, input_image):
-
-        """
-        Produces pdfs over the support set classes for the target set image.
-        :param support_set: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, 64]
-        :param input_image: The embedding of the target image, tensor of shape [batch_size, 64]
-        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
-        """
-        logger.debug(("support_set.shape,input_image.shape: ",support_set.shape,input_image.shape))
-        eps = 1e-10
-        similarities = []
-        for support_image in support_set:
-            logger.debug(("support_image.shape: ",support_image.shape))
-            sum_support = torch.sum(torch.pow(support_image, 2), 1)
-            support_magnitude = sum_support.clamp(eps, float("inf")).rsqrt()
-            dot_product = input_image.unsqueeze(1).bmm(support_image.unsqueeze(2)).squeeze()
-            cosine_similarity = dot_product * support_magnitude
-            logger.debug(("cosine_similarity.shape: ",cosine_similarity.shape))
-            similarities.append(cosine_similarity)
-        similarities = torch.stack(similarities)
-        logger.debug(("similarities.shape: ",similarities.shape))
-        return similarities
 
 
 if __name__ == '__main__':

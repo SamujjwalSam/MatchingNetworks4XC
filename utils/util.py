@@ -160,6 +160,24 @@ def clean_categories(categories: dict, specials="""_-@""", replace=' '):
     return category_cleaned_dict, dup_cat_map
 
 
+def clean_sentences_dict(sentences: dict, specials="""_-@*#'"/\\""", replace=' '):
+    """Cleans sentences dict and returns dict of cleaned sentences.
+
+    :param: sentences: dict of idx:label
+    :returns:
+        sents_cleaned_dict : contains cleaned sentences.
+    """
+    # TODO: Remove all headings with "##"
+    # TODO: Remove ### From Wikipedia, the free encyclopedia \n Jump to: navigation, search
+    # TODO: Remove Repeated special characters like ####,     , ,, etc.
+    sents_cleaned_dict = OrderedDict()
+    trans_table = make_trans_table(specials=specials, replace=replace)
+    for idx,text in sentences.items():
+        label_clean = unidecode(str(text)).translate(trans_table)
+        sents_cleaned_dict[idx] = label_clean
+    return sents_cleaned_dict
+
+
 def clean_sentences(sentences: list, specials="""_-@*#'"/\\""", replace=' '):
     """Cleans sentences dict and returns dict of cleaned sentences.
 
@@ -201,9 +219,14 @@ def dedup_data(Y: dict, dup_cat_map: dict):
     :param dup_cat_map: {old_cat_id : new_cat_id}
     """
     for k, v in Y.items():
-        logger.debug(dup_cat_map.keys())
-        if v in list(dup_cat_map.keys()):
-            Y[k] = dup_cat_map[v]
+        # logger.debug(dup_cat_map.keys())
+        commons = set(v).intersection(set(dup_cat_map.keys()))
+        # logger.debug(commons)
+        if len(commons)>0:
+            for dup_key in commons:
+                dup_idx = v.index(dup_key)
+                # logger.debug((v,dup_key,dup_idx))
+                v[dup_idx] = dup_cat_map[dup_key]
     return Y
 
 
@@ -216,8 +239,11 @@ def inverse_dict_elm(labels: dict):
     """
     labels_inv = OrderedDict()
     for k, v in labels.items():
-        if v not in labels:  # check if key does not exist.
-            labels_inv[v] = k
+        # logger.debug(type(v))
+        if v not in labels_inv:  # check if key does not exist.
+            # logger.debug(type(v))
+            labels_inv[int(v)] = k
+    # logger.debug(labels_inv)
     return labels_inv
 
 
@@ -250,6 +276,22 @@ def get_dataset_path():
     logger.debug(str(platform.system()) + " os detected.")
 
     return dataset_path
+
+
+def get_platform():
+    """
+    Returns dataset path based on OS.
+
+    :return: Returns dataset path based on OS.
+    """
+    import platform
+
+    if platform.system() == 'Windows':
+        return platform.system()
+    elif platform.system() == 'Linux':
+        return platform.system()
+    else:  # OS X returns name 'Darwin'
+        return "OSX"
 
 
 def save_json(data, filename, file_path='', overwrite=False, indent=2, date_time_tag=''):
@@ -287,25 +329,33 @@ def save_json(data, filename, file_path='', overwrite=False, indent=2, date_time
         return False
 
 
-def load_json(filename, file_path='', date_time_tag=''):
+def load_json(filename, file_path='', date_time_tag='', ext=True):
     """
     Loads json file as python OrderedDict.
 
+    :param ext: Should extension be appended?
     :param filename:
     :param file_path:
     :param date_time_tag:
     :return: OrderedDict
     """
     # logger.debug("Reading JSON file: ",os.path.join(file_path,date_time_tag+filename+".json"))
-    if os.path.exists(os.path.join(file_path, date_time_tag + filename + ".json")):
-        with sopen(os.path.join(file_path, date_time_tag + filename + ".json"), encoding="utf-8") as file:
-            json_dict = OrderedDict(json.load(file))
-        file.close()
-        return json_dict
+    if ext:
+        if os.path.exists(os.path.join(file_path, date_time_tag + filename + ".json")):
+            with sopen(os.path.join(file_path, date_time_tag + filename + ".json"), encoding="utf-8") as file:
+                json_dict = OrderedDict(json.load(file))
+            file.close()
+            return json_dict
+        else:
+            logger.warning(
+                "Warning: Could not open file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".json")))
+            return False
     else:
-        logger.warning(
-            "Warning: Could not open file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".json")))
-        return False
+        if os.path.exists(os.path.join(file_path, date_time_tag + filename)):
+            with sopen(os.path.join(file_path, date_time_tag + filename),encoding="utf-8") as file:
+                json_dict = OrderedDict(json.load(file))
+            file.close()
+            return json_dict
 
 
 def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding="utf-8", date_time_tag='', verbose=False):

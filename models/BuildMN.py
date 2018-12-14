@@ -36,7 +36,7 @@ class BuildMN:
     and evaluation procedures.
     """
 
-    def __init__(self, cuda_available=None, use_cuda=False):
+    def __init__(self, dataset_dir, run_mode="train", dataset_type="html", dataset_name="Wiki10-31K",  cuda_available=None, use_cuda=False):
         """
         Initializes an BuildMN object. The BuildMN object takes care of setting up our experiment
         and provides helper functions such as run_training_epoch and run_validation_epoch to simplify out training
@@ -44,17 +44,20 @@ class BuildMN:
 
         :param data_loader: A data_loader provider class
         """
-        # self.data_loader = data_loader
-        self.use_cuda = use_cuda
         if cuda_available is None:
             self.cuda_available = torch.cuda.is_available()
         else:
             self.cuda_available = cuda_available
 
-        self.cls = PrepareData(run_mode="train")
+        self.use_cuda = use_cuda
 
-    def prepare_mn(self, input_size=300, hid_size=1, lr=1e-03, lr_decay=1e-6,
-                   weight_decay=1e-4, optim="adam", dropout=0.2, num_categories=0, fce=True, batch_size=64):
+        self.cls = PrepareData(run_mode=run_mode,
+                               dataset_type=dataset_type,
+                               dataset_name=dataset_name,
+                               dataset_dir=dataset_dir)
+
+    def prepare_mn(self, input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6,
+                   weight_decay=1e-4, optim="adam", dropout=0.2, num_categories=0, fce=True):
         """
         Builds the network with all required parameters.
 
@@ -75,7 +78,6 @@ class BuildMN:
         # self.classes_per_set = classes_per_set
         # self.samples_per_class = samples_per_class
         # self.dropout = torch.FloatTensor(dropout)
-        self.batch_size = batch_size
         self.optimizer = optim
         self.lr = lr
         # self.current_lr = 1e-03
@@ -89,14 +91,15 @@ class BuildMN:
                                          # num_samples_per_class=samples_per_class,
                                          num_categories=num_categories,
                                          input_size=input_size,
-                                         hid_size=hid_size)
+                                         hid_size=hid_size,
+                                         use_cuda=self.use_cuda)
         logger.info("Matching Network Summary: {}".format(self.match_net))
         if self.cuda_available and self.use_cuda:
             cudnn.benchmark = True
             torch.cuda.manual_seed_all(seed=seed_val)
             self.match_net.cuda()
 
-    def run_training_epoch(self, total_train_batches, batch_size=32, samples_per_category=10,num_cat=15):
+    def run_training_epoch(self, total_train_batches, batch_size=32, samples_per_category=20,num_cat=15):
         """
         Runs one training epoch.
 
@@ -108,8 +111,12 @@ class BuildMN:
         :return: mean_training_multilabel_margin_loss.
         """
         total_c_loss = 0.
-        logger.debug(batch_size)
+        self.batch_size = batch_size
+        self.samples_per_category = samples_per_category
+        self.num_cat = num_cat
+        # logger.debug(batch_size)
         # Create the optimizer
+        self.cls.load_train()
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=total_train_batches) as pbar:
             for i in range(total_train_batches):  # 1 train epoch
@@ -138,9 +145,9 @@ class BuildMN:
                     cc_loss = self.match_net(x_supports, y_support_hots,
                                              x_targets, y_target_hots,
                                              batch_size=batch_size)
-                logger.debug(cc_loss)
-                logger.debug(cc_loss.shape)
-                logger.debug(cc_loss.item())
+                # logger.debug(cc_loss)
+                # logger.debug(cc_loss.shape)
+                # logger.debug(cc_loss.item())
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable weights
@@ -170,10 +177,11 @@ class BuildMN:
         total_c_loss = total_c_loss / total_train_batches
         return total_c_loss
 
-    def run_validation_epoch(self, total_val_batches, batch_size):
+    def run_validation_epoch(self, total_val_batches):
         """
         Runs one validation epoch.
 
+        :param batch_size:
         :param total_val_batches: Number of batches to train on
         :return: mean_validation_categorical_crossentropy_loss
         """
@@ -181,22 +189,22 @@ class BuildMN:
 
         with tqdm.tqdm(total=total_val_batches) as pbar:
             self.cls.load_val()
-            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(samples_per_category=1,
-                                                                               mode="doc2vec"):
+            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(
+                    samples_per_category=self.samples_per_category):
                 # for i in range(total_val_batches):  # validation epoch
-                #     x_support, y_support_hot, x_hat, y_target = self.data_loader.get_supports(batch_size=self.batch_size, data_type='val')
+                #     x_support, y_support_hot, x_hat, y_hot = self.data_loader.get_supports(batch_size=self.batch_size, data_type='val')
 
                 x_support = Variable(torch.from_numpy(x_support), volatile=True).float()
-                y_support_hot = Variable(torch.from_numpy(y_support_hot), volatile=True).long()
+                y_support_hot = Variable(torch.from_numpy(y_support_hot), volatile=True)
                 x_hat = Variable(torch.from_numpy(x_hat), volatile=True).float()
-                y_target = Variable(torch.from_numpy(y_target), volatile=True).long()
+                y_hot = Variable(torch.from_numpy(y_hot), volatile=True)
 
                 if self.cuda_available and self.use_cuda:
                     cc_loss = self.match_net(x_support.cuda(), y_support_hot.cuda(),
-                                             x_hat.cuda(), y_target.cuda(),batch_size=batch_size)
+                                             x_hat.cuda(), y_hot.cuda(),batch_size=self.batch_size)
                 else:
                     cc_loss = self.match_net(x_support, y_support_hot,
-                                             x_hat, y_target,batch_size=batch_size)
+                                             x_hat, y_hot,batch_size=self.batch_size)
 
                 iter_out = "val_loss: {}".format(cc_loss.data[0])
                 pbar.set_description(iter_out)
@@ -208,10 +216,11 @@ class BuildMN:
 
         return total_val_c_loss
 
-    def run_testing_epoch(self, total_test_batches, batch_size):
+    def run_testing_epoch(self, total_test_batches):
         """
         Runs one testing epoch.
 
+        :param batch_size:
         :param total_test_batches: Number of batches to train on
         :param sess: Session object
         :return: mean_testing_categorical_crossentropy_loss
@@ -222,19 +231,19 @@ class BuildMN:
             for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(samples_per_category=1,
                                                                                mode="doc2vec"):
                 # for i in range(total_test_batches):
-                #     x_support, y_support_hot, x_hat, y_target = self.data_loader.get_supports(batch_size=self.batch_size, data_type='test')
+                #     x_support, y_support_hot, x_hat, y_hot = self.data_loader.get_supports(batch_size=self.batch_size, data_type='test')
 
                 x_support = Variable(torch.from_numpy(x_support), volatile=True).float()
                 y_support_hot = Variable(torch.from_numpy(y_support_hot), volatile=True).long()
                 x_hat = Variable(torch.from_numpy(x_hat), volatile=True).float()
-                y_target = Variable(torch.from_numpy(y_target), volatile=True).long()
+                y_hot = Variable(torch.from_numpy(y_hot), volatile=True).long()
 
                 if self.cuda_available and self.use_cuda:
                     cc_loss = self.match_net(x_support.cuda(), y_support_hot.cuda(),
-                                             x_hat.cuda(), y_target.cuda(),batch_size=batch_size)
+                                             x_hat.cuda(), y_hot.cuda(),batch_size=self.batch_size)
                 else:
                     cc_loss = self.match_net(x_support, y_support_hot,
-                                             x_hat, y_target,batch_size=batch_size)
+                                             x_hat, y_hot,batch_size=self.batch_size)
 
                 iter_out = "test_loss: {}".format(cc_loss.data[0])
                 pbar.set_description(iter_out)
@@ -294,5 +303,5 @@ class BuildMN:
 if __name__ == '__main__':
     logger.debug("Building Model...")
     cls = BuildMN()
-    cls.prepare_mn(input_size=7, hid_size=2, fce=False, batch_size=32)
-    cls.run_training_epoch(total_train_batches=1, batch_size=32, samples_per_category=4,num_cat=5)
+    cls.prepare_mn(input_size=300, hid_size=100, fce=True)
+    cls.run_training_epoch(total_train_batches=10, batch_size=32, samples_per_category=15,num_cat=25)

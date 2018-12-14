@@ -249,7 +249,7 @@ class Neighborhood(object):
             if len(t) == 1:
                 single_labels.append(i)
         if single_labels:
-            logger.info(len(single_labels),
+            logger.debug(len(single_labels),
                         'samples has only single category. These categories will not occur in the co-occurrence graph.')
         return len(single_labels)
 

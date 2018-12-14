@@ -22,19 +22,16 @@ import torch.nn.functional as F
 import numpy as np
 
 from logger.logger import logger
-from models import Attn as A
-from models import BiLSTM as B
-from models import PairCosineSim as C
-from models import EmbedText as E
+from models import Attn
+from models import BiLSTM
+from models import PairCosineSim
+from models import EmbedText
 
 
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
 
-    def __init__(self, input_size=28, hid_size=1, fce=True,
-                 # num_classes_per_set=5,
-                 # num_samples_per_class=1,
-                 num_categories=0, dropout=0.2):
+    def __init__(self, input_size=28, hid_size=1, fce=True,use_cuda=True,num_categories=0, dropout=0.2):
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 
@@ -56,15 +53,21 @@ class MatchingNetwork(nn.Module):
         # self.learning_rate = learning_rate
         self.fce = fce
 
-        self.g = E.EmbedText(num_layers=1, model_type="lstm",
-                             num_categories=num_categories,
-                             input_size=input_size,
-                             hid_size=hid_size,
-                             dropout=dropout)
+        self.g = EmbedText(num_layers=1,
+                           model_type="lstm",
+                           num_categories=num_categories,
+                           input_size=input_size,
+                           hid_size=hid_size,
+                           dropout=dropout,
+                           use_cuda=use_cuda)
         if self.fce:
-            self.lstm = B.BiLSTM(hid_size=hid_size, input_size=self.g.output_size, dropout=dropout)
-        self.cosine_dis = C.PairCosineSim()
-        self.attn = A.Attn()
+            self.lstm = BiLSTM(hid_size=hid_size,
+                               input_size=self.g.output_size,
+                               dropout=dropout,
+                               use_cuda=use_cuda)
+
+        self.cosine_dis = PairCosineSim.PairCosineSim()
+        self.attn = Attn()
 
     def forward(self, support_set, support_set_hot, x_hats, x_hats_hots, batch_size=64):
         """
@@ -86,11 +89,11 @@ class MatchingNetwork(nn.Module):
         :return:
         """
         logger.debug("support_set: {}, support_set_hot: {}, x_hats: {}, x_hats_hots: {}".format(
-              support_set.shape, support_set_hot.shape, x_hats.shape, x_hats_hots.shape))
+            support_set.shape, support_set_hot.shape, x_hats.shape, x_hats_hots.shape))
         # produce embeddings for support set samples
-        logger.debug(support_set.shape)
+        # logger.debug(support_set.shape)
         encoded_supports = self.g(support_set, batch_size=batch_size)
-        logger.debug(encoded_supports.shape)
+        # logger.debug(encoded_supports.shape)
         # encoded_supports = []
         # for i in np.arange(support_set.size(1)):
         #     logger.debug(support_set[:, i, :].shape)
@@ -100,22 +103,23 @@ class MatchingNetwork(nn.Module):
 
         # produce embeddings for target samples
         encoded_x_hat = self.g(x_hats, batch_size=batch_size)
-        logger.debug(encoded_x_hat.shape)
+        # logger.debug(encoded_x_hat.shape)
         if self.fce:
-            logger.debug(encoded_supports.shape)
+            # logger.debug(encoded_supports.shape)
             encoded_supports, hn, cn = self.lstm(encoded_supports, batch_size=batch_size)
             encoded_x_hat, hn, cn = self.lstm(encoded_x_hat, batch_size=batch_size)
 
-        logger.debug(encoded_supports.shape)
+        # logger.debug(encoded_supports.shape)
         # get similarity between support set embeddings and target
         similarities = self.cosine_dis(support_set=encoded_supports, X_hats=encoded_x_hat)
-        logger.debug(similarities.shape)
+        # logger.debug(similarities.shape)
         # similarities = similarities.t()  # TODO: need to transpose?
 
         # produce predictions for target probabilities
-        x_hats_preds = self.attn(similarities, support_set_y=support_set_hot)  # batch_size x Multi-hot vector size == x_hats_hots.shape
-        logger.debug(x_hats_preds)
-        logger.debug(x_hats_preds.shape)
+        x_hats_preds = self.attn(similarities,
+                                 support_set_y=support_set_hot)  # batch_size x Multi-hot vector size == x_hats_hots.shape
+        # logger.debug(x_hats_preds)
+        # logger.debug(x_hats_preds.shape)
 
         # assert x_hats_preds.shape == x_hats_hots.shape, "x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape)
 
@@ -129,13 +133,13 @@ class MatchingNetwork(nn.Module):
         # logger.debug(indices.squeeze().shape)
 
         # accuracy = torch.mean((indices.squeeze() == x_hats_hots).float())
-        # logger.info("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds, x_hats_hots))
-        logger.info("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape))
+        # logger.debug("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds, x_hats_hots))
+        # logger.debug("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape))
 
         # Need to calculate loss for each sample but for whole batch.
         crossentropy_loss_x_hats = 0
         for j in np.arange(x_hats_preds.size(1)):
-            crossentropy_loss_x_hats += F.multilabel_margin_loss(x_hats_preds[:,j,:], x_hats_hots.long()[:, j, :])
+            crossentropy_loss_x_hats += F.multilabel_margin_loss(x_hats_preds[:, j, :], x_hats_hots.long()[:, j, :])
         crossentropy_loss = crossentropy_loss_x_hats / x_hats.size(1)
 
         return crossentropy_loss
