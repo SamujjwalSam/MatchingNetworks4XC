@@ -317,7 +317,7 @@ class PrepareData():
         selected_ids = []
         if cat2id_map is None: cat2id_map = self.cat2id_map
         for cat in support_cat_ids:
-            logger.debug((cat2id_map,cat,samples_per_category))
+            # logger.debug((cat2id_map,cat,samples_per_category))
             if len(cat2id_map[cat]) == samples_per_category:
                 selected_ids = selected_ids + cat2id_map[cat]
             elif len(cat2id_map[cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.

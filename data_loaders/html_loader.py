@@ -54,7 +54,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         Initializes the html loader.
 
         Args:
-            data_dir : Path to the file containing the html files.
+            data_dir : Path to directory of the dataset.
             dataset_name : Name of the dataset.
         """
         super(WIKI_HTML_Dataset, self).__init__()
@@ -88,10 +88,11 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                 self.load_full_json()
         elif run_mode == "val":
             if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_val.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_val.json")):
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_val.json")) \
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_val.json")):
                 self.sentences_val = util.load_json(self.dataset_name + "_sentences_val", file_path=self.data_dir)
                 self.classes_val = util.load_json(self.dataset_name + "_classes_val", file_path=self.data_dir)
-                self.categories_train = util.load_json(self.dataset_name + "_categories_val", file_path=self.data_dir)
+                self.categories_val = util.load_json(self.dataset_name + "_categories_val", file_path=self.data_dir)
                 # self.split_data()
             else:
                 self.load_full_json()
