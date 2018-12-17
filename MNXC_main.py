@@ -18,9 +18,6 @@ __methods__     :
 """
 
 import os
-import pandas as pd
-# import ray.dataframe as pd
-
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from datetime import datetime
 from collections import OrderedDict
@@ -28,9 +25,6 @@ from collections import OrderedDict
 from logger.logger import logger
 from utils import util
 from models.BuildMN import BuildMN
-
-# from pretrained.TextEncoder import TextEncoder
-# from neighborhood.neighborhood_graph import Neighborhood
 
 """
 Variable naming:
@@ -75,27 +69,10 @@ https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-e
 """
 
 # Globals-----
-PLATFORM = 'win'
 TIME_STAMP = datetime.utcnow().isoformat()
-dataset_name, dataset_url, dataset_dir, train_path, test_path, solution_path, pretrain_dir = None, None, None, None, None, None, None
-seed_val = 42
 
 
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
 # Globals-----
-
-
-def read_csv_pd(config):
-    """
-    Loads csv files as pandas dataframe.
-
-    :param config:
-    :return:
-    """
-    tr = pd.read_csv(os.path.join(config["paths"]["dataset_dir"], config["paths"]["dataset_name"], "train.csv"))
-    return tr
 
 
 def read_fastai_csv(dataset_path="D:\\Datasets\\nlp", dataset_name="ag_news_csv", file_name="train.csv", tag="train"):
@@ -158,9 +135,9 @@ def download_fastai_dataset(config, dataset='ag_news_csv'):
     """
     # logger.debug(config["paths"]["dataset_url"], os.path.join(config["paths"]["dataset_dir"], config["paths"]["dataset_name"]))
     data = untar_data(url=config["paths"]["dataset_url"],
-                      fname=os.path.join(config["paths"]["dataset_dir"][PLATFORM],
+                      fname=os.path.join(config["paths"]["dataset_dir"][plat],
                                          config["data_loader"]["dataset_name"]),
-                      dest=config["paths"]["dataset_dir"][PLATFORM])
+                      dest=config["paths"]["dataset_dir"][plat])
     # logger.debug(data_loader)
     return data
 
@@ -199,14 +176,6 @@ def prepare_datasets(config, dataset='ag_news_csv'):
         return False
 
 
-def remove_dup_list(seq, case=False):  # Dave Kirby
-    """Removes duplicates from a list. Order preserving"""
-    seen = set()
-    if case: return [x.lower() for x in seq if
-                     x.lower() not in seen and not seen.add(x)]
-    return [x for x in seq if x not in seen and not seen.add(x)]
-
-
 def main(args):
     config = util.load_json(args.config, ext=False)
     logger.debug("Config: [{}]".format(config))
@@ -227,17 +196,18 @@ def main(args):
                    lr_decay=config["model"]["lr_decay"],
                    weight_decay=config["model"]["weight_decay"],
                    optim=config["model"]["optim"],
-                   dropout=config["model"]["dropout"])
+                   dropout=config["model"]["dropout"],
+                   batch_size=config["model"]["batch_size"],
+                   samples_per_category=config["model"]["samples_per_category"],
+                   num_cat=config["model"]["num_cat"])
 
     num_epochs = config["model"]["num_epochs"]
 
     for epoch in range(num_epochs):
-        train_epoch_loss = cls.run_training_epoch(total_train_batches=config["model"]["total_train_batches"],
-                                                  batch_size=config["model"]["batch_size"],
-                                                  samples_per_category=config["model"]["samples_per_category"],
-                                                  num_cat=config["model"]["num_cat"])
+        train_epoch_loss = cls.run_training_epoch(total_train_batches=config["model"]["total_train_batches"], )
 
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
+        logger.info("[{}] epochs of training completed. \nStarting Validation...".format(train_epoch_loss))
         val_epoch_loss = cls.run_validation_epoch(total_val_batches=1)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
 

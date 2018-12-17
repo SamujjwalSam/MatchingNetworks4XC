@@ -27,6 +27,8 @@ from models.MatchingNetwork import MatchingNetwork
 from data_loaders.PrepareData import PrepareData
 
 seed_val = 0
+torch.manual_seed(seed_val)
+torch.cuda.manual_seed_all(seed=seed_val)
 
 
 class BuildMN:
@@ -51,16 +53,20 @@ class BuildMN:
 
         self.use_cuda = use_cuda
 
-        self.cls = PrepareData(run_mode=run_mode,
+        self.cls = PrepareData(default_load=run_mode,
                                dataset_type=dataset_type,
                                dataset_name=dataset_name,
                                dataset_dir=dataset_dir)
 
-    def prepare_mn(self, input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6,
-                   weight_decay=1e-4, optim="adam", dropout=0.2, num_categories=0, fce=True):
+    def prepare_mn(self, input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6, weight_decay=1e-4, optim="adam",
+                   dropout=0.2, num_categories=0, fce=True, batch_size=32, samples_per_category=20,num_cat=15,
+                   mode="doc2vec"):
         """
         Builds the network with all required parameters.
 
+        :param mode:
+        :param num_cat:
+        :param samples_per_category:
         :param hid_size:
         :param input_size: Size of sample vectors.
         :param num_categories: Number of categories.
@@ -75,15 +81,15 @@ class BuildMN:
         :param fce: Whether to use full context embeddings or not.
         :return: a matching_network object, along with the losses, the training ops and the init op.
         """
-        # self.classes_per_set = classes_per_set
-        # self.samples_per_class = samples_per_class
-        # self.dropout = torch.FloatTensor(dropout)
         self.optimizer = optim
         self.lr = lr
-        # self.current_lr = 1e-03
         self.lr_decay = lr_decay
         self.input_size = input_size
         self.weight_decay = weight_decay
+        self.batch_size = batch_size
+        self.samples_per_category = samples_per_category
+        self.num_cat = num_cat
+        self.mode = mode
         self.total_train_iter = 0
         self.match_net = MatchingNetwork(dropout=dropout,
                                          fce=fce,
@@ -99,7 +105,7 @@ class BuildMN:
             torch.cuda.manual_seed_all(seed=seed_val)
             self.match_net.cuda()
 
-    def run_training_epoch(self, total_train_batches, batch_size=32, samples_per_category=20,num_cat=15):
+    def run_training_epoch(self, total_train_batches):
         """
         Runs one training epoch.
 
@@ -111,19 +117,15 @@ class BuildMN:
         :return: mean_training_multilabel_margin_loss.
         """
         total_c_loss = 0.
-        self.batch_size = batch_size
-        self.samples_per_category = samples_per_category
-        self.num_cat = num_cat
-        # logger.debug(batch_size)
         # Create the optimizer
         self.cls.load_train()
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=total_train_batches) as pbar:
             for i in range(total_train_batches):  # 1 train epoch
-                x_supports, y_support_hots, x_targets, y_target_hots = self.cls.get_batches(batch_size=batch_size,
-                                                                                            categories_per_set=num_cat,
-                                                                                            samples_per_category=samples_per_category,
-                                                                                            mode="doc2vec",
+                x_supports, y_support_hots, x_targets, y_target_hots = self.cls.get_batches(batch_size=self.batch_size,
+                                                                                            categories_per_set=self.num_cat,
+                                                                                            samples_per_category=self.samples_per_category,
+                                                                                            mode=self.mode,
                                                                                             input_size=self.input_size)
                 logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
                             .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
@@ -140,11 +142,11 @@ class BuildMN:
                 if self.cuda_available and self.use_cuda:
                     cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
                                              x_targets.cuda(), y_target_hots.cuda(),
-                                             batch_size=batch_size)
+                                             batch_size=self.batch_size)
                 else:
                     cc_loss = self.match_net(x_supports, y_support_hots,
                                              x_targets, y_target_hots,
-                                             batch_size=batch_size)
+                                             batch_size=self.batch_size)
                 # logger.debug(cc_loss)
                 # logger.debug(cc_loss.shape)
                 # logger.debug(cc_loss.item())
@@ -186,31 +188,37 @@ class BuildMN:
         :return: mean_validation_categorical_crossentropy_loss
         """
         total_val_c_loss = 0.
+        self.cls.load_val()
 
         with tqdm.tqdm(total=total_val_batches) as pbar:
-            self.cls.load_val()
-            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(
-                    samples_per_category=self.samples_per_category):
-                # for i in range(total_val_batches):  # validation epoch
-                #     x_support, y_support_hot, x_hat, y_hot = self.data_loader.get_supports(batch_size=self.batch_size, data_type='val')
+            for i in range(total_val_batches):  # 1 validation epoch
+                x_supports, y_support_hots, x_targets, y_target_hots = self.cls.get_batches(batch_size=self.batch_size,
+                                                                                            categories_per_set=self.num_cat,
+                                                                                            samples_per_category=self.samples_per_category,
+                                                                                            mode=self.mode,
+                                                                                            input_size=self.input_size)
+                logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
+                            .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
 
-                x_support = Variable(torch.from_numpy(x_support), volatile=True).float()
-                y_support_hot = Variable(torch.from_numpy(y_support_hot), volatile=True)
-                x_hat = Variable(torch.from_numpy(x_hat), volatile=True).float()
-                y_hot = Variable(torch.from_numpy(y_hot), volatile=True)
+                x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
+                y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
+                x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
+                y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
 
                 if self.cuda_available and self.use_cuda:
-                    cc_loss = self.match_net(x_support.cuda(), y_support_hot.cuda(),
-                                             x_hat.cuda(), y_hot.cuda(),batch_size=self.batch_size)
+                    cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                             x_targets.cuda(), y_target_hots.cuda(),
+                                             batch_size=self.batch_size)
                 else:
-                    cc_loss = self.match_net(x_support, y_support_hot,
-                                             x_hat, y_hot,batch_size=self.batch_size)
+                    cc_loss = self.match_net(x_supports, y_support_hots,
+                                             x_targets, y_target_hots,
+                                             batch_size=self.batch_size)
 
-                iter_out = "val_loss: {}".format(cc_loss.data[0])
+                iter_out = "val_loss: {}".format(cc_loss.item())
                 pbar.set_description(iter_out)
                 pbar.update(1)
 
-                total_val_c_loss += cc_loss.data[0]
+                total_val_c_loss += cc_loss.item()
 
         total_val_c_loss = total_val_c_loss / total_val_batches
 
@@ -226,24 +234,28 @@ class BuildMN:
         :return: mean_testing_categorical_crossentropy_loss
         """
         total_test_c_loss = 0.
+        self.cls.load_test()
         with tqdm.tqdm(total=total_test_batches) as pbar:
-            self.cls.load_test()
-            for x_hat, y_hot, x_support, y_support_hot in self.cls.get_batches(samples_per_category=1,
-                                                                               mode="doc2vec"):
-                # for i in range(total_test_batches):
-                #     x_support, y_support_hot, x_hat, y_hot = self.data_loader.get_supports(batch_size=self.batch_size, data_type='test')
+            for i in range(total_test_batches):  # 1 test epoch
+                x_supports, y_support_hots, x_targets, y_target_hots = self.cls.get_batches(batch_size=self.batch_size,
+                                                                                            categories_per_set=self.num_cat,
+                                                                                            samples_per_category=self.samples_per_category,
+                                                                                            mode=self.mode,
+                                                                                            input_size=self.input_size)
 
-                x_support = Variable(torch.from_numpy(x_support), volatile=True).float()
-                y_support_hot = Variable(torch.from_numpy(y_support_hot), volatile=True).long()
-                x_hat = Variable(torch.from_numpy(x_hat), volatile=True).float()
-                y_hot = Variable(torch.from_numpy(y_hot), volatile=True).long()
+                x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
+                y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
+                x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
+                y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
 
                 if self.cuda_available and self.use_cuda:
-                    cc_loss = self.match_net(x_support.cuda(), y_support_hot.cuda(),
-                                             x_hat.cuda(), y_hot.cuda(),batch_size=self.batch_size)
+                    cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                             x_targets.cuda(), y_target_hots.cuda(),
+                                             batch_size=self.batch_size)
                 else:
-                    cc_loss = self.match_net(x_support, y_support_hot,
-                                             x_hat, y_hot,batch_size=self.batch_size)
+                    cc_loss = self.match_net(x_supports, y_support_hots,
+                                             x_targets, y_target_hots,
+                                             batch_size=self.batch_size)
 
                 iter_out = "test_loss: {}".format(cc_loss.data[0])
                 pbar.set_description(iter_out)
@@ -303,5 +315,5 @@ class BuildMN:
 if __name__ == '__main__':
     logger.debug("Building Model...")
     cls = BuildMN()
-    cls.prepare_mn(input_size=300, hid_size=100, fce=True)
-    cls.run_training_epoch(total_train_batches=10, batch_size=32, samples_per_category=15,num_cat=25)
+    cls.prepare_mn(input_size=300, hid_size=100, fce=True, batch_size=32, samples_per_category=15,num_cat=25)
+    cls.run_training_epoch(total_train_batches=10)

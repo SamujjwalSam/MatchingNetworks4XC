@@ -39,6 +39,7 @@ class Attn(nn.Module):
         :return: Softmax pdf
         """
         # logger.info("(similarities.shape: [{}], [{}] :support_set_y.shape)".format(similarities.shape, support_set_y.shape))
+        # logger.info("(similarities.type: [{}], [{}] :support_set_y.type)".format(similarities.dtype, support_set_y.dtype))
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
         x_hats_preds = []

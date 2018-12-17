@@ -42,11 +42,11 @@ np.random.seed(seed_val)  # for reproducibility
 class PrepareData():
     """Loads datasets and prepare data into proper format."""
 
-    def __init__(self, dataset_type="html", dataset_name="Wiki10-31K", run_mode="val",
+    def __init__(self, dataset_type="html", dataset_name="Wiki10-31K", default_load="val",
                  dataset_dir="D:\Datasets\Extreme Classification\Wiki10-31K"):
         self.dataset_name = dataset_name
         self.dataset_dir = dataset_dir
-        self.run_mode = run_mode
+        self.default_load = default_load
 
         self.sentences_train = None
         self.classes_train = None
@@ -60,22 +60,18 @@ class PrepareData():
         self.doc2vec_model = None
 
         if dataset_type == "html":
-            self.dataset = html.WIKI_HTML_Dataset(dataset_name=self.dataset_name, data_dir=self.dataset_dir,run_mode=run_mode)
+            self.dataset = html.WIKI_HTML_Dataset(dataset_name=self.dataset_name, data_dir=self.dataset_dir, run_mode=default_load)
         elif dataset_type == "json":
             self.dataset = json.JSONLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir)
-            # (sentences, classes), categories = self.dataset.get_data()
         elif dataset_type == "txt":
             self.dataset = txt.TXTLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir)
-            # (sentences, classes), categories = self.dataset.get_data()
         else:
             raise Exception("Dataset type for dataset [{}] not found. \n"
                             "Possible reasons: Dataset not added in the config file.".format(self.dataset_name))
 
-        if run_mode == "train": self.load_train()
-        if run_mode == "val": self.load_val()
-        if run_mode == "test": self.load_test()
-        # self.categories = self.dataset.get_categories()
-        self.remain_cat_ids = list(self.selected_categories.keys())
+        if default_load == "train": self.load_train()
+        if default_load == "val": self.load_val()
+        if default_load == "test": self.load_test()
 
         self.mlb = MultiLabelBinarizer()
 
@@ -99,18 +95,21 @@ class PrepareData():
         self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_train, self.classes_train, self.categories_train
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
+        self.remain_cat_ids = list(self.selected_categories.keys())
 
     def load_val(self):
         self.sentences_val, self.classes_val, self.categories_val = self.dataset.get_val_data()
         self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_val, self.classes_val, self.categories_val
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
+        self.remain_cat_ids = list(self.selected_categories.keys())
 
     def load_test(self):
         self.sentences_test, self.classes_test, self.categories_test = self.dataset.get_test_data()
         self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_test, self.classes_test, self.categories_test
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
+        self.remain_cat_ids = list(self.selected_categories.keys())
 
     def txt2vec(self, sentences:list, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
         """
@@ -400,7 +399,7 @@ class PrepareData():
 
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
-    cls = PrepareData(run_mode="train")
+    cls = PrepareData(default_load="train")
     x_supports, y_support_hots, x_targets, y_target_hots = cls.get_batches(batch_size=32, categories_per_set=5, samples_per_category=4)
     logger.debug(x_supports.shape)
     logger.debug(y_support_hots.shape)

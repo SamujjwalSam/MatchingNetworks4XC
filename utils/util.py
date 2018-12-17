@@ -98,6 +98,14 @@ def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     return keys, selected_keys
 
 
+def remove_dup_list(seq, case=False):  # Dave Kirby
+    """Removes duplicates from a list. Order preserving"""
+    seen = set()
+    if case: return [x.lower() for x in seq if
+                     x.lower() not in seen and not seen.add(x)]
+    return [x for x in seq if x not in seen and not seen.add(x)]
+
+
 def split_docs(docs, criteria=' '):
     """
     Splits a dict of idx:documents based on [criteria].

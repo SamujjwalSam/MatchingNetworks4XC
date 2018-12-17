@@ -64,8 +64,6 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         self.raw_txt_dir = os.path.join(self.data_dir, "txt_files")
         logger.debug("Dataset name: %s" % self.dataset_name)
         logger.debug("HTML directory: %s" % self.data_dir)
-        logger.debug("Check if processed json file already exists at [{}], then load."
-                     .format(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")))
 
         self.sentences_train = None
         self.classes_train = None
@@ -77,6 +75,8 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         self.classes_test = None
         self.categories_test = None
 
+        logger.debug("Check if processed json file already exists at [{}], then load."
+                     .format(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")))
         if run_mode == "train":
             if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")) \
                     and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_train.json")):
