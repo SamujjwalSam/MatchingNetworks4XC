@@ -45,11 +45,7 @@ def create_batch(X:dict, Y:dict, keys):
     """
     batch_x = OrderedDict()
     batch_y = OrderedDict()
-    # logger.debug(X.keys())
-    # logger.debug(keys)
     for k in keys:
-        # batch_x[k] = X.pop(k, None)
-        # batch_y[k] = Y.pop(k, None)
         batch_x[k] = X[k]
         batch_y[k] = Y[k]
     return batch_x, batch_y
@@ -66,11 +62,7 @@ def create_batch_repeat(X:dict, Y:dict, keys):
     """
     batch_x = []
     batch_y = []
-    # logger.debug(X.keys())
-    # logger.debug(keys)
     for k in keys:
-        # batch_x[k] = X.pop(k, None)
-        # batch_y[k] = Y.pop(k, None)
         batch_x.append(X[k])
         batch_y.append(Y[k])
     return batch_x, batch_y

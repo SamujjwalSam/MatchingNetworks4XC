@@ -105,7 +105,7 @@ class BuildMN:
             torch.cuda.manual_seed_all(seed=seed_val)
             self.match_net.cuda()
 
-    def run_training_epoch(self, total_train_batches):
+    def run_training_epoch(self, num_train_epoch):
         """
         Runs one training epoch.
 
@@ -113,15 +113,15 @@ class BuildMN:
         :param batch_size:
         :param samples_per_category:
         :param num_cat:
-        :param total_train_batches: Number of batches to train.
+        :param num_train_epoch: Number of batches to train.
         :return: mean_training_multilabel_margin_loss.
         """
         total_c_loss = 0.
         # Create the optimizer
         self.cls.load_train()
         optimizer = self.__create_optimizer(self.match_net, self.lr)
-        with tqdm.tqdm(total=total_train_batches) as pbar:
-            for i in range(total_train_batches):  # 1 train epoch
+        with tqdm.tqdm(total=num_train_epoch) as pbar:
+            for i in range(num_train_epoch):  # 1 train epoch
                 x_supports, y_support_hots, x_targets, y_target_hots = self.cls.get_batches(batch_size=self.batch_size,
                                                                                             categories_per_set=self.num_cat,
                                                                                             samples_per_category=self.samples_per_category,
@@ -176,22 +176,22 @@ class BuildMN:
                     self.lr /= 2
                     logger.debug("change learning rate: [{}]".format(self.lr))
 
-        total_c_loss = total_c_loss / total_train_batches
+        total_c_loss = total_c_loss / num_train_epoch
         return total_c_loss
 
-    def run_validation_epoch(self, total_val_batches):
+    def run_validation_epoch(self, num_val_epoch):
         """
         Runs one validation epoch.
 
         :param batch_size:
-        :param total_val_batches: Number of batches to train on
+        :param num_val_epoch: Number of batches to train on
         :return: mean_validation_categorical_crossentropy_loss
         """
         total_val_c_loss = 0.
         self.cls.load_val()
 
-        with tqdm.tqdm(total=total_val_batches) as pbar:
-            for i in range(total_val_batches):  # 1 validation epoch
+        with tqdm.tqdm(total=num_val_epoch) as pbar:
+            for i in range(num_val_epoch):  # 1 validation epoch
                 x_supports, y_support_hots, x_targets, y_target_hots = self.cls.get_batches(batch_size=self.batch_size,
                                                                                             categories_per_set=self.num_cat,
                                                                                             samples_per_category=self.samples_per_category,
@@ -220,7 +220,7 @@ class BuildMN:
 
                 total_val_c_loss += cc_loss.item()
 
-        total_val_c_loss = total_val_c_loss / total_val_batches
+        total_val_c_loss = total_val_c_loss / num_val_epoch
 
         return total_val_c_loss
 
@@ -316,4 +316,4 @@ if __name__ == '__main__':
     logger.debug("Building Model...")
     cls = BuildMN()
     cls.prepare_mn(input_size=300, hid_size=100, fce=True, batch_size=32, samples_per_category=15,num_cat=25)
-    cls.run_training_epoch(total_train_batches=10)
+    cls.run_training_epoch(num_train_epoch=10)

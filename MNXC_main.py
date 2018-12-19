@@ -1,5 +1,5 @@
 # coding=utf-8
-# !/usr/bin/python3.6 ## Please use python 3.6 or above
+# !/usr/bin/python3.6  # Please use python 3.6 or above
 """
 __synopsis__    : Matching Networks for Extreme Classification.
 __description__ :
@@ -19,18 +19,28 @@ __methods__     :
 
 import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from datetime import datetime
 from collections import OrderedDict
+# from datetime import datetime
+# TIME_STAMP = datetime.utcnow().isoformat()
 
 from logger.logger import logger
 from utils import util
 from models.BuildMN import BuildMN
 
 """
+TODOs:
+-----------------------------------------
+    Read other datasets.
+    Investigate loss and whole code.
+    Vectorize code.
+    Implement TF-IDF weighted vectors.
+=========================================
+
 Variable naming:
+-----------------------------------------
 
     Name used   ->  Meaning
------------------------------------------
+    -------------------------------------
     Categories  ->  Labels / Classes {}
     Sample      ->  [Feature, Categories]
     *_hot       ->  multi-hot format
@@ -67,12 +77,6 @@ Data formats:
 To solve MKL problem: Adding <conda-env-root>/Library/bin to the path in the run configuration solves the issue, but adding it to the interpreter paths in the project settings doesn't.
 https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-error-cannot-load-mkl-intel-thread-dll
 """
-
-# Globals-----
-TIME_STAMP = datetime.utcnow().isoformat()
-
-
-# Globals-----
 
 
 def read_fastai_csv(dataset_path="D:\\Datasets\\nlp", dataset_name="ag_news_csv", file_name="train.csv", tag="train"):
@@ -204,11 +208,11 @@ def main(args):
     num_epochs = config["model"]["num_epochs"]
 
     for epoch in range(num_epochs):
-        train_epoch_loss = cls.run_training_epoch(total_train_batches=config["model"]["total_train_batches"], )
+        train_epoch_loss = cls.run_training_epoch(num_train_epoch=config["model"]["num_train_epoch"], )
 
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(train_epoch_loss))
-        val_epoch_loss = cls.run_validation_epoch(total_val_batches=1)
+        val_epoch_loss = cls.run_validation_epoch(num_val_epoch=1)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
 
 
