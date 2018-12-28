@@ -43,13 +43,16 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
     categories : Dict of class texts.
     categories = {"Computer Science":class_id_1, "Machine Learning":class_id_2}
 
-    samples : {"sentences":"",
-                  "classes":""
-                 }
+    samples : {
+        "sentences":"",
+        "classes":""
+        }
     """
 
-    def __init__(self, dataset_name="Wiki10-31K", run_mode="train",
-                 data_dir: str = "D:\Datasets\Extreme Classification"):
+    def __init__(self,
+                 dataset_name="Wiki10-31K",
+                 run_mode="train",
+                 data_dir: str = "D:\\Datasets\\Extreme Classification"):
         """
         Initializes the html loader.
 
@@ -58,9 +61,9 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
             dataset_name : Name of the dataset.
         """
         super(WIKI_HTML_Dataset, self).__init__()
-        self.data_dir = os.path.join(data_dir,dataset_name)
         self.dataset_name = dataset_name
-        self.raw_html_dir = os.path.join(self.data_dir, "Wiki10-31K_RawData")
+        self.data_dir = os.path.join(data_dir, self.dataset_name)
+        self.raw_html_dir = os.path.join(self.data_dir, dataset_name+"_RawData")
         self.raw_txt_dir = os.path.join(self.data_dir, "txt_files")
         logger.debug("Dataset name: %s" % self.dataset_name)
         logger.debug("HTML directory: %s" % self.data_dir)
@@ -83,7 +86,6 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                 self.sentences_train = util.load_json(self.dataset_name + "_sentences_train", file_path=self.data_dir)
                 self.classes_train = util.load_json(self.dataset_name + "_classes_train", file_path=self.data_dir)
                 self.categories_train = util.load_json(self.dataset_name + "_categories_train", file_path=self.data_dir)
-                # self.split_data()
             else:
                 self.load_full_json()
         elif run_mode == "val":
@@ -93,7 +95,6 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                 self.sentences_val = util.load_json(self.dataset_name + "_sentences_val", file_path=self.data_dir)
                 self.classes_val = util.load_json(self.dataset_name + "_classes_val", file_path=self.data_dir)
                 self.categories_val = util.load_json(self.dataset_name + "_categories_val", file_path=self.data_dir)
-                # self.split_data()
             else:
                 self.load_full_json()
         elif run_mode == "test":
@@ -101,8 +102,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                     and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_test.json")):
                 self.sentences_test = util.load_json(self.dataset_name + "_sentences_test", file_path=self.data_dir)
                 self.classes_test = util.load_json(self.dataset_name + "_classes_test", file_path=self.data_dir)
-                self.categories_train = util.load_json(self.dataset_name + "_categories_test", file_path=self.data_dir)
-                # self.split_data()
+                self.categories_test = util.load_json(self.dataset_name + "_categories_test", file_path=self.data_dir)
             else:
                 self.load_full_json()
         else:
@@ -143,7 +143,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                          "and categories[class_name : class_id] from HTML.")
             sentences, classes, categories, hid_classes, hid_categories, no_cat_ids = self.filter_categories(self.samples)
             util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids",
-                           file_path=self.data_dir)  # Storing the ids which were not processed.
+                           file_path=self.data_dir)  # Storing the ids for which no categories were found.
             util.save_json(hid_classes, self.dataset_name + "_hid_classes",
                            file_path=self.data_dir)  # Storing details of file id to hidden categories map.
             util.save_json(hid_categories, self.dataset_name + "_hid_categories",
@@ -156,6 +156,9 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                 util.save_json(categories_dup_dict, self.dataset_name + "_categories_dup_dict",
                                file_path=self.data_dir)  # Storing the duplicate categories for future dedup removal.
                 self.classes = util.dedup_data(self.classes, categories_dup_dict)
+            else:
+                self.classes = classes
+
             sentences_cleaned = util.clean_sentences_dict(sentences)
             self.sentences = sentences_cleaned
             self.categories = categories_cleaned
@@ -197,36 +200,40 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         logger.info("Number of samples: [{}] for dataset: [{}]".format(self.num_samples, self.dataset_name))
         return self.num_samples
 
-    def split_data(self):
+    def split_data(self, keys=None,split_size=0.3):
         """
-        Splits input data to train, val and test.
+        Splits input data into train, val and test.
 
-        :param data:
+        :param keys: List of sample ids.
         :param split_size:
         :return:
         """
-        keys = list(self.sentences.keys())
-        # logger.debug(keys)
-        # logger.debug(int(len(keys) * 0.3))
-        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
+        if keys is None: keys = list(self.sentences.keys())
+
+        logger.debug("Total number of samples: [{}]".format(len(keys)))
+        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * split_size))
+        logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),split_size, len(keys)))
         self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
         self.sentences_train, self.classes_train = util.create_batch(self.sentences, self.classes, keys)
-        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * 0.3))
-        self.sentences_val, self.classes_val = util.create_batch(self.sentences_train, self.classes_train,
-                                                                 selected_keys)
+
+        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * split_size))
+        logger.debug("Validation count: [{}]. Train count: [{}]".format(len(selected_keys), len(keys)))
+        self.sentences_val, self.classes_val = util.create_batch(self.sentences_train, self.classes_train,selected_keys)
         self.sentences_train, self.classes_train = util.create_batch(self.sentences_train, self.classes_train, keys)
 
         if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_id2cat_map.json")):
             id2cat_map = util.load_json(self.dataset_name + "_id2cat_map", file_path=self.data_dir)
-            # Keys are converted to str when saving as JSON. Need to convert it back to INT.
+            # INT Keys are converted to str when saving as JSON. Need to convert it back to INT.
             id2cat_map_int = OrderedDict()
-            for k,v in id2cat_map.items():
+            for k, v in id2cat_map.items():
                 id2cat_map_int[int(k)] = v
             self.id2cat_map = id2cat_map_int
         else:
+            logger.debug("Generating inverted categories.")
             self.id2cat_map = util.inverse_dict_elm(self.categories)
-            # logger.debug(self.id2cat_map)
             util.save_json(self.id2cat_map, self.dataset_name + "_id2cat_map", file_path=self.data_dir)
+
+        logger.debug("Creating train categories.")
         categories_train = OrderedDict()
         for k, v in self.classes_train.items():
             for cat_id in v:
@@ -234,6 +241,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                     categories_train[cat_id] = self.id2cat_map[cat_id]
         self.categories_train = categories_train
 
+        logger.debug("Creating validation categories.")
         categories_val = OrderedDict()
         for k, v in self.classes_val.items():
             for cat_id in v:
@@ -241,6 +249,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                     categories_val[cat_id] = self.id2cat_map[cat_id]
         self.categories_val = categories_val
 
+        logger.debug("Creating test categories.")
         categories_test = OrderedDict()
         for k, v in self.classes_test.items():
             for cat_id in v:
@@ -248,6 +257,7 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                     categories_test[cat_id] = self.id2cat_map[cat_id]
         self.categories_test = categories_test
 
+        logger.debug("Saving train, val and test set.")
         util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
         util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
         util.save_json(self.categories_train, self.dataset_name + "_categories_train", file_path=self.data_dir)
@@ -387,8 +397,8 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
         categories = OrderedDict()
         hid_categories = OrderedDict()
         sentences = OrderedDict()
-        i = 0
-        j = 0
+        cat_idx = 0
+        hid_cat_idx = 0
         no_cat_ids = []  # List to store failed parsing cases.
         for id, txt in samples.items():
             # logger.debug(type(txt))
@@ -399,8 +409,8 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                 # categories_list.append(set(filtered_categories))
                 for lbl in filtered_categories:
                     if lbl not in categories:  # If lbl does not exists in categories already, add it and assign a new category index.
-                        categories[lbl] = i
-                        i += 1
+                        categories[lbl] = cat_idx
+                        cat_idx += 1
                     if id in classes:  # Check if id exists, append if yes.
                         classes[id].append(categories[lbl])
                     else:  # Create entry for id if does not exist.
@@ -414,8 +424,8 @@ class WIKI_HTML_Dataset(torch.utils.data.Dataset):
                 # categories_list.append(set(filtered_categories))
                 for lbl in filtered_hid_categories:
                     if lbl not in hid_categories:  # If lbl does not exists in hid_categories already, add it and assign a new hid_category index.
-                        hid_categories[lbl] = j
-                        j += 1
+                        hid_categories[lbl] = hid_cat_idx
+                        hid_cat_idx += 1
                     if id in hid_classes:  # Check if id exists, append if yes.
                         hid_classes[id].append(hid_categories[lbl])
                     else:  # Create entry for id if does not exist.

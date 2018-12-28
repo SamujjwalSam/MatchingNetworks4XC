@@ -26,6 +26,7 @@ from collections import OrderedDict
 from logger.logger import logger
 from utils import util
 from models.BuildMN import BuildMN
+from data_loaders.PrepareData import PrepareData
 
 """
 TODOs:
@@ -45,6 +46,7 @@ Variable naming:
     Sample      ->  [Feature, Categories]
     *_hot       ->  multi-hot format
     x_hat       ->  test sample
+    no_cat_ids [list]  -> ids for which no categories were found.
 =========================================
 
 Data formats:
@@ -63,7 +65,7 @@ Data formats:
     
     categories : Dict of class texts.
     categories = {
-                    "label_text"       : class_id_0
+                    "text"       : id
                     "Computer Science" : class_id_1,
                     "Machine Learning" : class_id_2
                  }
@@ -188,9 +190,12 @@ def main(args):
     use_cuda = False
     if plat == "Linux": use_cuda = True
 
-    cls = BuildMN(dataset_name=config["data"]["dataset_name"],
-                  dataset_dir=config["paths"]["dataset_dir"][plat],
-                  use_cuda=use_cuda)
+    data_loader = PrepareData(default_load="train",
+                              dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+                              dataset_name=config["data"]["dataset_name"],
+                              dataset_dir=config["paths"]["dataset_dir"][plat])
+
+    cls = BuildMN(data_loader, use_cuda=use_cuda)
 
     cls.prepare_mn(num_categories=0,
                    fce=True,

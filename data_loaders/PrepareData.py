@@ -43,7 +43,7 @@ class PrepareData():
     """Loads datasets and prepare data into proper format."""
 
     def __init__(self, dataset_type="html", dataset_name="Wiki10-31K", default_load="val",
-                 dataset_dir="D:\Datasets\Extreme Classification\Wiki10-31K"):
+                 dataset_dir="D:\\Datasets\\Extreme Classification"):
         self.dataset_name = dataset_name
         self.dataset_dir = dataset_dir
         self.default_load = default_load
