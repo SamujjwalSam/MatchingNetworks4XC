@@ -34,7 +34,93 @@ from logger.logger import logger
 seed_val = 0
 
 
-def create_batch(X:dict, Y:dict, keys):
+def split_data(sentences, classes, categories, dataset_name, data_dir, keys=None, test_split=0.3, val_split=0.2):
+    """
+    Splits input data into train, val and test.
+
+    :param val_split: Validation split size.
+    :param test_split: Test split size.
+    :param keys: List of sample ids.
+    :return:
+    """
+    if keys is None: keys = list(classes.keys())
+
+    logger.debug("Total number of samples: [{}]".format(len(keys)))
+    keys, selected_keys = get_batch_keys(keys, batch_size=int(len(keys) * test_split))
+    logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),test_split, len(keys)))
+    sentences_test, classes_test = create_batch(sentences, classes, selected_keys)
+    sentences_train, classes_train = create_batch(sentences, classes, keys)
+
+    keys, selected_keys = get_batch_keys(keys, batch_size=int(len(keys) * val_split))
+    logger.debug("Validation count: [{}]. Train count: [{}]".format(len(selected_keys), len(keys)))
+    sentences_val, classes_val = create_batch(sentences_train, classes_train,selected_keys)
+    sentences_train, classes_train = create_batch(sentences_train, classes_train, keys)
+
+    if os.path.isfile(os.path.join(data_dir, dataset_name + "_id2cat_map.json")):
+        id2cat_map = load_json(dataset_name + "_id2cat_map", file_path=data_dir)
+        # INT Keys are converted to str when saving as JSON. Need to convert it back to INT.
+        id2cat_map_int = OrderedDict()
+        for k, v in id2cat_map.items():
+            id2cat_map_int[int(k)] = v
+        id2cat_map = id2cat_map_int
+    else:
+        logger.debug("Generating inverted categories.")
+        id2cat_map = inverse_dict_elm(categories)
+        save_json(id2cat_map, dataset_name + "_id2cat_map", file_path=data_dir)
+
+    logger.debug("Creating train categories.")
+    categories_train = OrderedDict()
+    for k, v in classes_train.items():
+        for cat_id in v:
+            if cat_id not in categories_train:
+                categories_train[cat_id] = id2cat_map[cat_id]
+    categories_train = categories_train
+
+    logger.debug("Creating validation categories.")
+    categories_val = OrderedDict()
+    for k, v in classes_val.items():
+        for cat_id in v:
+            if cat_id not in categories_val:
+                categories_val[cat_id] = id2cat_map[cat_id]
+    categories_val = categories_val
+
+    logger.debug("Creating test categories.")
+    categories_test = OrderedDict()
+    for k, v in classes_test.items():
+        for cat_id in v:
+            if cat_id not in categories_test:
+                categories_test[cat_id] = id2cat_map[cat_id]
+    categories_test = categories_test
+
+    logger.debug("Saving train, val and test sets.")
+    save_json(sentences_train, dataset_name + "_sentences_train", file_path=data_dir)
+    save_json(classes_train, dataset_name + "_classes_train", file_path=data_dir)
+    save_json(categories_train, dataset_name + "_categories_train", file_path=data_dir)
+    save_json(sentences_val, dataset_name + "_sentences_val", file_path=data_dir)
+    save_json(classes_val, dataset_name + "_classes_val", file_path=data_dir)
+    save_json(categories_val, dataset_name + "_categories_val", file_path=data_dir)
+    save_json(sentences_test, dataset_name + "_sentences_test", file_path=data_dir)
+    save_json(classes_test, dataset_name + "_classes_test", file_path=data_dir)
+    save_json(categories_test, dataset_name + "_categories_test", file_path=data_dir)
+    return sentences_train, classes_train, categories_train, sentences_val, classes_val, categories_val,  sentences_test, classes_test, categories_test
+
+
+def print_dict(data, count=5):
+    """
+    Prints the key and values of a Python dict.
+
+    :param data:
+    :param count:
+    """
+    i = 0
+    for k, v in data.items():
+        logger.debug("{} : {}".format(k, v))
+        i += 1
+        if i >= count:
+            break
+
+
+def create_batch(X: dict, Y: dict, keys):
     """
     Generates batch from keys.
 
@@ -51,7 +137,7 @@ def create_batch(X:dict, Y:dict, keys):
     return batch_x, batch_y
 
 
-def create_batch_repeat(X:dict, Y:dict, keys):
+def create_batch_repeat(X: dict, Y: dict, keys):
     """
     Generates batch from keys.
 
@@ -79,14 +165,17 @@ def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     """
     if len(keys) <= batch_size:
         return None, keys
-    # logger.debug(batch_size)
     selected_keys = sample(keys, k=batch_size)
+    # logger.debug((batch_size,len(selected_keys)))
     if remove_keys:
-        # logger.debug("Removing selected keys: {}".format(selected_keys))
-        for item in selected_keys:
-            # logger.debug((keys,item))
-            keys.remove(item)
-            # logger.debug((keys,item))
+        logger.debug("Removing selected keys.")
+        # for item in selected_keys:
+        #     keys.remove(item)
+        removed_keys = []
+        for item in keys:
+            if item not in selected_keys:
+                removed_keys.append(item)
+        return removed_keys, selected_keys
     return keys, selected_keys
 
 
@@ -114,9 +203,8 @@ def split_docs(docs, criteria=' '):
 
 def unicodeToAscii(s):
     """
-    Turn a Unicode string to plain ASCII.
+    Turn a Unicode string to plain ASCII. Thanks to http://stackoverflow.com/a/518232/2809427
 
-    Thanks to http://stackoverflow.com/a/518232/2809427
     :param s:
     :return:
     """
@@ -150,14 +238,16 @@ def clean_categories(categories: dict, specials="""_-@""", replace=' '):
     """
     category_cleaned_dict = OrderedDict()
     dup_cat_map = OrderedDict()
+    dup_cat_text_map = OrderedDict()
     trans_table = make_trans_table(specials=specials, replace=replace)
     for cat, cat_id in categories.items():
         cat_clean = unidecode(str(cat)).translate(trans_table)
         if cat_clean in category_cleaned_dict.keys():
             dup_cat_map[categories[cat]] = category_cleaned_dict[cat_clean]
+            dup_cat_text_map[cat] = cat_clean
         else:
             category_cleaned_dict[cat_clean] = cat_id
-    return category_cleaned_dict, dup_cat_map
+    return category_cleaned_dict, dup_cat_map, dup_cat_text_map
 
 
 def clean_sentences_dict(sentences: dict, specials="""_-@*#'"/\\""", replace=' '):
@@ -172,7 +262,7 @@ def clean_sentences_dict(sentences: dict, specials="""_-@*#'"/\\""", replace=' '
     # TODO: Remove Repeated special characters like ####,     , ,, etc.
     sents_cleaned_dict = OrderedDict()
     trans_table = make_trans_table(specials=specials, replace=replace)
-    for idx,text in sentences.items():
+    for idx, text in sentences.items():
         label_clean = unidecode(str(text)).translate(trans_table)
         sents_cleaned_dict[idx] = label_clean
     return sents_cleaned_dict
@@ -222,7 +312,7 @@ def dedup_data(Y: dict, dup_cat_map: dict):
         # logger.debug(dup_cat_map.keys())
         commons = set(v).intersection(set(dup_cat_map.keys()))
         # logger.debug(commons)
-        if len(commons)>0:
+        if len(commons) > 0:
             for dup_key in commons:
                 dup_idx = v.index(dup_key)
                 # logger.debug((v,dup_key,dup_idx))
@@ -348,17 +438,19 @@ def load_json(filename, file_path='', date_time_tag='', ext=True):
             return json_dict
         else:
             logger.warning(
-                "Warning: Could not open file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".json")))
+                "Warning: Could not open file: [{0}]".format(
+                    os.path.join(file_path, date_time_tag + filename + ".json")))
             return False
     else:
         if os.path.exists(os.path.join(file_path, date_time_tag + filename)):
-            with sopen(os.path.join(file_path, date_time_tag + filename),encoding="utf-8") as file:
+            with sopen(os.path.join(file_path, date_time_tag + filename), encoding="utf-8") as file:
                 json_dict = OrderedDict(json.load(file))
             file.close()
             return json_dict
 
 
-def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding="utf-8", date_time_tag='', verbose=False):
+def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding="utf-8", date_time_tag='',
+               verbose=False):
     """
 
     :param encoding:

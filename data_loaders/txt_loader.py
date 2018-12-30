@@ -20,6 +20,7 @@ __methods__     :
 import os
 import torch.utils.data
 from collections import OrderedDict
+from smart_open import smart_open as sopen  # Better alternative to Python open().
 
 from utils import util
 from logger.logger import logger
@@ -31,10 +32,10 @@ class TXTLoader(torch.utils.data.Dataset):
     """
     Class to process and load txt files from a directory.
 
-    Datasets: Wiki10-31K
+    Datasets: AmazonCat-14K
 
-    sentences : Wikipedia english texts after parsing and cleaning.
-    sentences = {"id1": "wiki_text_1", "id2": "wiki_text_2"}
+    sentences : Amazon products title + description after parsing and cleaning.
+    sentences = {"id1": "azn_ttl_1", "id2": "azn_ttl_2"}
 
     classes   : OrderedDict of id to classes.
     classes = {"id1": [class_id_1,class_id_2],"id2": [class_id_2,class_id_10]}
@@ -44,28 +45,27 @@ class TXTLoader(torch.utils.data.Dataset):
 
     samples : {
         "sentences":"",
-                  "classes":""
-                 }
+        "classes":""
+        }
     """
 
     def __init__(self,
-                 dataset_name="AmazonCat-14K",
+                 dataset_name="AmazonCat-13K",
                  run_mode="train",
                  data_dir: str = "D:\\Datasets\\Extreme Classification"):
         """
-        Initializes the html loader.
+        Initializes the TXT loader.
 
         Args:
-            data_dir : Path to the file containing the html files.
+            data_dir : Path to directory containing the txt files.
             dataset_name : Name of the dataset.
         """
         super(TXTLoader, self).__init__()
         self.dataset_name = dataset_name
         self.data_dir = os.path.join(data_dir, self.dataset_name)
-        self.raw_json_dir = os.path.join(self.data_dir, self.dataset_name + "_RawData")
-        self.raw_json_file = self.dataset_name + "_RawData.json"
-        logger.debug("Dataset name:%s" % self.dataset_name)
-        logger.debug("HTML directory:%s" % self.data_dir)
+        self.raw_txt_dir = os.path.join(self.data_dir, self.dataset_name + "_RawData")
+        # self.raw_txt_file = self.dataset_name + "_RawData.txt"
+        logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
 
         self.sentences_train = None
         self.classes_train = None
@@ -79,9 +79,19 @@ class TXTLoader(torch.utils.data.Dataset):
 
         logger.debug("Check if processed json file already exists at [{}], then load."
                      .format(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")))
+        # if run_mode == "train" or run_mode == "val" or run_mode == "test":
+        #     if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_"+run_mode+".json")) \
+        #             and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_"+run_mode+".json")) \
+        #             and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_"+run_mode+".json")):
+        #         self.sentences_train = util.load_json(self.dataset_name + "_sentences_"+run_mode, file_path=self.data_dir)
+        #         self.classes_train = util.load_json(self.dataset_name + "_classes_"+run_mode, file_path=self.data_dir)
+        #         self.categories_train = util.load_json(self.dataset_name + "_categories_"+run_mode, file_path=self.data_dir)
+        #     else:
+        #         self.load_full_json()
         if run_mode == "train":
             if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_train.json")):
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_train.json")) \
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_train.json")):
                 self.sentences_train = util.load_json(self.dataset_name + "_sentences_train", file_path=self.data_dir)
                 self.classes_train = util.load_json(self.dataset_name + "_classes_train", file_path=self.data_dir)
                 self.categories_train = util.load_json(self.dataset_name + "_categories_train", file_path=self.data_dir)
@@ -98,7 +108,8 @@ class TXTLoader(torch.utils.data.Dataset):
                 self.load_full_json()
         elif run_mode == "test":
             if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_test.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_test.json")):
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_test.json")) \
+                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_test.json")):
                 self.sentences_test = util.load_json(self.dataset_name + "_sentences_test", file_path=self.data_dir)
                 self.classes_test = util.load_json(self.dataset_name + "_classes_test", file_path=self.data_dir)
                 self.categories_test = util.load_json(self.dataset_name + "_categories_test", file_path=self.data_dir)
@@ -127,39 +138,29 @@ class TXTLoader(torch.utils.data.Dataset):
                                                                                   len(self.classes))
             self.split_data()
         else:
-            logger.debug("Load data from JSON files.")
-            logger.debug("Create 3 separate dicts of sentences, classes and categories from HTML.")
-            self.samples = util.load_json(self.data_dir)
-            logger.debug(len(self.samples))
-            # logger.debug(self.samples)
-            # self.categories_filter_regex = None
-            logger.debug("Creating 3 separate dicts of sentences[id->texts], classes[id->class_ids]"
-                         "and categories[class_name : class_id] from HTML.")
-            sentences, classes, categories, no_cat_ids = self.filter_text(self.samples)
-            util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids",
-                           file_path=self.data_dir)  # Storing the ids for which no categories were found.
-
+            logger.debug(
+                "Loading data from TXT files and creating 3 separate dicts of sentences [id->texts], classes [id->class_ids]"
+                " and categories [class_name : class_id] from TXT files.")
+            sentences, classes, categories = self.load_txts(encoding="latin-1")
+            logger.debug((len(sentences), len(classes), len(categories)))
             # logger.debug("Cleaning categories.")
-            # logger.debug("Cleaning categories.")
-            categories_cleaned, categories_dup_dict = util.clean_categories(categories)
-            # logger.debug(categories_cleaned)
-            # logger.debug(categories_dup_dict)
+            categories_cleaned, categories_dup_dict, dup_cat_text_map = util.clean_categories(categories)
+            self.categories = categories_cleaned
+            util.save_json(self.categories, self.dataset_name + "_categories", file_path=self.data_dir)
+            util.save_json(dup_cat_text_map, self.dataset_name + "_dup_cat_text_map", file_path=self.data_dir)
+            self.n_categories = len(categories)
             if categories_dup_dict:
                 util.save_json(categories_dup_dict, self.dataset_name + "_categories_dup_dict",
                                file_path=self.data_dir)  # Storing the duplicate categories for future dedup removal.
                 self.classes = util.dedup_data(classes, categories_dup_dict)
             else:
                 self.classes = classes
-            sentences_cleaned = util.clean_sentences_dict(sentences)
-            self.sentences = sentences_cleaned
-            self.categories = categories_cleaned
-            self.n_categories = len(categories)
+            self.sentences = util.clean_sentences_dict(sentences)
             assert len(self.sentences) == len(self.classes), \
                 "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
                                                                                   len(self.classes))
             util.save_json(self.sentences, self.dataset_name + "_sentences", file_path=self.data_dir)
             util.save_json(self.classes, self.dataset_name + "_classes", file_path=self.data_dir)
-            util.save_json(self.categories, self.dataset_name + "_categories", file_path=self.data_dir)
             logger.info("Saved sentences [{0}], classes [{1}] and categories [{2}] as json files.".format(
                 os.path.join(self.data_dir + "_sentences.json"),
                 os.path.join(self.data_dir + "_classes.json"),
@@ -168,30 +169,187 @@ class TXTLoader(torch.utils.data.Dataset):
         self.num_samples = len(self.sentences)
         # return self.sentences,self.classes,self.categories
 
+    def load_txts(self, json_path=None, encoding='UTF-8'):
+        """
+        Loads the txt files.
+
+        :return:
+        """
+        classes = OrderedDict()
+        categories = OrderedDict()
+        cat_idx = 0
+        all_classes = self.read_classes(encoding=encoding)
+        logger.debug((len(all_classes)))
+        # util.print_dict(all_classes)
+        titles = self.read_titles(classes_keys=all_classes.keys(), encoding=encoding)
+        # No need to read descriptions as no sample intersects with all_classes.
+        descriptions = self.read_desc(classes_keys=all_classes.keys(), encoding=encoding)
+        logger.debug((len(descriptions)))
+        sentences = self.create_sentences(titles,descriptions)
+        logger.debug((len(sentences)))
+        classes_extra = set(all_classes.keys()).symmetric_difference(set(sentences.keys()))
+        logger.debug(len(classes_extra))
+        if len(classes_extra):
+            for k, v in all_classes.items():
+                if k not in classes_extra:
+                    classes[k] = v
+                    for lbl in classes[k]:
+                        if lbl not in categories:  # If lbl does not exists in categories already, add it and assign a new category index.
+                            categories[lbl] = cat_idx
+                            cat_idx += 1
+                        classes[k][classes[k].index(lbl)] = categories[lbl]  # Replacing categories text to categories id.
+        util.print_dict(sentences)
+        util.print_dict(classes)
+        util.print_dict(categories)
+
+        return sentences, classes, categories
+
+    def read_classes(self, classes_dir=None, classes_file="categories.txt", encoding='latin-1'):
+        """
+        Reads the categories.txt file and returns a OrderedDict of id : class ids.
+
+        :param classes_file:
+        :param classes_dir:
+        :param encoding:
+        :return:
+        """
+        # logger.debug("Generates the data dictionaries from original json file.")
+        cat_line_phrase = "  "  # Phrase to recognize lines with category information.
+        # cat_remove = 2  # Length of [cat_phrase], to be removed from line.
+        cat_sep_phrase = ", "  # Phrase to separate categories.
+        classes = OrderedDict()
+        # categories = OrderedDict()
+        cat_pool = set()
+        cat_idx = 0
+        if classes_dir is None: classes_dir = self.raw_txt_dir
+        with sopen(os.path.join(classes_dir, classes_file), encoding=encoding) as raw_cat_ptr:
+            sample_idx = raw_cat_ptr.readline().strip()
+            for cnt, line in enumerate(raw_cat_ptr):
+                if cat_line_phrase in line:
+                    cats = line.split(cat_sep_phrase)  # Splliting line based on ', ' to get categories.
+                    cats = [x.strip() for x in cats]  # Removing extra characters like: ' ','\n'.
+                    cat_pool.update(cats)
+                else:
+                    # logger.debug("idx:[{}], cats:[{}]".format(sample_idx,cat_pool))
+                    classes[sample_idx] = list(cat_pool)
+                    # Generate Categories dict from classes.
+                    # for lbl in classes[sample_idx]:
+                    #     if lbl not in categories:  # If lbl does not exists in categories already, add it and assign a new category index.
+                    #         categories[lbl] = cat_idx
+                    #         cat_idx += 1
+                    #     classes[sample_idx][classes[sample_idx].index(lbl)] = categories[lbl]  # Replacing categories text to categories id.
+                    cat_pool.clear()
+                    sample_idx = line.strip()
+
+        return classes#, categories
+
+    def read_titles(self, classes_keys=None, title_path=None, title_file="titles.txt", encoding='latin-1'):
+        """
+        Reads the titles.txt file and returns a OrderedDict of id : title.
+
+        :param classes_keys: List of classes keys to check only those keys are stored.
+        :param title_file:
+        :param title_path:
+        :param encoding:
+        :return:
+        """
+        # logger.debug("Generates the data dictionaries from original json file.")
+        titles = OrderedDict()
+        if title_path is None: title_path = os.path.join(self.raw_txt_dir, title_file)
+        with sopen(title_path, encoding=encoding) as raw_title_ptr:
+            for cnt, line in enumerate(raw_title_ptr):
+                line = line.split()
+                if classes_keys is None or line[
+                    0] in classes_keys:  # Only add this sample if corrosponding classes exists.
+                    titles[line[0].strip()] = " ".join(line[1:]).strip()
+        return titles
+
+    def read_desc(self, classes_keys=None, desc_path=None, desc_file="descriptions.txt", encoding='latin-1'):
+        """
+        Reads the descriptions.txt file and returns a OrderedDict of id : desc.
+
+        :param classes_keys:
+        :param desc_file:
+        :param desc_path:
+        :param encoding:
+        :return:
+        """
+        id_phrase = "product/productId: "  # Phrase to recognize lines with sample id.
+        id_remove = 19  # Length of [id_phrase], to be removed from line.
+        desc_phrase = "product/description: "  # Phrase to recognize lines with sample description.
+        desc_remove = 21  # Length of [desc_phrase], to be removed from line.
+        # logger.debug("Generates the data dictionaries from original json file.")
+        descriptions = OrderedDict()
+        # no_cat_ids = []
+        if desc_path is None: desc_path = os.path.join(self.raw_txt_dir, desc_file)
+        import itertools
+        with sopen(desc_path, encoding=encoding) as raw_desc_ptr:
+            for idx_line, desc_line in itertools.zip_longest(
+                    *[raw_desc_ptr] * 2):  # Reads multi-line [2] per iteration.
+                if id_phrase in idx_line:
+                    sample_id = idx_line[id_remove:].strip()
+                    if classes_keys is None or sample_id in classes_keys:  # Only add this sample if corrosponding classes exists.
+                        if desc_phrase in desc_line:
+                            sample_desc = desc_line[desc_remove:].strip()
+                        else:
+                            sample_desc = None  # Even if 'description' is not found, we are not ignoring the sample as it might still have text in 'title'.
+                        descriptions[sample_id] = sample_desc
+        return descriptions
+
+    def create_sentences(self, titles, descriptions=None):
+        """
+        Creates sentences for each sample by using either title or descriptions if only one exists else appends desc to title.
+
+        :param titles:
+        :param descriptions:
+        :return:
+        """
+        # logger.debug("Generates the data dictionaries from original json file.")
+        sentences = OrderedDict()
+        if descriptions is not None:
+            intersect = set(titles.keys()).intersection(set(descriptions.keys()))
+            logger.info("[{}] samples have both 'title' and 'description'.".format(len(intersect)))
+            for idx in intersect:
+                sentences[idx] = titles[idx] + ". \nDESC: " + descriptions[idx]
+            sym_dif = set(titles.keys()).symmetric_difference(set(descriptions.keys()))
+            if len(sym_dif):
+                logger.info("[{}] samples either only have 'title' or 'description'.".format(len(sym_dif)))
+                for idx in sym_dif:
+                    if idx in titles.keys():
+                        sentences[idx] = titles[idx]
+                    else:
+                        sentences[idx] = descriptions[idx]
+        else:
+            logger.info("'description' data not provided, only using 'title'.")
+            for idx in titles.keys():
+                sentences[idx] = titles[idx]
+        return sentences
+
     def __len__(self):
         logger.info("Number of samples: [{}] for dataset: [{}]".format(self.num_samples, self.dataset_name))
         return self.num_samples
 
-    def split_data(self, keys=None,split_size=0.3):
+    def split_data(self, keys=None, test_split=0.3, val_split=0.2):
         """
         Splits input data into train, val and test.
 
+        :param val_split: Validation split size.
+        :param test_split: Test split size.
         :param keys: List of sample ids.
-        :param split_size:
         :return:
         """
         if keys is None: keys = list(self.sentences.keys())
 
         logger.debug("Total number of samples: [{}]".format(len(keys)))
-        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * split_size))
-        logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),split_size, len(keys)))
+        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * test_split))
+        logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),test_split, len(keys)))
         self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
-        self.sentences_train, self.classes_train = util.create_batch(self.sentences, self.classes, keys)
+        sentences_train, classes_train = util.create_batch(self.sentences, self.classes, keys)
 
-        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * split_size))
+        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * val_split))
         logger.debug("Validation count: [{}]. Train count: [{}]".format(len(selected_keys), len(keys)))
-        self.sentences_val, self.classes_val = util.create_batch(self.sentences_train, self.classes_train,selected_keys)
-        self.sentences_train, self.classes_train = util.create_batch(self.sentences_train, self.classes_train, keys)
+        self.sentences_val, self.classes_val = util.create_batch(sentences_train, classes_train,selected_keys)
+        self.sentences_train, self.classes_train = util.create_batch(sentences_train, classes_train, keys)
 
         if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_id2cat_map.json")):
             id2cat_map = util.load_json(self.dataset_name + "_id2cat_map", file_path=self.data_dir)
@@ -245,9 +403,6 @@ class TXTLoader(torch.utils.data.Dataset):
         # TODO: correct this part. -> Probably not required.
         return (torch.from_numpy(self.sentences[idx].todense().reshape(-1)),
                 torch.from_numpy(self.classes[idx].todense().reshape(-1)))
-
-    def read_txt(self, txt_dir):
-        return None
 
     def get_data(self):
         """
@@ -323,9 +478,10 @@ class TXTLoader(torch.utils.data.Dataset):
 def main():
     # config = read_config(args)
     cls = TXTLoader()
-    data_dict = cls.read_txt("D:\Datasets\Extreme Classification\html_test")
-    logger.debug(data_dict)
-    return False
+    sentences_val, classes_val, categories_val = cls.get_val_data()
+    util.print_dict(sentences_val)
+    util.print_dict(classes_val)
+    util.print_dict(categories_val)
 
 
 if __name__ == '__main__':
