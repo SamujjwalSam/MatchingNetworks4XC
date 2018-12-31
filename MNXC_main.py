@@ -184,7 +184,7 @@ def prepare_datasets(config, dataset='ag_news_csv'):
 
 def main(args):
     config = util.load_json(args.config, ext=False)
-    logger.debug("Config: [{}]".format(config))
+    util.print_json(config,"Config")
     plat = util.get_platform()
 
     use_cuda = False

@@ -120,9 +120,7 @@ class TXTLoader(torch.utils.data.Dataset):
 
     def load_full_json(self):
         """
-        Loads dataset.
-
-        :param dataset_name:
+        Loads full dataset and splits the data into train, val and test.
         """
         # logger.debug(os.path.join(self.data_dir, self.dataset_name + "_sentences.json"))
         if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")) \
@@ -179,16 +177,16 @@ class TXTLoader(torch.utils.data.Dataset):
         categories = OrderedDict()
         cat_idx = 0
         all_classes = self.read_classes(encoding=encoding)
-        logger.debug((len(all_classes)))
+        # logger.debug((len(all_classes)))
         # util.print_dict(all_classes)
         titles = self.read_titles(classes_keys=all_classes.keys(), encoding=encoding)
         # No need to read descriptions as no sample intersects with all_classes.
         descriptions = self.read_desc(classes_keys=all_classes.keys(), encoding=encoding)
-        logger.debug((len(descriptions)))
+        # logger.debug((len(descriptions)))
         sentences = self.create_sentences(titles,descriptions)
-        logger.debug((len(sentences)))
+        # logger.debug((len(sentences)))
         classes_extra = set(all_classes.keys()).symmetric_difference(set(sentences.keys()))
-        logger.debug(len(classes_extra))
+        # logger.debug(len(classes_extra))
         if len(classes_extra):
             for k, v in all_classes.items():
                 if k not in classes_extra:
@@ -329,7 +327,7 @@ class TXTLoader(torch.utils.data.Dataset):
         logger.info("Number of samples: [{}] for dataset: [{}]".format(self.num_samples, self.dataset_name))
         return self.num_samples
 
-    def split_data(self, keys=None, test_split=0.3, val_split=0.2):
+    def split_data(self, test_split=0.3, val_split=0.2):
         """
         Splits input data into train, val and test.
 
@@ -338,18 +336,32 @@ class TXTLoader(torch.utils.data.Dataset):
         :param keys: List of sample ids.
         :return:
         """
-        if keys is None: keys = list(self.sentences.keys())
 
-        logger.debug("Total number of samples: [{}]".format(len(keys)))
-        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * test_split))
-        logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),test_split, len(keys)))
-        self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
-        sentences_train, classes_train = util.create_batch(self.sentences, self.classes, keys)
+        # logger.debug("Total number of samples: [{}]".format(len(keys)))
+        # keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * test_split))
+        # logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),test_split, len(keys)))
+        # self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
+        # sentences_train, classes_train = util.create_batch(self.sentences, self.classes, keys)
+        #
+        # keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * val_split))
+        # logger.debug("Validation count: [{}]. Train count: [{}]".format(len(selected_keys), len(keys)))
+        # self.sentences_val, self.classes_val = util.create_batch(sentences_train, classes_train,selected_keys)
+        # self.sentences_train, self.classes_train = util.create_batch(sentences_train, classes_train, keys)
 
-        keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * val_split))
-        logger.debug("Validation count: [{}]. Train count: [{}]".format(len(selected_keys), len(keys)))
-        self.sentences_val, self.classes_val = util.create_batch(sentences_train, classes_train,selected_keys)
-        self.sentences_train, self.classes_train = util.create_batch(sentences_train, classes_train, keys)
+        logger.info("Total number of samples: [{}]".format(len(self.classes)))
+        self.classes_train, self.classes_test, self.sentences_train, self.sentences_test = \
+            util.split_dict(self.classes, self.sentences, batch_size=int(len(self.classes) * test_split))
+        logger.info("Test count: [{}]. Remaining count: [{}]".format(len(self.classes_test),len(self.classes_train)))
+        util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.data_dir)
+        util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.data_dir)
+
+        self.classes_train, self.classes_val, self.sentences_train, self.sentences_val = \
+            util.split_dict(self.classes_train, self.sentences_train, batch_size=int(len(self.sentences_train) * val_split))
+        logger.info("Validation count: [{}]. Train count: [{}]".format(len(self.classes_val), len(self.classes_train)))
+        util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.data_dir)
+        util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.data_dir)
+        util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
+        util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
 
         if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_id2cat_map.json")):
             id2cat_map = util.load_json(self.dataset_name + "_id2cat_map", file_path=self.data_dir)
@@ -359,43 +371,35 @@ class TXTLoader(torch.utils.data.Dataset):
                 id2cat_map_int[int(k)] = v
             self.id2cat_map = id2cat_map_int
         else:
-            logger.debug("Generating inverted categories.")
+            logger.info("Generating inverted categories.")
             self.id2cat_map = util.inverse_dict_elm(self.categories)
             util.save_json(self.id2cat_map, self.dataset_name + "_id2cat_map", file_path=self.data_dir)
 
-        logger.debug("Creating train categories.")
+        logger.info("Creating train categories.")
         categories_train = OrderedDict()
         for k, v in self.classes_train.items():
             for cat_id in v:
                 if cat_id not in categories_train:
                     categories_train[cat_id] = self.id2cat_map[cat_id]
         self.categories_train = categories_train
+        util.save_json(self.categories_train, self.dataset_name + "_categories_train", file_path=self.data_dir)
 
-        logger.debug("Creating validation categories.")
+        logger.info("Creating validation categories.")
         categories_val = OrderedDict()
         for k, v in self.classes_val.items():
             for cat_id in v:
                 if cat_id not in categories_val:
                     categories_val[cat_id] = self.id2cat_map[cat_id]
         self.categories_val = categories_val
+        util.save_json(self.categories_val, self.dataset_name + "_categories_val", file_path=self.data_dir)
 
-        logger.debug("Creating test categories.")
+        logger.info("Creating test categories.")
         categories_test = OrderedDict()
         for k, v in self.classes_test.items():
             for cat_id in v:
                 if cat_id not in categories_test:
                     categories_test[cat_id] = self.id2cat_map[cat_id]
         self.categories_test = categories_test
-
-        logger.debug("Saving train, val and test set.")
-        util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
-        util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
-        util.save_json(self.categories_train, self.dataset_name + "_categories_train", file_path=self.data_dir)
-        util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.data_dir)
-        util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.data_dir)
-        util.save_json(self.categories_val, self.dataset_name + "_categories_val", file_path=self.data_dir)
-        util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.data_dir)
-        util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.data_dir)
         util.save_json(self.categories_test, self.dataset_name + "_categories_test", file_path=self.data_dir)
         # return train, test
 

@@ -32,6 +32,7 @@ import unicodedata
 from logger.logger import logger
 
 seed_val = 0
+random.seed(seed=seed_val)
 
 
 def split_data(sentences, classes, categories, dataset_name, data_dir, keys=None, test_split=0.3, val_split=0.2):
@@ -120,6 +121,18 @@ def print_dict(data, count=5):
             break
 
 
+def print_json(json_data, s="", indent=4, sort_keys=True):
+    """
+    Pretty prints json data.
+
+    :param sort_keys:
+    :param indent:
+    :param s:
+    :param json_data:
+    """
+    logger.info("[{}] : {}".format(s, json.dumps(json_data, indent=indent, sort_keys=sort_keys)))
+
+
 def create_batch(X: dict, Y: dict, keys):
     """
     Generates batch from keys.
@@ -168,15 +181,46 @@ def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     selected_keys = sample(keys, k=batch_size)
     # logger.debug((batch_size,len(selected_keys)))
     if remove_keys:
-        logger.debug("Removing selected keys.")
+        # logger.debug("Removing selected keys.")
         # for item in selected_keys:
         #     keys.remove(item)
-        removed_keys = []
+        keys_after_remove = []
         for item in keys:
             if item not in selected_keys:
-                removed_keys.append(item)
-        return removed_keys, selected_keys
+                keys_after_remove.append(item)
+        return keys_after_remove, selected_keys
     return keys, selected_keys
+
+
+def split_dict(classes: dict, sentences: dict, batch_size=64, remove_keys=True):
+    """
+    Randomly selects [batch_size] numbers of items from dictionary and remove them from the original dict.
+
+    :param remove_keys: Flag to indicate if selected items should be removed. It should be False for support set selection.
+    :param classes:
+    :param batch_size:
+    :return:
+    """
+    if len(classes) <= batch_size:
+        return None, classes, None, sentences
+    selected_keys = sample(list(classes.keys()), k=batch_size)
+    selected_classes = OrderedDict()
+    selected_sentences = OrderedDict()
+    if remove_keys:
+        # logger.debug("Removing selected items.")
+        # import copy
+        # dic_removed = copy.deepcopy(classes)  # Use copy.deepcopy if original is not to be modified.
+        for key in selected_keys:
+            selected_classes[key] = classes[key]
+            del classes[key]
+            selected_sentences[key] = sentences[key]
+            del sentences[key]
+        return classes, selected_classes, sentences, selected_sentences
+    else:
+        for key in selected_keys:
+            selected_classes[key] = classes[key]
+            selected_sentences[key] = sentences[key]
+    return classes, selected_classes, sentences, selected_sentences
 
 
 def remove_dup_list(seq, case=False):  # Dave Kirby
