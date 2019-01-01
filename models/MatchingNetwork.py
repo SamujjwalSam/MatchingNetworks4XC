@@ -88,8 +88,8 @@ class MatchingNetwork(nn.Module):
             torch.Size([32, 5])
         :return:
         """
-        logger.debug("support_set: {}, support_set_hot: {}, x_hats: {}, x_hats_hots: {}".format(
-            support_set.shape, support_set_hot.shape, x_hats.shape, x_hats_hots.shape))
+        # logger.debug("support_set: {}, support_set_hot: {}, x_hats: {}, x_hats_hots: {}".format(
+        #     support_set.shape, support_set_hot.shape, x_hats.shape, x_hats_hots.shape))
         # produce embeddings for support set samples
         # logger.debug(support_set.shape)
         encoded_supports = self.g(support_set, batch_size=batch_size)

@@ -1,4 +1,4 @@
-from .html_loader import WIKI_HTML_Dataset
+from .html_loader import HTMLLoader
 from .json_loader import JSONLoader
 from .txt_loader import TXTLoader
 from .PrepareData import PrepareData

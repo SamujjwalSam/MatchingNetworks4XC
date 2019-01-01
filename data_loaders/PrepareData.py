@@ -17,8 +17,8 @@ __variables__   :
 __methods__     :
 """
 
+import os, random
 import numpy as np
-import random
 from random import sample
 from sklearn.preprocessing import MultiLabelBinarizer
 from collections import OrderedDict
@@ -41,7 +41,6 @@ np.random.seed(seed_val)  # for reproducibility
 
 class PrepareData():
     """Loads datasets and prepare data into proper format."""
-
     def __init__(self, dataset_type="html", dataset_name="Wiki10-31K", default_load="val",
                  dataset_dir="D:\\Datasets\\Extreme Classification"):
         self.dataset_name = dataset_name
@@ -60,7 +59,7 @@ class PrepareData():
         self.doc2vec_model = None
 
         if dataset_type == "html":
-            self.dataset = html.WIKI_HTML_Dataset(dataset_name=self.dataset_name, data_dir=self.dataset_dir, run_mode=default_load)
+            self.dataset = html.HTMLLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir, run_mode=default_load)
         elif dataset_type == "json":
             self.dataset = json.JSONLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir)
         elif dataset_type == "txt":
@@ -96,6 +95,8 @@ class PrepareData():
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
         self.remain_cat_ids = list(self.selected_categories.keys())
+        logger.info("Training data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+                    .format(self.sentences_train, self.classes_train, self.categories_train))
 
     def load_val(self):
         self.sentences_val, self.classes_val, self.categories_val = self.dataset.get_val_data()
@@ -103,6 +104,8 @@ class PrepareData():
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
         self.remain_cat_ids = list(self.selected_categories.keys())
+        logger.info("Validation data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+                    .format(self.sentences_val, self.classes_val, self.categories_val))
 
     def load_test(self):
         self.sentences_test, self.classes_test, self.categories_test = self.dataset.get_test_data()
@@ -110,6 +113,8 @@ class PrepareData():
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
         self.remain_cat_ids = list(self.selected_categories.keys())
+        logger.info("Testing data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+                    .format(self.sentences_test, self.classes_test, self.categories_test))
 
     def txt2vec(self, sentences:list, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
         """
@@ -153,7 +158,6 @@ class PrepareData():
         sentences = util.clean_sentences(sentences, specials="""_-@*#'"/\\""", replace='')
 
         if mode == "doc2vec":
-            # logger.debug(self.embedding_dim)
             if self.doc2vec_model is None:
                 self.doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
                                                                seed=seed_val, negative=10,
@@ -181,9 +185,7 @@ class PrepareData():
         for idx, doc in sentences.items():
             chunks = self.partition_doc(doc, mode)
             chunks = list(filter(None, chunks))  # Removing empty items.
-            # logger.debug(len(chunks))
             for chunk in chunks:
-                # logger.debug(chunk, w2v_model.vocab)
                 avg_vec = None
                 for word in chunk:
                     if word in w2v_model.vocab:
@@ -191,7 +193,6 @@ class PrepareData():
                             avg_vec = w2v_model[word]
                         else:
                             avg_vec = np.add(avg_vec, avg_vec)
-                        # logger.debug(w2v_model[word].shape)
                     else:
                         new_oov_vec = np.random.uniform(-0.5, 0.5, self.embedding_dim)
                         w2v_model.add(word, new_oov_vec)
@@ -200,12 +201,9 @@ class PrepareData():
                             avg_vec = new_oov_vec
                         else:
                             avg_vec = np.add(avg_vec, new_oov_vec)
-                        # logger.debug(avg_vec)
                 chunk_avg_vec = np.divide(avg_vec, float(len(chunk)))
                 if idx in docs_vecs:
-                    # logger.debug((docs_vecs[idx].shape, chunk_avg_vec.shape))
                     docs_vecs[idx] = np.concatenate((docs_vecs[idx], chunk_avg_vec), axis=concat_axis)
-                    # logger.debug(docs_vecs[idx].shape)
                 else:
                     docs_vecs[idx] = chunk_avg_vec
         util.save_json(oov_words, "oov_words")
@@ -223,38 +221,28 @@ class PrepareData():
         :return:
         """
         chunks = []
-        # logger.debug(sentence)
         # TODO: Use better word and sentence tokenizer, i.e. Spacy, NLTK, etc.
         if mode == "concat":
             words = sentence.split(" ")
-            # logger.debug(words)
             for word in words:
-                # logger.debug(word)
                 chunks.append(word)
-            # logger.debug(chunks)
         elif mode == "word_avg":
             chunks = sentence.split(" ")
         elif mode == "sentences":
             chunks = sentence.splitlines()
         elif mode == "chunked":
             splitted_doc = sentence.split()
-            # logger.debug(splitted_doc)
             doc_len = len(splitted_doc)
-            # logger.debug(doc_len)
             chunk_size = doc_len // num_chunks  # Calculates how large each chunk should be.
-            # logger.debug(chunk_size)
             index_start = 0
             for i in range(num_chunks):
                 batch_portion = doc_len / (chunk_size * (i + 1))
-                # logger.debug(batch_portion)
                 if batch_portion > 1.0:
                     index_end = index_start + chunk_size
                 else:  # Available data is less than chunk_size
-                    # logger.debug("Am I here? {}".format(batch_portion))
                     index_end = index_start + (doc_len - index_start)
                 logger.info('Making chunk of tokens from [{0}] to [{1}]'.format(index_start, index_end))
                 chunk = splitted_doc[index_start:index_end]
-                # logger.debug((len(chunk),(chunk_size)))
                 chunks.append(chunk)
                 index_start = index_end
         else:

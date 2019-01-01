@@ -24,6 +24,7 @@ from smart_open import smart_open as sopen  # Better alternative to Python open(
 
 from utils import util
 from logger.logger import logger
+from data_loaders.common_data_handler import JSON_Handler
 
 seed_val = 0
 
@@ -120,9 +121,7 @@ class JSONLoader(torch.utils.data.Dataset):
 
     def load_full_json(self):
         """
-        Loads dataset from JSON file.
-
-        :param dataset_name:
+        Loads full dataset and splits the data into train, val and test.
         """
         # logger.debug(os.path.join(self.data_dir, self.dataset_name + "_sentences.json"))
         if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")) \
@@ -136,7 +135,6 @@ class JSONLoader(torch.utils.data.Dataset):
             assert len(self.sentences) == len(self.classes), \
                 "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
                                                                                   len(self.classes))
-            self.split_data()
         else:
             logger.debug(
                 "Loading data from TXT files and creating 3 separate dicts of sentences [id->texts], classes [id->class_ids]"
@@ -166,7 +164,11 @@ class JSONLoader(torch.utils.data.Dataset):
                 os.path.join(self.data_dir + "_sentences.json"),
                 os.path.join(self.data_dir + "_classes.json"),
                 os.path.join(self.data_dir + "_categories.json")))
-            self.split_data()
+
+        # Splitting data into train, validation and test sets.
+        data_loader = JSON_Handler(dataset_name=self.dataset_name, data_dir=self.data_dir)
+        self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val, self.categories_val, self.sentences_test, self.classes_test, self.categories_test = data_loader.split_data(
+            sentences=self.sentences, classes=self.classes, categories=self.categories)
         self.num_samples = len(self.sentences)
         # return self.sentences,self.classes,self.categories
 
@@ -220,82 +222,6 @@ class JSONLoader(torch.utils.data.Dataset):
     def __len__(self):
         logger.info("Number of samples: [{}] for dataset: [{}]".format(self.num_samples, self.dataset_name))
         return self.num_samples
-
-    def split_data(self, test_split=0.3, val_split=0.2):
-        """
-        Splits input data into train, val and test.
-
-        :param val_split: Validation split size.
-        :param test_split: Test split size.
-        :param keys: List of sample ids.
-        :return:
-        """
-
-        # logger.debug("Total number of samples: [{}]".format(len(keys)))
-        # keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * test_split))
-        # logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),test_split, len(keys)))
-        # self.sentences_test, self.classes_test = util.create_batch(self.sentences, self.classes, selected_keys)
-        # sentences_train, classes_train = util.create_batch(self.sentences, self.classes, keys)
-        #
-        # keys, selected_keys = util.get_batch_keys(keys, batch_size=int(len(keys) * val_split))
-        # logger.debug("Validation count: [{}]. Train count: [{}]".format(len(selected_keys), len(keys)))
-        # self.sentences_val, self.classes_val = util.create_batch(sentences_train, classes_train,selected_keys)
-        # self.sentences_train, self.classes_train = util.create_batch(sentences_train, classes_train, keys)
-
-        logger.info("Total number of samples: [{}]".format(len(self.classes)))
-        self.classes_train, self.classes_test, self.sentences_train, self.sentences_test = \
-            util.split_dict(self.classes, self.sentences, batch_size=int(len(self.classes) * test_split))
-        logger.info("Test count: [{}]. Remaining count: [{}]".format(len(self.classes_test),len(self.classes_train)))
-        util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.data_dir)
-        util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.data_dir)
-
-        self.classes_train, self.classes_val, self.sentences_train, self.sentences_val = \
-            util.split_dict(self.classes_train, self.sentences_train, batch_size=int(len(self.sentences_train) * val_split))
-        logger.info("Validation count: [{}]. Train count: [{}]".format(len(self.classes_val), len(self.classes_train)))
-        util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.data_dir)
-        util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.data_dir)
-        util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
-        util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
-
-        if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_id2cat_map.json")):
-            id2cat_map = util.load_json(self.dataset_name + "_id2cat_map", file_path=self.data_dir)
-            # INT Keys are converted to str when saving as JSON. Need to convert it back to INT.
-            id2cat_map_int = OrderedDict()
-            for k, v in id2cat_map.items():
-                id2cat_map_int[int(k)] = v
-            self.id2cat_map = id2cat_map_int
-        else:
-            logger.info("Generating inverted categories.")
-            self.id2cat_map = util.inverse_dict_elm(self.categories)
-            util.save_json(self.id2cat_map, self.dataset_name + "_id2cat_map", file_path=self.data_dir)
-
-        logger.info("Creating train categories.")
-        categories_train = OrderedDict()
-        for k, v in self.classes_train.items():
-            for cat_id in v:
-                if cat_id not in categories_train:
-                    categories_train[cat_id] = self.id2cat_map[cat_id]
-        self.categories_train = categories_train
-        util.save_json(self.categories_train, self.dataset_name + "_categories_train", file_path=self.data_dir)
-
-        logger.info("Creating validation categories.")
-        categories_val = OrderedDict()
-        for k, v in self.classes_val.items():
-            for cat_id in v:
-                if cat_id not in categories_val:
-                    categories_val[cat_id] = self.id2cat_map[cat_id]
-        self.categories_val = categories_val
-        util.save_json(self.categories_val, self.dataset_name + "_categories_val", file_path=self.data_dir)
-
-        logger.info("Creating test categories.")
-        categories_test = OrderedDict()
-        for k, v in self.classes_test.items():
-            for cat_id in v:
-                if cat_id not in categories_test:
-                    categories_test[cat_id] = self.id2cat_map[cat_id]
-        self.categories_test = categories_test
-        util.save_json(self.categories_test, self.dataset_name + "_categories_test", file_path=self.data_dir)
-        # return train, test
 
     def __getitem__(self, idx):
         # TODO: correct this part. -> Probably not required.

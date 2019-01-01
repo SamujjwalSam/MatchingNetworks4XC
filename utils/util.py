@@ -33,79 +33,8 @@ from logger.logger import logger
 
 seed_val = 0
 random.seed(seed=seed_val)
-
-
-def split_data(sentences, classes, categories, dataset_name, data_dir, keys=None, test_split=0.3, val_split=0.2):
-    """
-    Splits input data into train, val and test.
-
-    :param val_split: Validation split size.
-    :param test_split: Test split size.
-    :param keys: List of sample ids.
-    :return:
-    """
-    if keys is None: keys = list(classes.keys())
-
-    logger.debug("Total number of samples: [{}]".format(len(keys)))
-    keys, selected_keys = get_batch_keys(keys, batch_size=int(len(keys) * test_split))
-    logger.debug("Test count: [{}] = {} * {}".format(len(selected_keys),test_split, len(keys)))
-    sentences_test, classes_test = create_batch(sentences, classes, selected_keys)
-    sentences_train, classes_train = create_batch(sentences, classes, keys)
-
-    keys, selected_keys = get_batch_keys(keys, batch_size=int(len(keys) * val_split))
-    logger.debug("Validation count: [{}]. Train count: [{}]".format(len(selected_keys), len(keys)))
-    sentences_val, classes_val = create_batch(sentences_train, classes_train,selected_keys)
-    sentences_train, classes_train = create_batch(sentences_train, classes_train, keys)
-
-    if os.path.isfile(os.path.join(data_dir, dataset_name + "_id2cat_map.json")):
-        id2cat_map = load_json(dataset_name + "_id2cat_map", file_path=data_dir)
-        # INT Keys are converted to str when saving as JSON. Need to convert it back to INT.
-        id2cat_map_int = OrderedDict()
-        for k, v in id2cat_map.items():
-            id2cat_map_int[int(k)] = v
-        id2cat_map = id2cat_map_int
-    else:
-        logger.debug("Generating inverted categories.")
-        id2cat_map = inverse_dict_elm(categories)
-        save_json(id2cat_map, dataset_name + "_id2cat_map", file_path=data_dir)
-
-    logger.debug("Creating train categories.")
-    categories_train = OrderedDict()
-    for k, v in classes_train.items():
-        for cat_id in v:
-            if cat_id not in categories_train:
-                categories_train[cat_id] = id2cat_map[cat_id]
-    categories_train = categories_train
-
-    logger.debug("Creating validation categories.")
-    categories_val = OrderedDict()
-    for k, v in classes_val.items():
-        for cat_id in v:
-            if cat_id not in categories_val:
-                categories_val[cat_id] = id2cat_map[cat_id]
-    categories_val = categories_val
-
-    logger.debug("Creating test categories.")
-    categories_test = OrderedDict()
-    for k, v in classes_test.items():
-        for cat_id in v:
-            if cat_id not in categories_test:
-                categories_test[cat_id] = id2cat_map[cat_id]
-    categories_test = categories_test
-
-    logger.debug("Saving train, val and test sets.")
-    save_json(sentences_train, dataset_name + "_sentences_train", file_path=data_dir)
-    save_json(classes_train, dataset_name + "_classes_train", file_path=data_dir)
-    save_json(categories_train, dataset_name + "_categories_train", file_path=data_dir)
-    save_json(sentences_val, dataset_name + "_sentences_val", file_path=data_dir)
-    save_json(classes_val, dataset_name + "_classes_val", file_path=data_dir)
-    save_json(categories_val, dataset_name + "_categories_val", file_path=data_dir)
-    save_json(sentences_test, dataset_name + "_sentences_test", file_path=data_dir)
-    save_json(classes_test, dataset_name + "_classes_test", file_path=data_dir)
-    save_json(categories_test, dataset_name + "_categories_test", file_path=data_dir)
-    return sentences_train, classes_train, categories_train, sentences_val, classes_val, categories_val,  sentences_test, classes_test, categories_test
-
-
+        
+        
 def print_dict(data, count=5):
     """
     Prints the key and values of a Python dict.
@@ -805,28 +734,28 @@ if __name__ == '__main__':
     # logger.debug(remove_special_chars(text))
     # exit(0)
     """
-    sample call: python utils/util.py /Users/monojitdey/Downloads/Wiki10-31K/Wiki10/wiki10_test.txt
+    sample call: python utils/py /Users/monojitdey/Downloads/Wiki10-31K/Wiki10/wiki10_test.txt
     /Users/monojitdey/Downloads/Wiki10-31K/Wiki10-31K_mappings/wiki10-31K_label_map.txt dataset_path =
     'D:\Datasets\Extreme Classification' dataset_name = 'Wiki10-31K' test_file = 'Wiki10/wiki10_test.txt'
     label_map_file = 'Wiki10-31K_mappings/wiki10-31K_label_map.txt'
 
     Examples:
-      1. python utils/util.py
+      1. python utils/py
 
-      2. python utils/util.py --node_id 4844
+      2. python utils/py --node_id 4844
 
-      3. python utils/util.py --test_file /Users/monojitdey/Downloads/Wiki10-31K/Wiki10/wiki10_test.txt --label_map_file
+      3. python utils/py --test_file /Users/monojitdey/Downloads/Wiki10-31K/Wiki10/wiki10_test.txt --label_map_file
       /Users/monojitdey/Downloads/Wiki10-31K/Wiki10-31K_mappings/wiki10-31K_label_map.txt
 
-      4. python utils/util.py --dataset_path /Users/monojitdey/Downloads/ --dataset_name Wiki10-31K --test_file
+      4. python utils/py --dataset_path /Users/monojitdey/Downloads/ --dataset_name Wiki10-31K --test_file
       /Wiki10/wiki10_test.txt --label_map_file /Wiki10-31K_mappings/wiki10-31K_label_map.txt
-      5. python utils/util.py --dataset_path /Users/monojitdey/Downloads/ --dataset_name Wiki10-31K --test_file
+      5. python utils/py --dataset_path /Users/monojitdey/Downloads/ --dataset_name Wiki10-31K --test_file
       /Wiki10/wiki10_test.txt --label_map_file /Wiki10-31K_mappings/wiki10-31K_label_map.txt --node_id 4844
     """
     parser = ArgumentParser("Label Sub-graph generator",
                             formatter_class=ArgumentDefaultsHelpFormatter,
                             conflict_handler='resolve',
-                            epilog="Example: python utils/util.py --dataset_path /Users/monojitdey/Downloads/ "
+                            epilog="Example: python utils/py --dataset_path /Users/monojitdey/Downloads/ "
                                    "--dataset_name Wiki10-31K --test_file /Wiki10/wiki10_train.txt --label_map_file "
                                    "/Wiki10-31K_mappings/wiki10-31K_label_map.txt --node_id 4844 \n")
     parser.add_argument('--dataset_path',
