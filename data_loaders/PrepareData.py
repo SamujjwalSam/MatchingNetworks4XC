@@ -96,7 +96,7 @@ class PrepareData():
         self.cat2id_map = self.cat2samples(self.selected_classes)
         self.remain_cat_ids = list(self.selected_categories.keys())
         logger.info("Training data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(self.sentences_train, self.classes_train, self.categories_train))
+                    .format(len(self.sentences_train), len(self.classes_train), len(self.categories_train)))
 
     def load_val(self):
         self.sentences_val, self.classes_val, self.categories_val = self.dataset.get_val_data()
@@ -105,7 +105,7 @@ class PrepareData():
         self.cat2id_map = self.cat2samples(self.selected_classes)
         self.remain_cat_ids = list(self.selected_categories.keys())
         logger.info("Validation data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(self.sentences_val, self.classes_val, self.categories_val))
+                    .format(len(self.sentences_val), len(self.classes_val), len(self.categories_val)))
 
     def load_test(self):
         self.sentences_test, self.classes_test, self.categories_test = self.dataset.get_test_data()
@@ -114,7 +114,7 @@ class PrepareData():
         self.cat2id_map = self.cat2samples(self.selected_classes)
         self.remain_cat_ids = list(self.selected_categories.keys())
         logger.info("Testing data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(self.sentences_test, self.classes_test, self.categories_test))
+                    .format(len(self.sentences_test), len(self.classes_test), len(self.categories_test)))
 
     def txt2vec(self, sentences:list, mode="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000, num_chunks=10):
         """
@@ -350,6 +350,7 @@ class PrepareData():
         """
         Returns an iterator over data.
 
+        :param input_size: Input embedding dimension.
         :param batch_size:
         :param categories_per_set:
         :param min_match:

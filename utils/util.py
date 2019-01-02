@@ -236,8 +236,7 @@ def clean_sentences_dict(sentences: dict, specials="""_-@*#'"/\\""", replace=' '
     sents_cleaned_dict = OrderedDict()
     trans_table = make_trans_table(specials=specials, replace=replace)
     for idx, text in sentences.items():
-        label_clean = unidecode(str(text)).translate(trans_table)
-        sents_cleaned_dict[idx] = label_clean
+        sents_cleaned_dict[idx] = unidecode(str(text)).translate(trans_table)
     return sents_cleaned_dict
 
 
@@ -254,8 +253,7 @@ def clean_sentences(sentences: list, specials="""_-@*#'"/\\""", replace=' '):
     sents_cleaned_dict = []
     trans_table = make_trans_table(specials=specials, replace=replace)
     for text in sentences:
-        label_clean = unidecode(str(text)).translate(trans_table)
-        sents_cleaned_dict.append(label_clean)
+        sents_cleaned_dict.append(unidecode(str(text)).translate(trans_table))
     return sents_cleaned_dict
 
 

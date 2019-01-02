@@ -24,7 +24,7 @@ from smart_open import smart_open as sopen  # Better alternative to Python open(
 
 from utils import util
 from logger.logger import logger
-from data_loaders.common_data_handler import JSON_Handler
+# from data_loaders.common_data_handler import JSON_Handler
 
 seed_val = 0
 
