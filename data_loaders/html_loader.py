@@ -23,7 +23,6 @@ from collections import OrderedDict
 
 from utils import util
 from logger.logger import logger
-from data_loaders.common_data_handler import JSON_Handler
 
 seed_val = 0
 WIKI_CATEGORIES = ["Categories:", "Category:", "Hidden categories:"]
@@ -52,7 +51,6 @@ class HTMLLoader(torch.utils.data.Dataset):
 
     def __init__(self,
                  dataset_name="Wiki10-31K",
-                 run_mode="train",
                  data_dir: str = "D:\\Datasets\\Extreme Classification"):
         """
         Initializes the html loader.
@@ -67,125 +65,68 @@ class HTMLLoader(torch.utils.data.Dataset):
         self.raw_html_dir = os.path.join(self.data_dir, dataset_name + "_RawData")
         self.raw_txt_dir = os.path.join(self.data_dir, "txt_files")
         logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
+        self.sentences, self.classes, self.categories = self.gen_dicts()
 
-        self.sentences_train = None
-        self.classes_train = None
-        self.categories_train = None
-        self.sentences_val = None
-        self.classes_val = None
-        self.categories_val = None
-        self.sentences_test = None
-        self.classes_test = None
-        self.categories_test = None
+    def gen_dicts(self):
+        """Filters sentences, classes and categories from wikipedia text.
 
-        logger.debug("Check if processed json file already exists at [{}], then load."
-                     .format(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")))
-        # if run_mode == "train" or run_mode == "val" or run_mode == "test":
-        #     if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_"+run_mode+".json")) \
-        #             and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_"+run_mode+".json")) \
-        #             and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_"+run_mode+".json")):
-        #         self.sentences_train = util.load_json(self.dataset_name + "_sentences_"+run_mode, file_path=self.data_dir)
-        #         self.classes_train = util.load_json(self.dataset_name + "_classes_"+run_mode, file_path=self.data_dir)
-        #         self.categories_train = util.load_json(self.dataset_name + "_categories_"+run_mode, file_path=self.data_dir)
-        #     else:
-        #         self.load_full_json()
-        if run_mode == "train":
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_train.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_train.json")):
-                self.sentences_train = util.load_json(self.dataset_name + "_sentences_train", file_path=self.data_dir)
-                self.classes_train = util.load_json(self.dataset_name + "_classes_train", file_path=self.data_dir)
-                self.categories_train = util.load_json(self.dataset_name + "_categories_train", file_path=self.data_dir)
-            else:
-                self.load_full_json()
-        elif run_mode == "val":
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_val.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_val.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_val.json")):
-                self.sentences_val = util.load_json(self.dataset_name + "_sentences_val", file_path=self.data_dir)
-                self.classes_val = util.load_json(self.dataset_name + "_classes_val", file_path=self.data_dir)
-                self.categories_val = util.load_json(self.dataset_name + "_categories_val", file_path=self.data_dir)
-            else:
-                self.load_full_json()
-        elif run_mode == "test":
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_test.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_test.json")) \
-                    and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_test.json")):
-                self.sentences_test = util.load_json(self.dataset_name + "_sentences_test", file_path=self.data_dir)
-                self.classes_test = util.load_json(self.dataset_name + "_classes_test", file_path=self.data_dir)
-                self.categories_test = util.load_json(self.dataset_name + "_categories_test", file_path=self.data_dir)
-            else:
-                self.load_full_json()
-        else:
-            raise Exception("Unknown running mode: [{}]. \n Available options: ['train','val','test']".format(run_mode))
-
-    def load_full_json(self):
+        :return: Dict of sentences, classes and categories filtered from samples.
         """
-        Loads dataset.
 
-        :param dataset_name:
-        """
-        # logger.debug(os.path.join(self.data_dir, self.dataset_name + "_sentences.json"))
-        if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")) \
-                and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes.json")) \
-                and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories.json")):
-            logger.info("Loading pre-processed json files from: [{}]".format(
-                os.path.join(self.data_dir, self.dataset_name)))
-            self.sentences = util.load_json(self.dataset_name + "_sentences", file_path=self.data_dir)
-            self.classes = util.load_json(self.dataset_name + "_classes", file_path=self.data_dir)
-            self.categories = util.load_json(self.dataset_name + "_categories", file_path=self.data_dir)
-            assert len(self.sentences) == len(self.classes), \
-                "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
-                                                                                  len(self.classes))
+        if os.path.isdir(self.raw_txt_dir):
+            logger.info("Loading data from TXT files.")
+            self.samples = self.read_txt_dir(self.raw_txt_dir)
         else:
-            if os.path.isdir(self.raw_txt_dir):
-                logger.info("Loading data from TXT files.")
-                self.samples = self.read_txt_dir(self.raw_txt_dir)
-            else:
-                logger.info("Could not find TXT files: [{}]".format(self.raw_txt_dir))
-                logger.info("Loading data from HTML files.")
-                html_parser = self.get_html_parser()
-                self.samples = self.read_html_dir(html_parser)
-            logger.info("Creating 3 separate dicts of sentences[id->texts], classes[id->class_ids]"
-                        "and categories[class_name : class_id] from HTML.")
-            sentences, classes, categories, hid_classes, hid_categories, no_cat_ids = self.filter_categories(
-                self.samples)
-            util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids",
-                           file_path=self.data_dir)  # Storing the ids for which no categories were found.
-            util.save_json(hid_classes, self.dataset_name + "_hid_classes",
-                           file_path=self.data_dir)  # Storing details of file id to hidden categories map.
-            util.save_json(hid_categories, self.dataset_name + "_hid_categories",
-                           file_path=self.data_dir)  # Storing dict of hidden categories.
-            self.classes = classes
-            # logger.debug("Cleaning categories.")
-            categories_cleaned, categories_dup_dict, dup_cat_text_map = util.clean_categories(categories)
-            self.categories = categories_cleaned
-            util.save_json(self.categories, self.dataset_name + "_categories", file_path=self.data_dir)
-            util.save_json(dup_cat_text_map, self.dataset_name + "_dup_cat_text_map", file_path=self.data_dir)
-            self.n_categories = len(categories)
-            if categories_dup_dict:
-                util.save_json(categories_dup_dict, self.dataset_name + "_categories_dup_dict",
-                               file_path=self.data_dir)  # Storing the duplicate categories for future dedup removal.
-                self.classes = util.dedup_data(classes, categories_dup_dict)
-            else:
-                self.classes = classes
-            self.sentences = util.clean_sentences_dict(sentences)
-            assert len(self.sentences) == len(self.classes), \
-                "Count of sentences [{0}] and classes [{1}] should match.".format(len(self.sentences),
-                                                                                  len(self.classes))
-            util.save_json(self.sentences, self.dataset_name + "_sentences", file_path=self.data_dir)
-            util.save_json(self.classes, self.dataset_name + "_classes", file_path=self.data_dir)
-            logger.info("Saved sentences [{0}], classes [{1}] and categories [{2}] as json files.".format(
-                os.path.join(self.data_dir + "_sentences.json"),
-                os.path.join(self.data_dir + "_classes.json"),
-                os.path.join(self.data_dir + "_categories.json")))
+            logger.info("Could not find TXT files: [{}]".format(self.raw_txt_dir))
+            logger.info("Loading data from HTML files.")
+            html_parser = self.get_html_parser()
+            self.samples = self.read_html_dir(html_parser)
 
-        # Splitting data into train, validation and test sets.
-        data_loader = JSON_Handler(dataset_name=self.dataset_name, data_dir=self.data_dir)
-        self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val, self.categories_val, self.sentences_test, self.classes_test, self.categories_test = data_loader.split_data(
-            sentences=self.sentences, classes=self.classes, categories=self.categories)
-        self.num_samples = len(self.sentences)
-        # return self.sentences,self.classes,self.categories
+        classes = OrderedDict()
+        hid_classes = OrderedDict()
+        categories = OrderedDict()
+        hid_categories = OrderedDict()
+        sentences = OrderedDict()
+        cat_idx = 0
+        hid_cat_idx = 0
+        no_cat_ids = []  # List to store failed parsing cases.
+        for id, txt in self.samples.items():
+            # logger.debug(type(txt))
+            clean_txt, filtered_categories, filtered_hid_categories = self.filter_html_categories(txt)
+            # assert filtered_categories, "No category information was found for id: [{0}].".format(id)
+            if filtered_categories:  # Check at least one category was successfully filtered from html file.
+                sentences[id] = clean_txt
+                # categories_list.append(set(filtered_categories))
+                for lbl in filtered_categories:
+                    if lbl not in categories:  # If lbl does not exists in categories already, add it and assign a new category index.
+                        categories[lbl] = cat_idx
+                        cat_idx += 1
+                    if id in classes:  # Check if id exists, append if yes.
+                        classes[id].append(categories[lbl])
+                    else:  # Create entry for id if does not exist.
+                        classes[id] = [categories[lbl]]
+            else:  # If no category was found, store the id in a separate place for later inspection.
+                logger.warn(
+                    "No categories [{0}] found for id: [{1}]. Storing for future use.".format(filtered_categories, id))
+                no_cat_ids.append(id)
+                # return False
+            if filtered_hid_categories:  # Check at least one category was successfully filtered from html file.
+                # categories_list.append(set(filtered_categories))
+                for lbl in filtered_hid_categories:
+                    if lbl not in hid_categories:  # If lbl does not exists in hid_categories already, add it and assign a new hid_category index.
+                        hid_categories[lbl] = hid_cat_idx
+                        hid_cat_idx += 1
+                    if id in hid_classes:  # Check if id exists, append if yes.
+                        hid_classes[id].append(hid_categories[lbl])
+                    else:  # Create entry for id if does not exist.
+                        hid_classes[id] = [hid_categories[lbl]]
+
+        util.save_json(hid_classes, self.dataset_name + "_hid_classes", file_path=self.data_dir)
+        util.save_json(hid_categories, self.dataset_name + "_hid_categories", file_path=self.data_dir)
+        util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids", file_path=self.data_dir)
+        logger.info("Number of sentences: [{}], classes: [{}] and categories: [{}]."
+                    .format(len(sentences),len(classes),len(categories)))
+        return sentences, classes, categories
 
     def read_txt_dir(self, raw_txt_dir, encoding="iso-8859-1"):
         """
@@ -203,18 +144,8 @@ class HTMLLoader(torch.utils.data.Dataset):
             for i in os.listdir(raw_txt_dir):
                 if os.path.isfile(os.path.join(raw_txt_dir, i)) and i.endswith(".txt"):
                     with open(os.path.join(raw_txt_dir, i), encoding=encoding) as txt_ptr:
-                        data[str(i[:-4])] = str(
-                            txt_ptr.read()).splitlines()  # [:-4] to remove the ".txt" from sample id.
+                        data[str(i[:-4])] = str(txt_ptr.read()).splitlines()  # [:-4] to remove the ".txt" from sample id.
         return data
-
-    def __len__(self):
-        logger.info("Number of samples: [{}] for dataset: [{}]".format(self.num_samples, self.dataset_name))
-        return self.num_samples
-
-    def __getitem__(self, idx):
-        # TODO: correct this part. -> Probably not required.
-        return (torch.from_numpy(self.sentences[idx].todense().reshape(-1)),
-                torch.from_numpy(self.classes[idx].todense().reshape(-1)))
 
     def get_html_parser(self, alt_text=True, ignore_table=True, decode_errors="ignore", default_alt="<IMG>",
                         ignore_link=True, reference_links=True, bypass_tables=True, ignore_emphasis=True,
@@ -251,29 +182,33 @@ class HTMLLoader(torch.utils.data.Dataset):
         html_parser.escape_all = escape_all  # Escape all special characters.
         return html_parser
 
-    def read_html_dir(self, html_parser, encoding="iso-8859-1"):
+    def read_html_dir(self, html_parser, encoding="iso-8859-1",specials="""_-@*#'"/\\""", replace=' '):
         """
         Reads all html files in a folder as str and returns a OrderedDict[str(filename)]=str(content).
 
+        :param replace:
+        :param specials:
         :param encoding:
         :param html_parser:
         :param data_dir: Path to directory of html files.
         """
-        # html_parser = get_html_parser()
+        from unidecode import unidecode
         data = OrderedDict()
         # logger.debug("Raw HTML path: {}".format(self.raw_html_dir))
         os.makedirs(os.path.join(self.data_dir, "txt_files"), exist_ok=True)
         if os.path.isdir(self.raw_html_dir):
+            trans_table = util.make_trans_table(specials=specials, replace=replace)  # Creating mapping to clean sentences.
             for i in os.listdir(self.raw_html_dir):
                 if os.path.isfile(os.path.join(self.raw_html_dir, i)):
                     with open(os.path.join(self.raw_html_dir, i), encoding=encoding) as html_ptr:
                         h_content = html_parser.handle(html_ptr.read())
-                        util.write_file(h_content, i, file_path=os.path.join(self.data_dir, "txt_files"))
-                        data[str(i)] = str(h_content).splitlines()
+                        clean_text = unidecode(str(h_content).splitlines()).translate(trans_table)
+                        util.write_file(clean_text, i, file_path=os.path.join(self.data_dir, "txt_files"))
+                        data[str(i)] = clean_text
         return data
 
-    def filter_wiki_categories(self, txt: list):
-        """Filters and removes categories from wikipedia text."""
+    def filter_html_categories(self, txt: list):
+        """Filters and removes categories from html text."""
         category_lines = ""
         hid_category_lines = ""
         # filtered_categories = []
@@ -329,108 +264,11 @@ class HTMLLoader(torch.utils.data.Dataset):
         # logger.debug(filtered_hid_categories)
         return txt, filtered_categories, filtered_hid_categories
 
-    def filter_categories(self, samples: dict):
-        """Filters sentences, classes and categories from wikipedia text.
-
-        :return: Dict of sentences, classes and categories filtered from samples.
-        """
-        classes = OrderedDict()
-        hid_classes = OrderedDict()
-        categories = OrderedDict()
-        hid_categories = OrderedDict()
-        sentences = OrderedDict()
-        cat_idx = 0
-        hid_cat_idx = 0
-        no_cat_ids = []  # List to store failed parsing cases.
-        for id, txt in samples.items():
-            # logger.debug(type(txt))
-            clean_txt, filtered_categories, filtered_hid_categories = self.filter_wiki_categories(txt)
-            # assert filtered_categories, "No category information was found for id: [{0}].".format(id)
-            if filtered_categories:  # Check at least one category was successfully filtered from html file.
-                sentences[id] = clean_txt
-                # categories_list.append(set(filtered_categories))
-                for lbl in filtered_categories:
-                    if lbl not in categories:  # If lbl does not exists in categories already, add it and assign a new category index.
-                        categories[lbl] = cat_idx
-                        cat_idx += 1
-                    if id in classes:  # Check if id exists, append if yes.
-                        classes[id].append(categories[lbl])
-                    else:  # Create entry for id if does not exist.
-                        classes[id] = [categories[lbl]]
-            else:  # If no category was found, store the id in a separate place for later inspection.
-                logger.warn(
-                    "No categories [{0}] found for id: [{1}]. Storing for future use.".format(filtered_categories, id))
-                no_cat_ids.append(id)
-                # return False
-            if filtered_hid_categories:  # Check at least one category was successfully filtered from html file.
-                # categories_list.append(set(filtered_categories))
-                for lbl in filtered_hid_categories:
-                    if lbl not in hid_categories:  # If lbl does not exists in hid_categories already, add it and assign a new hid_category index.
-                        hid_categories[lbl] = hid_cat_idx
-                        hid_cat_idx += 1
-                    if id in hid_classes:  # Check if id exists, append if yes.
-                        hid_classes[id].append(hid_categories[lbl])
-                    else:  # Create entry for id if does not exist.
-                        hid_classes[id] = [hid_categories[lbl]]
-            # else:  # If no category was found, store the id in a separate place for later inspection.
-            #     logger.warn("No categories[{0}] found for id: [{1}]".format(filtered_hid_categories,id))
-            #     logger.warn("Storing id [{0}] for future use.".format(id))
-            # no_cat_ids.append(id)
-            # return False
-
-        # assert len(self.samples) == len(classes), "Count of samples and classes should match."
-        # assert len(self.samples) == len(sentences), "Count of samples and sentences should also match."
-        # logger.debug(categories)
-        # categories = OrderedDict([(k,v) for k,v in categories.items() if len(k)>0])  #
-        logger.debug(no_cat_ids)
-        # logger.debug((len(sentences), classes, categories))
-        return sentences, classes, categories, hid_classes, hid_categories, no_cat_ids
-
     def get_data(self):
         """
         Function to get the entire dataset
         """
         return self.sentences, self.classes, self.categories
-
-    def get_train_data(self):
-        """
-        Function to get the entire dataset
-        """
-        return self.sentences_train, self.classes_train, self.categories_train
-
-    def get_val_data(self):
-        """
-        Function to get the entire dataset
-        """
-        if self.sentences_val is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_val.json")):
-                self.sentences_val = util.load_json(self.dataset_name + "_sentences_val", file_path=self.data_dir)
-
-        if self.classes_val is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_val.json")):
-                self.classes_val = util.load_json(self.dataset_name + "_classes_val", file_path=self.data_dir)
-
-        if self.categories_val is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_val.json")):
-                self.categories_val = util.load_json(self.dataset_name + "_categories_val", file_path=self.data_dir)
-        return self.sentences_val, self.classes_val, self.categories_val
-
-    def get_test_data(self):
-        """
-        Function to get the entire dataset
-        """
-        if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_test.json")) \
-                and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_test.json")):
-            self.sentences_test = util.load_json(self.dataset_name + "_sentences_test", file_path=self.data_dir)
-            self.classes_test = util.load_json(self.dataset_name + "_classes_test", file_path=self.data_dir)
-            self.categories_test = util.load_json(self.dataset_name + "_categories_test", file_path=self.data_dir)
-        return self.sentences_test, self.classes_test, self.categories_test
-
-    def get_batch(self, batch_size=64):
-        """
-        :returns: A batch of samples.
-        """
-        return (self.sentences, self.classes), self.categories
 
     def get_sentences(self):
         """
@@ -450,18 +288,11 @@ class HTMLLoader(torch.utils.data.Dataset):
         """
         return self.categories
 
-    def get_categories_count(self):
-        """
-        Function to get the entire set of categories
-        """
-        return self.n_categories
-
 
 def main():
     # config = read_config(args)
     cls = HTMLLoader()
-    # data_dict = cls.read_html_dir("D:\Datasets\Extreme Classification\html_test")
-    sentences_val, classes_val, categories_val = cls.get_val_data()
+    sentences_val, classes_val, categories_val = cls.get_data()
     util.print_dict(sentences_val)
     util.print_dict(classes_val)
     util.print_dict(categories_val)
