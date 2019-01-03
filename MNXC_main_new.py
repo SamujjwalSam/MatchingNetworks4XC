@@ -19,14 +19,13 @@ __methods__     :
 
 import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from collections import OrderedDict
-# from datetime import datetime
 # TIME_STAMP = datetime.utcnow().isoformat()
 
 from logger.logger import logger
 from utils import util
-from models.BuildMN import BuildMN
-from data_loaders.PrepareData import PrepareData
+from models.BuildMN_new import BuildMN
+from data_loaders.PrepareData_new import PrepareData
+from data_loaders.common_data_handler_new import Common_JSON_Handler
 
 """
 TODOs:
@@ -81,143 +80,46 @@ https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-e
 """
 
 
-def read_fastai_csv(dataset_path="D:\\Datasets\\nlp", dataset_name="ag_news_csv", file_name="train.csv", tag="train"):
-    """
-    Loads csv files as pandas dataframe.
-
-    :param file_name:
-    :param dataset_path:
-    :param dataset_name:
-    :param tag:
-    :return: [list]
-    """
-    import csv
-    rows = []
-    with open(os.path.join(dataset_path, dataset_name, file_name)) as csvfile:
-        csvreader = csv.reader(csvfile, quotechar='"', delimiter=',',
-                               quoting=csv.QUOTE_ALL, skipinitialspace=True)
-        # header = csvreader.next()
-        i = 0
-        for row in csvreader:
-            d = {"classes": [int(row[0]) - 1], "text": row[1] + ". " + row[2], "sample_id": str(i), "tag": tag}
-            rows.append(d)
-            i += 1
-        # logger.debug("Total no. of rows: %d" % csvreader.line_num)
-    return rows
-
-
-def load_rcv1(sklearn_data='D:\Datasets\Extreme Classification\scikit_learn_data', subset='all', download=True, rand=0,
-              shuffle=False, X_y=False):
-    """
-    Loads RCV1 dataset using sklearn.datasets.fetch_rcv1().
-
-    Dataset Details:
-        Version: RCV1-v2, vectors, full sets, topics multilabels.
-        Classes	        103
-        Samples total	804414
-        Dimensionality	47236
-        Features	real, between 0 and 1
-    :param sklearn_data:
-    :param subset:
-    :param download:
-    :param rand:
-    :param shuffle:
-    :param X_y:
-    :return:
-    """
-    from sklearn.datasets import fetch_rcv1
-    rcv1 = fetch_rcv1(data_home=sklearn_data, subset=subset, download_if_missing=download, random_state=rand,
-                      shuffle=shuffle, return_X_y=X_y)
-    return rcv1
-
-
-def download_fastai_dataset(config, dataset='ag_news_csv'):
-    """
-    Downloads, untars and loads fastai datasets.
-
-    :param config:
-    :param dataset:
-    :return:
-    """
-    # logger.debug(config["paths"]["dataset_url"], os.path.join(config["paths"]["dataset_dir"], config["paths"]["dataset_name"]))
-    data = untar_data(url=config["paths"]["dataset_url"],
-                      fname=os.path.join(config["paths"]["dataset_dir"][plat],
-                                         config["data_loader"]["dataset_name"]),
-                      dest=config["paths"]["dataset_dir"][plat])
-    # logger.debug(data_loader)
-    return data
-
-
-def prepare_datasets(config, dataset='ag_news_csv'):
-    """
-    Downloads, untars and loads dataset.
-
-    :param dataset:
-    :param config: Config file dict.
-    :return:
-    """
-    if dataset in config["fastai_datasets"]:
-        fastai_path = download_fastai_dataset(config, dataset=dataset)
-        tr = read_fastai_csv(dataset_path=fastai_path, dataset_name="ag_news_csv", tag="train")
-        ts = read_fastai_csv(dataset_path=fastai_path, dataset_name="ag_news_csv", file_name="test.csv", tag="test")
-        X_tr, Y_tr = OrderedDict(), OrderedDict()
-        for sample in tr:  # Dividing tr into X_tr and Y_tr.
-            X_tr[sample["sample_id"]] = sample["text"]
-            Y_tr[sample["sample_id"]] = sample["classes"]
-
-        X_ts, Y_ts = OrderedDict(), OrderedDict()
-        for sample in ts:
-            X_ts[sample["sample_id"]] = sample["text"]
-            Y_ts[sample["sample_id"]] = sample["classes"]
-
-        labels = OrderedDict()
-        with open(os.path.join(fastai_path, dataset, "classes.txt")) as cls:
-            for i, line in enumerate(cls):
-                line = line.rstrip("\n\r")
-                labels[i] = line
-        # logger.debug(categories)
-        return X_tr, Y_tr, X_ts, Y_ts, labels
-    else:
-        logger.debug("Warning: Dataset not found.")
-        return False
-
-
 def main(args):
     config = util.load_json(args.config, ext=False)
-    util.print_json(config,"Config")
+    util.print_json(config, "Config")
     plat = util.get_platform()
 
     use_cuda = False
-    # if plat == "Linux": use_cuda = True
+    if plat == "Linux": use_cuda = True
 
-    data_loader = PrepareData(default_load="train",
-                              dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
-                              dataset_name=config["data"]["dataset_name"],
-                              dataset_dir=config["paths"]["dataset_dir"][plat])
+    data_loader = Common_JSON_Handler(default_load="train",
+                                      dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+                                      dataset_name=config["data"]["dataset_name"],
+                                      data_dir=config["paths"]["dataset_dir"][plat])
 
-    cls = BuildMN(data_loader, use_cuda=use_cuda)
+    data_formatter = PrepareData(dataset=data_loader,
+                                 dataset_name=config["data"]["dataset_name"],
+                                 dataset_dir=config["paths"]["dataset_dir"][plat])
 
-    cls.prepare_mn(num_categories=0,
-                   fce=True,
-                   input_size=config["model"]["input_size"],
-                   hid_size=config["model"]["hid_size"],
-                   lr=config["model"]["learning_rate"],
-                   lr_decay=config["model"]["lr_decay"],
-                   weight_decay=config["model"]["weight_decay"],
-                   optim=config["model"]["optim"],
-                   dropout=config["model"]["dropout"],
-                   batch_size=config["model"]["batch_size"],
-                   samples_per_category=config["model"]["samples_per_category"],
-                   num_cat=config["model"]["num_cat"])
+    match_net = BuildMN(data_formatter, use_cuda=use_cuda)
+
+    match_net.prepare_mn(num_categories=0,
+                         fce=True,
+                         input_size=config["model"]["input_size"],
+                         hid_size=config["model"]["hid_size"],
+                         lr=config["model"]["learning_rate"],
+                         lr_decay=config["model"]["lr_decay"],
+                         weight_decay=config["model"]["weight_decay"],
+                         optim=config["model"]["optim"],
+                         dropout=config["model"]["dropout"],
+                         batch_size=config["model"]["batch_size"],
+                         samples_per_category=config["model"]["samples_per_category"],
+                         num_cat=config["model"]["num_cat"])
 
     num_epochs = config["model"]["num_epochs"]
 
     for epoch in range(num_epochs):
-        train_epoch_loss = cls.run_training_epoch(num_train_epoch=config["model"]["num_train_epoch"], )
+        train_epoch_loss = match_net.run_training_epoch(num_train_epoch=config["model"]["num_train_epoch"], )
 
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(train_epoch_loss))
-        val_epoch_loss = cls.run_validation_epoch(num_val_epoch=1)
+        val_epoch_loss = match_net.run_validation_epoch(num_val_epoch=1)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
 
 

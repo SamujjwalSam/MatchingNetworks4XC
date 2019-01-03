@@ -99,37 +99,6 @@ class TextEncoder(object):
         self.binary = binary_file
         # self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name, model_type=model_type)
 
-    def get_sim(self,w1:str,w2:str):
-        """
-        Calculates cosine similarity between two words.
-        :param w1: str
-        :param w2: str
-        :return:
-        """
-        sim = self.pretrain_model.similarity(w1,w2)
-        logger.debug("Similarity between [{0}] and [{1}] is [{2}]".format(w1,w2,sim))
-        return sim
-
-    def get_sent_sim(self,s1:str,s2:str):
-        """
-        Calculates cosine similarity between two sentences.
-        :param s1: str = Sentence
-        :param s2: str = Sentence
-        :return:
-        """
-        sent_sim = self.pretrain_model.wv.wmdistance(s1.lower().split(), s2.lower().split())
-        return sent_sim
-
-    def get_sent_sim_list(self,s1:list,s2:list):
-        """
-        Calculates cosine similarity between two sentences.
-        :param s1: str = Sentence
-        :param s2: str = Sentence
-        :return:
-        """
-        sent_sim = self.pretrain_model.wv.wmdistance(s1, s2)
-        return sent_sim
-
     def load_doc2vec(self, documents, vector_size=100, window=2, min_count=1, workers=4, seed=seed_val, negative=10,
                      doc2vec_dir="", doc2vec_model_file="doc2vec_model_file", clean_tmp=False, save_model=True):
         """

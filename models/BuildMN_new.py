@@ -24,7 +24,6 @@ from torch.autograd import Variable
 
 from logger.logger import logger
 from models.MatchingNetwork import MatchingNetwork
-# from data_loaders.PrepareData import PrepareData
 
 seed_val = 0
 torch.manual_seed(seed_val)
@@ -38,13 +37,13 @@ class BuildMN:
     and evaluation procedures.
     """
 
-    def __init__(self, data_loader, cuda_available=None, use_cuda=False):
+    def __init__(self, data_formatter, cuda_available=None, use_cuda=False):
         """
         Initializes an BuildMN object. The BuildMN object takes care of setting up our experiment
         and provides helper functions such as run_training_epoch and run_validation_epoch to simplify out training
         and evaluation procedures.
 
-        :param data_loader: A data_loader provider class
+        :param data_formatter: A data_loader provider class
         """
         if cuda_available is None:
             self.cuda_available = torch.cuda.is_available()
@@ -52,8 +51,7 @@ class BuildMN:
             self.cuda_available = cuda_available
 
         self.use_cuda = use_cuda
-
-        self.data_loader = data_loader
+        self.data_formatter = data_formatter
 
     def prepare_mn(self, input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6, weight_decay=1e-4, optim="adam",
                    dropout=0.2, num_categories=0, fce=True, batch_size=32, samples_per_category=20, num_cat=15,
@@ -112,16 +110,18 @@ class BuildMN:
         :return: mean_training_multilabel_margin_loss.
         """
         total_c_loss = 0.
+        self.data_formatter.prepare_data(load_type='train')
         # Create the optimizer
-        self.data_loader.load_train()
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch
-                x_supports, y_support_hots, x_targets, y_target_hots = self.data_loader.get_batches(batch_size=self.batch_size,
-                                                                                                    categories_per_set=self.num_cat,
-                                                                                                    samples_per_category=self.samples_per_category,
-                                                                                                    vectorizer=self.vectorizer,
-                                                                                                    input_size=self.input_size)
+                x_supports, y_support_hots, x_targets, y_target_hots = \
+                    self.data_formatter.get_batches(
+                        batch_size=self.batch_size,
+                        categories_per_set=self.num_cat,
+                        samples_per_category=self.samples_per_category,
+                        vectorizer=self.vectorizer,
+                        input_size=self.input_size)
                 logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
                             .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
 
@@ -129,7 +129,6 @@ class BuildMN:
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
                 x_targets = Variable(torch.from_numpy(x_targets)).float()
                 y_target_hots = Variable(torch.from_numpy(y_target_hots), requires_grad=False).float()
-
 
                 if self.cuda_available and self.use_cuda:
                     cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
@@ -177,15 +176,17 @@ class BuildMN:
         :return: mean_validation_categorical_crossentropy_loss
         """
         total_val_c_loss = 0.
-        self.data_loader.load_val()
+        self.data_formatter.prepare_data(load_type='val')
 
         with tqdm.tqdm(total=num_val_epoch) as pbar:
             for i in range(num_val_epoch):  # 1 validation epoch
-                x_supports, y_support_hots, x_targets, y_target_hots = self.data_loader.get_batches(batch_size=self.batch_size,
-                                                                                                    categories_per_set=self.num_cat,
-                                                                                                    samples_per_category=self.samples_per_category,
-                                                                                                    vectorizer=self.vectorizer,
-                                                                                                    input_size=self.input_size)
+                x_supports, y_support_hots, x_targets, y_target_hots = \
+                    self.data_formatter.get_batches(
+                        batch_size=self.batch_size,
+                        categories_per_set=self.num_cat,
+                        samples_per_category=self.samples_per_category,
+                        vectorizer=self.vectorizer,
+                        input_size=self.input_size)
                 logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
                             .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
 
@@ -223,14 +224,16 @@ class BuildMN:
         :return: mean_testing_categorical_crossentropy_loss
         """
         total_test_c_loss = 0.
-        self.data_loader.load_test()
+        self.data_formatter.prepare_data(load_type='test')
         with tqdm.tqdm(total=total_test_batches) as pbar:
             for i in range(total_test_batches):  # 1 test epoch
-                x_supports, y_support_hots, x_targets, y_target_hots = self.data_loader.get_batches(batch_size=self.batch_size,
-                                                                                                    categories_per_set=self.num_cat,
-                                                                                                    samples_per_category=self.samples_per_category,
-                                                                                                    vectorizer=self.mode,
-                                                                                                    input_size=self.input_size)
+                x_supports, y_support_hots, x_targets, y_target_hots = \
+                    self.data_formatter.get_batches(
+                        batch_size=self.batch_size,
+                        categories_per_set=self.num_cat,
+                        samples_per_category=self.samples_per_category,
+                        vectorizer=self.vectorizer,
+                        input_size=self.input_size)
 
                 x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()

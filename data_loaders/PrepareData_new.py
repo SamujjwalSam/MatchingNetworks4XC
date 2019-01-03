@@ -23,9 +23,9 @@ from random import sample
 from sklearn.preprocessing import MultiLabelBinarizer
 from collections import OrderedDict
 
-from data_loaders import html_loader as html
-from data_loaders import json_loader as json
-from data_loaders import txt_loader as txt
+# from data_loaders import html_loader as html
+# from data_loaders import json_loader as json
+# from data_loaders import txt_loader as txt
 from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
 from utils import util
@@ -40,37 +40,22 @@ np.random.seed(seed_val)  # for reproducibility
 
 
 class PrepareData():
-    """Loads datasets and prepare data into proper format."""
-    def __init__(self, dataset_type="html", dataset_name="Wiki10-31K", default_load="val",
+    """Prepare data into proper format.
+
+        Converts strings to vectors,
+        Converts category ids to multi-hot vectors,
+        etc.
+    """
+
+    def __init__(self,
+                 dataset,
+                 dataset_name="Wiki10-31K",
                  dataset_dir="D:\\Datasets\\Extreme Classification"):
         self.dataset_name = dataset_name
         self.dataset_dir = dataset_dir
-        self.default_load = default_load
+        self.dataset = dataset
 
-        self.sentences_train = None
-        self.classes_train = None
-        self.categories_train = None
-        self.sentences_val = None
-        self.classes_val = None
-        self.categories_val = None
-        self.sentences_test = None
-        self.classes_test = None
-        self.categories_test = None
         self.doc2vec_model = None
-
-        if dataset_type == "html":
-            self.dataset = html.HTMLLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir, run_mode=default_load)
-        elif dataset_type == "json":
-            self.dataset = json.JSONLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir)
-        elif dataset_type == "txt":
-            self.dataset = txt.TXTLoader(dataset_name=self.dataset_name, data_dir=self.dataset_dir)
-        else:
-            raise Exception("Dataset type for dataset [{}] not found. \n"
-                            "Possible reasons: Dataset not added in the config file.".format(self.dataset_name))
-
-        if default_load == "train": self.load_train()
-        if default_load == "val": self.load_val()
-        if default_load == "test": self.load_test()
 
         self.mlb = MultiLabelBinarizer()
 
@@ -89,32 +74,18 @@ class PrepareData():
                 cat2id[cat].append(k)
         return cat2id
 
-    def load_train(self):
-        self.sentences_train, self.classes_train, self.categories_train = self.dataset.get_train_data()
-        self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_train, self.classes_train, self.categories_train
-        self.remain_sample_ids = list(self.selected_sentences.keys())
-        self.cat2id_map = self.cat2samples(self.selected_classes)
-        self.remain_cat_ids = list(self.selected_categories.keys())
-        logger.info("Training data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(len(self.sentences_train), len(self.classes_train), len(self.categories_train)))
+    def prepare_data(self, load_type='train'):
+        """
+        Prepares (loads, vectorize, etc) the data provided by param "load_type".
 
-    def load_val(self):
-        self.sentences_val, self.classes_val, self.categories_val = self.dataset.get_val_data()
-        self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_val, self.classes_val, self.categories_val
+        :param load_type: Which data to load: Options: ['train', 'val', 'test']
+        """
+        self.selected_sentences, self.selected_classes, self.selected_categories = self.dataset.get_data(load_type=load_type)
         self.remain_sample_ids = list(self.selected_sentences.keys())
         self.cat2id_map = self.cat2samples(self.selected_classes)
         self.remain_cat_ids = list(self.selected_categories.keys())
-        logger.info("Validation data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(len(self.sentences_val), len(self.classes_val), len(self.categories_val)))
-
-    def load_test(self):
-        self.sentences_test, self.classes_test, self.categories_test = self.dataset.get_test_data()
-        self.selected_sentences, self.selected_classes, self.selected_categories = self.sentences_test, self.classes_test, self.categories_test
-        self.remain_sample_ids = list(self.selected_sentences.keys())
-        self.cat2id_map = self.cat2samples(self.selected_classes)
-        self.remain_cat_ids = list(self.selected_categories.keys())
-        logger.info("Testing data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(len(self.sentences_test), len(self.classes_test), len(self.categories_test)))
+        logger.info("[{}] data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+                    .format(load_type, len(self.selected_sentences), len(self.selected_classes), len(self.selected_categories)))
 
     def txt2vec(self, sentences: list, vectorizer="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000,
                 num_chunks=10):
@@ -171,12 +142,48 @@ class PrepareData():
             w2v_model = self.text_encoder.load_word2vec()
             return self.create_doc_vecs(sentences=sentences, w2v_model=w2v_model, sents_chunk_mode=vectorizer)
 
-    def create_doc_vecs(self, sentences: dict, w2v_model, mode, concat_axis=0):
+    def create_doc_vecs(self, sentences: list, w2v_model, sents_chunk_mode, concat_axis=0):
         """
         Calculates the average of vectors of all words within a chunk and concatenates the chunks.
 
         :param concat_axis: The axis the vectors should be concatenated.
-        :param mode:
+        :param sents_chunk_mode:
+        :param w2v_model:
+        :param sentences: Dict of texts.
+        :returns: Average of vectors of chunks. Dim: embedding_dim.
+        """
+        oov_words = []  # To hold out-of-vocab words.
+        docs_vecs = []
+        for i, doc in enumerate(sentences):
+            chunks = self.partition_doc(doc, sents_chunk_mode)
+            chunks = list(filter(None, chunks))  # Removing empty items.
+            for chunk in chunks:  # Loop to create vector for each chunk to be concatenated.
+                avg_vec = None
+                for word in chunk:  # Loop to create average of vectors of all words within a chunk.
+                    if word in w2v_model.vocab:
+                        if avg_vec is None:
+                            avg_vec = w2v_model[word]
+                        else:
+                            avg_vec = np.add(avg_vec, avg_vec)
+                    else:
+                        new_oov_vec = np.random.uniform(-0.5, 0.5, self.embedding_dim)
+                        w2v_model.add(word, new_oov_vec)
+                        oov_words.append(word)
+                        if avg_vec is None:
+                            avg_vec = new_oov_vec
+                        else:
+                            avg_vec = np.add(avg_vec, new_oov_vec)
+                docs_vecs[i] = np.concatenate((docs_vecs[i], np.divide(avg_vec, float(len(chunk)))), axis=concat_axis)
+        util.save_json(oov_words, "oov_words")
+
+        return docs_vecs
+
+    def create_doc_vecs(self, sentences: dict, w2v_model, sents_chunk_mode, concat_axis=0):
+        """
+        Calculates the average of vectors of all words within a chunk and concatenates the chunks.
+
+        :param concat_axis: The axis the vectors should be concatenated.
+        :param sents_chunk_mode:
         :param w2v_model:
         :param sentences: Dict of texts.
         :returns: Average of vectors of chunks. Dim: embedding_dim.
@@ -184,7 +191,7 @@ class PrepareData():
         oov_words = []  # To hold out-of-vocab words.
         docs_vecs = OrderedDict()
         for idx, doc in sentences.items():
-            chunks = self.partition_doc(doc, mode)
+            chunks = self.partition_doc(doc, sents_chunk_mode)
             chunks = list(filter(None, chunks))  # Removing empty items.
             for chunk in chunks:
                 avg_vec = None
@@ -261,7 +268,8 @@ class PrepareData():
         self.std = np.std(self.x_train)
         self.max = np.max(self.x_train)
         self.min = np.min(self.x_train)
-        logger.debug(("train_shape", self.x_train.shape, "test_shape", self.x_test.shape, "val_shape", self.x_val.shape))
+        logger.debug(
+            ("train_shape", self.x_train.shape, "test_shape", self.x_test.shape, "val_shape", self.x_val.shape))
         self.x_train = (self.x_train - self.mean) / self.std
         self.x_val = (self.x_val - self.mean) / self.std
         self.x_test = (self.x_test - self.mean) / self.std
@@ -286,10 +294,12 @@ class PrepareData():
         """
         self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=categories_per_set,
                                                                     remove_keys=False)
-        selected_cat_ids = [int(cat) for cat in selected_cat_ids]  # For some reason returned values are not int, converting to int.
+        selected_cat_ids = [int(cat) for cat in
+                            selected_cat_ids]  # For some reason returned values are not int, converting to int.
         return selected_cat_ids
 
-    def get_supports(self, support_cat_ids, cat2id_map=None, input_size=300, samples_per_category=4, mode="doc2vec", repeat_mode='append'):
+    def get_supports(self, support_cat_ids, cat2id_map=None, input_size=300, samples_per_category=4, vectorizer="doc2vec",
+                     repeat_mode='append'):
         """
         Returns a batch of feature vectors and multi-hot classes.
 
@@ -299,7 +309,7 @@ class PrepareData():
         :param min_match: Minimum number of categories should match.
         :param support_cat_ids:
         :param samples_per_category:
-        :param mode:
+        :param vectorizer:
         """
         # cat_selected_ids = OrderedDict()
         selected_ids = []
@@ -308,7 +318,8 @@ class PrepareData():
             # logger.debug((cat2id_map,cat,samples_per_category))
             if len(cat2id_map[cat]) == samples_per_category:
                 selected_ids = selected_ids + cat2id_map[cat]
-            elif len(cat2id_map[cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
+            elif len(cat2id_map[
+                         cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
                 selected_ids = selected_ids + sample(cat2id_map[cat], k=samples_per_category)
             else:  # Less than required, repeat the available classes.
                 selected_ids = selected_ids + cat2id_map[cat]
@@ -318,13 +329,15 @@ class PrepareData():
                         selected_ids.append(cat2id_map[cat][i % length])
                 elif repeat_mode == "sample":
                     empty_count = samples_per_category - length
-                    for i in range(empty_count):  # Sampling [samples_per_category] number of elements from cat2id_map[cat].
+                    for i in range(
+                            empty_count):  # Sampling [samples_per_category] number of elements from cat2id_map[cat].
                         selected_ids.append(cat2id_map[cat][sample(range(length), 1)])
                 else:
                     raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
-        sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes, selected_ids)
+        sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes,
+                                                                  selected_ids)
         # logger.debug(input_size)
-        x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, mode=mode)
+        x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, vectorizer=vectorizer)
         y_target_hot = self.mlb.transform(classes_batch)
         return x_target, y_target_hot
 
@@ -336,18 +349,18 @@ class PrepareData():
         """
         # remain_sample_ids = random.shuffle(list(sentences.keys()))
         if self.remain_sample_ids is not None:
-            _, batch_supports = util.get_batch_keys(self.remain_sample_ids, target_size, remove_keys=False)
-            # logger.debug((self.remain_sample_ids, batch_supports))
+            _, supports_batch = util.get_batch_keys(self.remain_sample_ids, target_size, remove_keys=False)
+            # logger.debug((self.remain_sample_ids, supports_batch))
             support_sentences_batch, support_classes_batch = util.create_batch(self.selected_sentences,
-                                                                               self.selected_classes, batch_supports)
-            x_support = self.txt2vec(support_sentences_batch, mode=mode)
+                                                                               self.selected_classes, supports_batch)
+            x_support = self.txt2vec(support_sentences_batch, vectorizer=mode)
             y_support_hot = self.create_multihot(support_classes_batch)
             return x_support, y_support_hot
         else:
             logger.warn("No remain_sample_ids.")
             return
 
-    def get_batches(self, batch_size=32,input_size=300,categories_per_set=5, samples_per_category=4, mode="doc2vec"):
+    def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, samples_per_category=4, vectorizer="doc2vec"):
         """
         Returns an iterator over data.
 
@@ -356,7 +369,7 @@ class PrepareData():
         :param categories_per_set:
         :param min_match:
         :param samples_per_category:
-        :param mode:
+        :param vectorizer:
         :returns: An iterator over data.
         """
         # logger.debug(self.remain_sample_ids)
@@ -370,10 +383,12 @@ class PrepareData():
         x_targets = []
         y_target_hots = []
         for i in range(batch_size):
-            x_support, y_support_hot = self.get_supports(support_cat_ids, samples_per_category=samples_per_category, mode=mode, input_size=input_size)
+            x_support, y_support_hot = self.get_supports(support_cat_ids, samples_per_category=samples_per_category,
+                                                         vectorizer=vectorizer, input_size=input_size)
             sel_cat = sample(support_cat_ids, k=1)
             # logger.debug(sel_cat)
-            x_target, y_target_hot = self.get_supports(sel_cat, samples_per_category=samples_per_category, mode=mode, input_size=input_size)
+            x_target, y_target_hot = self.get_supports(sel_cat, samples_per_category=samples_per_category, vectorizer=vectorizer,
+                                                       input_size=input_size)
             # logger.debug(x_support.shape)
             # logger.debug(y_support_hot.shape)
             x_supports.append(x_support)
@@ -390,7 +405,8 @@ class PrepareData():
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
     cls = PrepareData(default_load="train")
-    x_supports, y_support_hots, x_targets, y_target_hots = cls.get_batches(batch_size=32, categories_per_set=5, samples_per_category=4)
+    x_supports, y_support_hots, x_targets, y_target_hots = cls.get_batches(batch_size=32, categories_per_set=5,
+                                                                           samples_per_category=4)
     logger.debug(x_supports.shape)
     logger.debug(y_support_hots.shape)
     logger.debug(x_targets.shape)
