@@ -130,7 +130,7 @@ class PrepareData():
             if self.doc2vec_model is None:
                 self.doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
                                                                     seed=seed_val, negative=10,
-                                                                    doc2vec_dir=self.dataset_dir,
+                                                                    doc2vec_dir=os.path.join(self.dataset_dir,self.dataset_name),
                                                                     doc2vec_model_file=self.dataset_name + "_doc2vec")
             vectors_dict = self.text_encoder.get_doc2vecs(sentences, self.doc2vec_model)
             return vectors_dict

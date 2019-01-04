@@ -88,8 +88,7 @@ def main(args):
     use_cuda = False
     if plat == "Linux": use_cuda = True
 
-    data_loader = Common_JSON_Handler(default_load="train",
-                                      dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+    data_loader = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
                                       dataset_name=config["data"]["dataset_name"],
                                       data_dir=config["paths"]["dataset_dir"][plat])
 
@@ -114,13 +113,19 @@ def main(args):
 
     num_epochs = config["model"]["num_epochs"]
 
+    train_epoch_losses = []
+    val_epoch_losses = []
     for epoch in range(num_epochs):
         train_epoch_loss = match_net.run_training_epoch(num_train_epoch=config["model"]["num_train_epoch"], )
-
+        train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
-        logger.info("[{}] epochs of training completed. \nStarting Validation...".format(train_epoch_loss))
+        logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))
         val_epoch_loss = match_net.run_validation_epoch(num_val_epoch=1)
+        val_epoch_losses.append(val_epoch_loss)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
+
+    logger.info("Train losses: [{}]".format(train_epoch_losses))
+    logger.info("Validation losses: [{}]".format(val_epoch_losses))
 
 
 if __name__ == '__main__':

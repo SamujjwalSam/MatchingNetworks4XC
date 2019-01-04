@@ -47,8 +47,7 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
     def __init__(self,
                  dataset_name: str,
                  dataset_type="html",
-                 data_dir: str = "D:\\Datasets\\Extreme Classification",
-                 default_load="train"):
+                 data_dir: str = "D:\\Datasets\\Extreme Classification",):
         """
         Loads train val or test data based on run_mode.
 
@@ -60,7 +59,6 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         self.dataset_name = dataset_name
         self.dataset_type = dataset_type
         self.data_dir = os.path.join(data_dir, self.dataset_name)
-        self.default_load = default_load
 
         self.selected_sentences = None
         self.selected_classes = None
@@ -76,14 +74,13 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         self.classes_test = None
         self.categories_test = None
 
-        logger.debug("Check if processed json file already exists at [{}], then load."
-                     .format(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")))
-        print(self.default_load)
-        if self.default_load == "train": self.load_train()
-        elif self.default_load == "val": self.load_val()
-        elif self.default_load == "test": self.load_test()
-        else: raise Exception("Unknown 'default_load' value: [{}]. \n\tAvailable options: ['train','val','test']"
-                              .format(self.default_load))
+        # logger.debug("Check if processed json file already exists at [{}], then load."
+                     # .format(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")))
+        # if self.default_load == "train": self.load_train()
+        # elif self.default_load == "val": self.load_val()
+        # elif self.default_load == "test": self.load_test()
+        # else: raise Exception("Unknown 'default_load' value: [{}]. \n\tAvailable options: ['train','val','test']"
+        #                       .format(self.default_load))
 
     def load_full_json(self):
         """
@@ -232,18 +229,16 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
                 cat2id[cat].append(k)
         return cat2id
 
-    def get_data(self, load_type=None):
-        """:returns loaded dictionaries based on "self.default_load" value."""
-        if load_type is None: load_type = self.default_load
-        if self.selected_sentences is None or self.selected_classes is None or self.selected_categories is None:
-            if load_type == "train":
-                self.selected_sentences, self.selected_classes, self.selected_categories = self.load_train()
-            elif load_type == "val":
-                self.selected_sentences, self.selected_classes, self.selected_categories = self.load_val()
-            elif load_type == "test":
-                self.selected_sentences, self.selected_classes, self.selected_categories = self.load_test()
-            else:
-                raise Exception("Unknown 'load_type': [{}]. \n Available options: ['train','val','test']".format(load_type))
+    def get_data(self, load_type="train"):
+        """:returns loaded dictionaries based on "load_type" value."""
+        if load_type == "train":
+            self.selected_sentences, self.selected_classes, self.selected_categories = self.load_train()
+        elif load_type == "val":
+            self.selected_sentences, self.selected_classes, self.selected_categories = self.load_val()
+        elif load_type == "test":
+            self.selected_sentences, self.selected_classes, self.selected_categories = self.load_test()
+        else:
+            raise Exception("Unknown 'load_type': [{}]. \n Available options: ['train','val','test']".format(load_type))
         return self.selected_sentences, self.selected_classes, self.selected_categories
 
     def load_train(self):
