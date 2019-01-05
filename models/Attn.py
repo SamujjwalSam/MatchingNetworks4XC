@@ -1,5 +1,18 @@
 # coding=utf-8
-# !/usr/bin/python3.6 ## Please use python 3.6 or above
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
+#  Date : "5/1/19 11:44 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 5/1/19 11:42 AM.
+#  """
+
+# !/usr/bin/python3.6 ## Please use python 3.6
 """
 __synopsis__    : Matching Networks for Extreme Classification.
 __description__ : Produces pdfs over the support set classes for the target set datapoint.
@@ -7,7 +20,7 @@ __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018"
+__copyright__   : "Copyright (c) 2019"
 __license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
 __classes__     : Attn
@@ -38,8 +51,8 @@ class Attn(nn.Module):
         :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
         :return: Softmax pdf
         """
-        # logger.info("(similarities.shape: [{}], [{}] :support_set_y.shape)".format(similarities.shape, support_set_y.shape))
-        # logger.info("(similarities.type: [{}], [{}] :support_set_y.type)".format(similarities.dtype, support_set_y.dtype))
+        # logger.debug("(similarities.shape: [{}], [{}] :support_set_y.shape)".format(similarities.shape, support_set_y.shape))
+        # logger.debug("(similarities.type: [{}], [{}] :support_set_y.type)".format(similarities.dtype, support_set_y.dtype))
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
         x_hats_preds = []
@@ -89,6 +102,5 @@ if __name__ == '__main__':
     logger.debug("y.shape: {}".format(y.shape))
     test_attn = Attn()
     result = test_attn(sim, y)
-    # logger.debug("result: {}".format(result))
-    logger.debug("result.shape: {}".format(result))
+    logger.debug("result: {}".format(result))
     logger.debug("result.shape: {}".format(result.shape))

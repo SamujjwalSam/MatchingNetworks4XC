@@ -1,5 +1,18 @@
 # coding=utf-8
-# !/usr/bin/python3.6 ## Please use python 3.6 or above
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
+#  Date : "5/1/19 11:44 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 5/1/19 11:41 AM.
+#  """
+
+# !/usr/bin/python3.6 ## Please use python 3.6
 """
 __synopsis__    : Utility functions for Matching Networks for Extreme Classification.
 __description__ :
@@ -7,7 +20,7 @@ __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018"
+__copyright__   : "Copyright (c) 2019"
 __license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
 __classes__     :
@@ -187,7 +200,7 @@ def unicodeToAscii(s):
     )
 
 
-def make_trans_table(specials="""< >  * ? " / \ : |""", replace=' '):
+def make_trans_table(specials="""< >  * ? " / \\ : |""", replace=' '):
     """
     Makes a transition table to replace [specials] chars within [text] with [replace].
 
@@ -257,7 +270,7 @@ def clean_sentences(sentences: list, specials="""_-@*#'"/\\""", replace=' '):
     return sents_cleaned_dict
 
 
-def remove_special_chars(text, specials="""<>*?"/\:|""", replace=' '):
+def remove_special_chars(text, specials="""<>*?"/\\:|""", replace=' '):
     """
     Replaces [specials] chars from [text] with [replace].
 
@@ -607,8 +620,6 @@ def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_p
     :return:
     """
     assert (X.shape[0] == len(Y))
-    # Y_tr_aux = list(Y)
-    # Y_val = random.sample(Y_tr_aux,val_portion)
 
     if not label_preserve:
         from sklearn.model_selection import train_test_split
@@ -619,21 +630,16 @@ def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_p
 
     for lbl in V:
         for y_list in Y:
-            # logger.debug(int(lbl), [int(i) for i in y_list])
             if int(lbl) in y_list:
                 if lbl_feature_count[lbl] is None:
                     lbl_feature_count[lbl] = 1
                 else:
                     lbl_feature_count[lbl] += 1
-    # logger.debug(lbl_feature_count)
-    # logger.debug(len(lbl_feature_count))
-    # logger.debug(len(lbl_feature_count),len(V))
     assert (len(lbl_feature_count) == len(V))
 
     lbl_feature_count_portion = OrderedDict().fromkeys(V)
     for k, val in lbl_feature_count.items():
         lbl_feature_count_portion[k] = int(math.floor(lbl_feature_count[k] * split))
-    # logger.debug(lbl_feature_count_portion)
     logger.debug(len(lbl_feature_count_portion))
 
     X_val = []
@@ -643,14 +649,9 @@ def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_p
     for lbl, count in lbl_feature_count_portion.items():
         for c in range(count):
             for i, y_list in enumerate(Y):
-                # logger.debug(count)
                 if lbl in y_list:
-                    # logger.debug(lbl, y_list)
                     X_val.append(X[i])
-                    # logger.debug(X, i)
-                    # logger.debug(type(X), i)
                     X_tr = np.delete(X, i)
-                    # logger.debug(X, i)
                     Y_val.append(Y_tr.pop(i))
                     break
     save_npz(X_tr, "X_tr", file_path=save_path, overwrite=False)
@@ -684,11 +685,7 @@ def main(args):
     datasets = ['RCV1-2K']
     for dataset in datasets:
         train_graph_file = dataset + '_train.txt'
-        # train_graph_file = dataset+'/'+dataset+'_train.txt'
         train_graph_file = os.path.join(args.dataset_path, dataset, train_graph_file)
-
-        # label_map = dataset+'_mappings/'+dataset+'_label_map.txt'
-        # label_map_file = os.path.join(args.dataset_path,dataset,label_map)
 
         total_points, feature_dm, number_of_labels, X, Y, V, E = get_x_y_v_e(train_graph_file)
 
@@ -706,9 +703,6 @@ def main(args):
         test_graph_file = dataset + '_test.txt'
         test_graph_file = os.path.join(args.dataset_path, dataset, test_graph_file)
 
-        # label_map = dataset+'_mappings/'+dataset+'_label_map.txt'
-        # label_map_file = os.path.join(args.dataset_path,dataset,label_map)
-
         total_points, feature_dm, number_of_labels, X, Y, V, E = get_x_y_v_e(test_graph_file)
 
         save_json(V, dataset + '_V_test', os.path.join(args.dataset_path, dataset))
@@ -721,10 +715,6 @@ def main(args):
 
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_test_edge_occurances_sorted.jpg', clear=False)
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_test_edge_occurances_sorted_log.jpg', log=True)
-
-    # label_graph_lists = get_subgraph(V,E,label_map_file,dataset_name=dataset,level=args.level,subgraph_count=args.
-    # subgraph_count,ignore_deg=args.ignore_deg,root_node=args.node_id)
-    return
 
 
 if __name__ == '__main__':

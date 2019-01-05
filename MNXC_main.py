@@ -1,23 +1,37 @@
 # coding=utf-8
-# !/usr/bin/python3.6  # Please use python 3.6 or above
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
+#  Date : "5/1/19 11:44 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 5/1/19 11:41 AM.
+#  """
+
+# !/usr/bin/python3.6  # Please use python 3.6
 """
-__synopsis__    : Matching Networks for Extreme Classification.
+__synopsis__    : Main file to run Matching networks for Extreme Classification.
 __description__ :
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018 sam"
-__license__     : "Python"
 
-__classes__     : Class,
+__copyright__   : "Copyright (c) 2019"
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+
+__classes__     :
 
 __variables__   :
 
 __methods__     :
 """
 
-import os
+# import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # TIME_STAMP = datetime.utcnow().isoformat()
 
@@ -30,7 +44,7 @@ from data_loaders.common_data_handler import Common_JSON_Handler
 """
 TODOs:
 -----------------------------------------
-    Read other datasets.
+    Prepare Delicious-T140.
     Investigate loss and whole code.
     Vectorize code.
     Implement TF-IDF weighted vectors.

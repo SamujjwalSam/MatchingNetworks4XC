@@ -1,5 +1,18 @@
 # coding=utf-8
-# !/usr/bin/python3.6 ## Please use python 3.6 or above
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
+#  Date : "5/1/19 11:44 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 5/1/19 11:41 AM.
+#  """
+
+# !/usr/bin/python3.6 ## Please use python 3.6
 """
 __synopsis__    : Matching Networks for Extreme Classification.
 __description__ : Builds the experiment using matching network, the training and evaluation ops as well as data_loader augmentation routines.
@@ -7,7 +20,7 @@ __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
 __date__        : "08-11-2018"
-__copyright__   : "Copyright (c) 2018"
+__copyright__   : "Copyright (c) 2019"
 __license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
 __classes__     : BuildMN
@@ -122,8 +135,8 @@ class BuildMN:
                         samples_per_category=self.samples_per_category,
                         vectorizer=self.vectorizer,
                         input_size=self.input_size)
-                logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
-                            .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
+                # logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
+                #             .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
 
                 x_supports = Variable(torch.from_numpy(x_supports)).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
