@@ -6,15 +6,15 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
-#  Date : "5/1/19 11:44 AM"
+#  Date : "7/1/19 10:19 AM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
-#  Last modified : 5/1/19 11:41 AM.
+#  Last modified : 7/1/19 9:23 AM.
 #  """
 
 # !/usr/bin/python3.6  # Please use python 3.6
 """
-__synopsis__    : Main file to run Matching networks for Extreme Classification.
+__synopsis__    : Main file to run Matching Networks for Extreme Classification.
 __description__ :
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
@@ -31,7 +31,6 @@ __variables__   :
 __methods__     :
 """
 
-# import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # TIME_STAMP = datetime.utcnow().isoformat()
 
@@ -45,8 +44,8 @@ from data_loaders.common_data_handler import Common_JSON_Handler
 TODOs:
 -----------------------------------------
     Prepare Delicious-T140.
-    Investigate loss and whole code.
-    Vectorize code.
+    Investigate loss and whole code -> Use Categorical Cross Entropy.
+    Vectorize code whenever possible.
     Implement TF-IDF weighted vectors.
 =========================================
 
@@ -95,6 +94,11 @@ https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-e
 
 
 def main(args):
+    """
+    Main function to run Matching Networks for Extreme Classification.
+
+    :param args: Dict of all the arguments.
+    """
     config = util.load_json(args.config, ext=False)
     util.print_json(config, "Config")
     plat = util.get_platform()

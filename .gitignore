@@ -107,7 +107,7 @@ venv.bak/
 data/
 
 # configuration files
-*.yml
+#*.yml
 
 # backup files
 *~
@@ -141,3 +141,4 @@ MNXC.ipynb
 metrics/desktop.ini
 support_set/
 test_cosine.py
+Old/
