@@ -6,10 +6,10 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
-#  Date : "5/1/19 11:44 AM"
+#  Date : "11/1/19 3:46 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
-#  Last modified : 5/1/19 11:42 AM.
+#  Last modified : 11/1/19 3:42 PM.
 #  """
 
 # !/usr/bin/python3.6 ## Please use python 3.6
@@ -30,11 +30,10 @@ __variables__   :
 __methods__     :
 """
 
-import sys, os, json
+import os
 import numpy as np
 import networkx as nx
 from scipy import *
-from scipy import sparse
 from queue import Queue  # Python 2.7 does not have this library
 from collections import OrderedDict
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -86,6 +85,10 @@ class Neighborhood(object):
         return V
 
     def test_cosine(self,k=2):
+        """
+
+        :param k:
+        """
         a = [[0,1,1,0,0],
              [0,1,1,0,0],
              [0,0,1,1,0],
@@ -131,7 +134,6 @@ class Neighborhood(object):
         """
         pair_cosine = cosine_similarity(multihot_data)
         np.fill_diagonal(pair_cosine,0)  # Remove self-similarity.
-        # logger.debug(pair_cosine)
         neighbor_idx = np.argpartition(pair_cosine,-k)  # use (-) to partition by largest values.
         neighbor_idx = neighbor_idx[:,-k:]  # last [k] columns are the largest (most similar).
         self.k = k  # Storing to use when saving files.
@@ -439,21 +441,16 @@ def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=util.ge
 
     for lbl in V:
         for y_list in classes:
-            # logger.debug(int(lbl), [int(i) for i in y_list])
             if int(lbl) in y_list:
                 if lbl_feature_count[lbl] is None:
                     lbl_feature_count[lbl] = 1
                 else:
                     lbl_feature_count[lbl] += 1
-    # logger.debug(lbl_feature_count)
-    # logger.debug(len(lbl_feature_count))
-    # logger.debug(len(lbl_feature_count),len(V))
     assert (len(lbl_feature_count) == len(V))
 
     lbl_feature_count_portion = OrderedDict().fromkeys(V)
     for k, val in lbl_feature_count.items():
         lbl_feature_count_portion[k] = int(math.floor(lbl_feature_count[k] * split))
-    # logger.debug(lbl_feature_count_portion)
     logger.debug(len(lbl_feature_count_portion))
 
     X_val = []
@@ -463,14 +460,9 @@ def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=util.ge
     for lbl, count in lbl_feature_count_portion.items():
         for c in range(count):
             for i, y_list in enumerate(classes):
-                # logger.debug(count)
                 if lbl in y_list:
-                    # logger.debug(lbl, y_list)
                     X_val.append(X[i])
-                    # logger.debug(X, i)
-                    # logger.debug(type(X), i)
                     X_tr = np.delete(X, i)
-                    # logger.debug(X, i)
                     Y_val.append(Y_tr.pop(i))
                     break
     util.save_npz(X_tr, "X_tr", file_path=save_path, overwrite=False)

@@ -1,5 +1,18 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# coding=utf-8
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
+#  Date : "11/1/19 3:46 PM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 11/1/19 3:39 PM.
+#  """
+
+# !/usr/bin/python3.6 ## Please use python 3.6
 """
 __synopsis__    : Matching Networks for Extreme Classification.
 __description__ : Logger class for the project.
@@ -16,17 +29,6 @@ __variables__   :
 
 __methods__     :
 """
-#  coding=utf-8
-#  !/usr/bin/python3.6
-#
-#  """
-#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
-#  Version : "0.1"
-#  Date : "5/1/19 11:44 AM"
-#  Copyright : "Copyright (c) 2019. All rights reserved."
-#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
-#  Last modified : 5/1/19 11:42 AM.
-#  """
 
 import logging
 import os

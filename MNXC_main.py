@@ -6,10 +6,10 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
-#  Date : "7/1/19 10:19 AM"
+#  Date : "11/1/19 3:46 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
-#  Last modified : 7/1/19 9:23 AM.
+#  Last modified : 11/1/19 3:32 PM.
 #  """
 
 # !/usr/bin/python3.6  # Please use python 3.6
@@ -40,7 +40,7 @@ from models.BuildMN import BuildMN
 from data_loaders.PrepareData import PrepareData
 from data_loaders.common_data_handler import Common_JSON_Handler
 
-"""
+""" Details
 TODOs:
 -----------------------------------------
     Prepare Delicious-T140.
