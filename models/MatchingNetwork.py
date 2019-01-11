@@ -6,10 +6,10 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
-#  Date : "5/1/19 11:44 AM"
+#  Date : "11/1/19 3:47 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
-#  Last modified : 5/1/19 11:42 AM.
+#  Last modified : 11/1/19 3:38 PM.
 #  """
 
 # !/usr/bin/python3.6 ## Please use python 3.6
@@ -137,7 +137,7 @@ class MatchingNetwork(nn.Module):
         # assert x_hats_preds.shape == x_hats_hots.shape, "x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape)
 
         # calculate accuracy and crossentropy loss
-        values, indices = x_hats_preds.max(1)
+        # values, indices = x_hats_preds.max(1)
         # logger.debug(values)
         # logger.debug(values.shape)
         # logger.debug(indices)
@@ -152,7 +152,8 @@ class MatchingNetwork(nn.Module):
         # Need to calculate loss for each sample but for whole batch.
         crossentropy_loss_x_hats = 0
         for j in np.arange(x_hats_preds.size(1)):
-            crossentropy_loss_x_hats += F.multilabel_margin_loss(x_hats_preds[:, j, :], x_hats_hots.long()[:, j, :])
+            crossentropy_loss_x_hats += F.binary_cross_entropy_with_logits(x_hats_preds[:, j, :], x_hats_hots[:, j, :])
+            # crossentropy_loss_x_hats += F.multilabel_margin_loss(x_hats_preds[:, j, :], x_hats_hots.long()[:, j, :])
         crossentropy_loss = crossentropy_loss_x_hats / x_hats.size(1)
 
         return crossentropy_loss
