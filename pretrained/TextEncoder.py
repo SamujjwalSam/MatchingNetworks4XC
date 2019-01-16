@@ -6,6 +6,18 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
+#  Date : "16/1/19 10:40 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 11/1/19 4:33 PM.
+#  """
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
 #  Date : "11/1/19 3:46 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
@@ -301,13 +313,8 @@ class TextEncoder(object):
 if __name__ == '__main__':
     logger.debug("Loading pretrained...")
     cls = TextEncoder()
-    # data_dict = cls.get_sim("hello","hi")
-    # logger.debug("Word similarity: [{0}]".format(data_dict))
-    #
     sentence_obama = 'Obama speaks to the media in Illinois'
     sentence_president = 'The president greets the press in Chicago'
-    # sent_sim = cls.get_sent_sim(sentence_obama, sentence_president)
-    # logger.debug("Sentence similarity: [{0}]".format(sent_sim))
 
     docs = [sentence_obama,sentence_president]
     doc2vec_model = cls.load_doc2vec(docs, vector_size=10, window=2, negative=2, save_model=False)

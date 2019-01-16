@@ -6,6 +6,18 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
+#  Date : "16/1/19 10:40 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 14/1/19 2:42 PM.
+#  """
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
 #  Date : "11/1/19 3:46 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
@@ -36,7 +48,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from logger.logger import logger
 from utils import util
-from models.BuildMN import BuildMN
+from models.Run_Network import Run_Network
 from data_loaders.PrepareData import PrepareData
 from data_loaders.common_data_handler import Common_JSON_Handler
 
@@ -114,26 +126,24 @@ def main(args):
                                  dataset_name=config["data"]["dataset_name"],
                                  dataset_dir=config["paths"]["dataset_dir"][plat])
 
-    match_net = BuildMN(data_formatter, use_cuda=use_cuda)
+    match_net = Run_Network(data_formatter, use_cuda=use_cuda)
 
-    match_net.prepare_mn(num_categories=0,
-                         fce=True,
-                         input_size=config["model"]["input_size"],
-                         hid_size=config["model"]["hid_size"],
-                         lr=config["model"]["learning_rate"],
-                         lr_decay=config["model"]["lr_decay"],
-                         weight_decay=config["model"]["weight_decay"],
-                         optim=config["model"]["optim"],
-                         dropout=config["model"]["dropout"],
-                         batch_size=config["model"]["batch_size"],
-                         samples_per_category=config["model"]["samples_per_category"],
-                         num_cat=config["model"]["num_cat"])
-
-    num_epochs = config["model"]["num_epochs"]
+    match_net.prepare_net(num_categories=0,
+                          fce=True,
+                          input_size=config["model"]["input_size"],
+                          hid_size=config["model"]["hid_size"],
+                          lr=config["model"]["learning_rate"],
+                          lr_decay=config["model"]["lr_decay"],
+                          weight_decay=config["model"]["weight_decay"],
+                          optim=config["model"]["optim"],
+                          dropout=config["model"]["dropout"],
+                          batch_size=config["model"]["batch_size"],
+                          samples_per_category=config["model"]["samples_per_category"],
+                          num_cat=config["model"]["num_cat"])
 
     train_epoch_losses = []
     val_epoch_losses = []
-    for epoch in range(num_epochs):
+    for epoch in range(config["model"]["num_epochs"]):
         train_epoch_loss = match_net.run_training_epoch(num_train_epoch=config["model"]["num_train_epoch"], )
         train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))

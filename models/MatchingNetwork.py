@@ -6,6 +6,18 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
+#  Date : "16/1/19 10:40 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 14/1/19 3:18 PM.
+#  """
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
 #  Date : "11/1/19 3:47 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
@@ -35,6 +47,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from logger.logger import logger
+# from metrics.metrics import precision_at_k
 from models import Attn
 from models import BiLSTM
 from models import PairCosineSim
@@ -60,10 +73,6 @@ class MatchingNetwork(nn.Module):
         :param sample_input: size of the input sample. It is needed in case we want to create the last FC classification.
         """
         super(MatchingNetwork, self).__init__()
-        # self.dropout = dropout
-        # self.num_classes_per_set = num_classes_per_set
-        # self.num_samples_per_class = num_samples_per_class
-        # self.learning_rate = learning_rate
         self.fce = fce
 
         self.g = EmbedText(num_layers=1,
@@ -82,81 +91,62 @@ class MatchingNetwork(nn.Module):
         self.cosine_dis = PairCosineSim.PairCosineSim()
         self.attn = Attn()
 
-    def forward(self, support_set, support_set_hot, x_hats, x_hats_hots, batch_size=64):
+    def forward(self, supports_x, supports_hots, hats_x, hats_hots, batch_size=64):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
         :param batch_size:
-        :param support_set: A tensor containing the support set samples.
+        :param supports_x: A tensor containing the support set samples.
             [batch_size, sequence_size, n_channels, 28]
             torch.Size([32, 25, 1, 28])
-        :param support_set_hot: A tensor containing the support set labels.
+        :param supports_hots: A tensor containing the support set labels.
             [batch_size, sequence_size, n_classes]
             torch.Size([32, 25, 5])
-        :param x_hats: A tensor containing the target sample (sample to produce label for).
+        :param hats_x: A tensor containing the target sample (sample to produce label for).
             [batch_size, n_channels, 28]
             torch.Size([32, 5, 1, 28])
-        :param x_hats_hots: A tensor containing the target label.
+        :param hats_hots: A tensor containing the target label.
             [batch_size, 1]
             torch.Size([32, 5])
         :return:
         """
-        # logger.debug("support_set: {}, support_set_hot: {}, x_hats: {}, x_hats_hots: {}".format(
-        #     support_set.shape, support_set_hot.shape, x_hats.shape, x_hats_hots.shape))
-        # produce embeddings for support set samples
-        # logger.debug(support_set.shape)
-        encoded_supports = self.g(support_set, batch_size=batch_size)
-        # logger.debug(encoded_supports.shape)
+        encoded_supports = self.g(supports_x, batch_size=batch_size)
         # encoded_supports = []
-        # for i in np.arange(support_set.size(1)):
-        #     logger.debug(support_set[:, i, :].shape)
-        #     gen_encode = self.g(support_set[:, i, :],batch_size=32)
+        # for i in np.arange(supports_x.size(1)):
+        #     logger.debug(supports_x[:, i, :].shape)
+        #     gen_encode = self.g(supports_x[:, i, :],batch_size=32)
         #     encoded_supports.append(gen_encode)
         # encoded_supports = torch.stack(encoded_supports)
 
         # produce embeddings for target samples
-        encoded_x_hat = self.g(x_hats, batch_size=batch_size)
-        # logger.debug(encoded_x_hat.shape)
+        encoded_x_hat = self.g(hats_x, batch_size=batch_size)
         if self.fce:
-            # logger.debug(encoded_supports.shape)
             encoded_supports, hn, cn = self.lstm(encoded_supports, batch_size=batch_size)
             encoded_x_hat, hn, cn = self.lstm(encoded_x_hat, batch_size=batch_size)
 
-        # logger.debug(encoded_supports.shape)
         # get similarity between support set embeddings and target
         similarities = self.cosine_dis(support_set=encoded_supports, X_hats=encoded_x_hat)
-        # logger.debug(similarities.shape)
         # similarities = similarities.t()  # TODO: need to transpose?
 
         # produce predictions for target probabilities
-        x_hats_preds = self.attn(similarities,
-                                 support_set_y=support_set_hot)  # batch_size x Multi-hot vector size == x_hats_hots.shape
-        # logger.debug(x_hats_preds)
-        # logger.debug(x_hats_preds.shape)
+        hats_preds = self.attn(similarities,
+                                 support_set_y=supports_hots)  # batch_size x Multi-hot vector size == hats_hots.shape
 
-        # assert x_hats_preds.shape == x_hats_hots.shape, "x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape)
+        assert hats_preds.shape == hats_hots.shape, "hats_preds.shape ({}) == ({}) hats_hots.shape"\
+            .format(hats_preds.shape, hats_hots.shape)
 
         # calculate accuracy and crossentropy loss
-        # values, indices = x_hats_preds.max(1)
-        # logger.debug(values)
-        # logger.debug(values.shape)
-        # logger.debug(indices)
-        # logger.debug(indices.shape)
-        # logger.debug(indices.squeeze())
-        # logger.debug(indices.squeeze().shape)
-
-        # accuracy = torch.mean((indices.squeeze() == x_hats_hots).float())
-        # logger.debug("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds, x_hats_hots))
-        # logger.debug("x_hats_preds.shape ({}) == ({}) x_hats_hots.shape".format(x_hats_preds.shape, x_hats_hots.shape))
+        # values, indices = hats_preds.max(1)
+        # accuracy = torch.mean((indices.squeeze() == hats_hots).float())
 
         # Need to calculate loss for each sample but for whole batch.
         crossentropy_loss_x_hats = 0
-        for j in np.arange(x_hats_preds.size(1)):
-            crossentropy_loss_x_hats += F.binary_cross_entropy_with_logits(x_hats_preds[:, j, :], x_hats_hots[:, j, :])
-            # crossentropy_loss_x_hats += F.multilabel_margin_loss(x_hats_preds[:, j, :], x_hats_hots.long()[:, j, :])
-        crossentropy_loss = crossentropy_loss_x_hats / x_hats.size(1)
+        for j in np.arange(hats_preds.size(1)):
+            crossentropy_loss_x_hats += F.binary_cross_entropy_with_logits(hats_hots[:, j, :], hats_preds[:, j, :])
+            # crossentropy_loss_x_hats += F.multilabel_margin_loss(hats_preds[:, j, :], hats_hots.long()[:, j, :])
+        crossentropy_loss = crossentropy_loss_x_hats / hats_x.size(1)
 
-        return crossentropy_loss
+        return crossentropy_loss, hats_preds
 
 
 if __name__ == '__main__':
@@ -166,12 +156,7 @@ if __name__ == '__main__':
     support_set_hot = torch.ones(4, 5)  # [batch_size, n_classes]
     x_hat = torch.rand(4, 5, 4)
     x_hat_hot = torch.ones(4, 5)
-    # logger.debug(support_set)
-    # logger.debug(support_set_hot)
-    # logger.debug(x_hat)
-    # logger.debug(x_hat_hot)
     cls = MatchingNetwork(input_size=4, hid_size=4, num_categories=5)
     logger.debug(cls)
     sim = cls.forward(support_set, support_set_hot, x_hat, x_hat_hot, batch_size=4)
     logger.debug(sim)
-    # logger.debug(sim.shape)

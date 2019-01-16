@@ -6,6 +6,18 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
+#  Date : "16/1/19 10:40 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 15/1/19 4:02 PM.
+#  """
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
 #  Date : "11/1/19 3:46 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
@@ -23,19 +35,22 @@ __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
 __license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
 
-__classes__     : BuildMN
+__classes__     : Run_Network
 
 __variables__   :
 
 __methods__     :
 """
 
+import numpy as np
 import tqdm
 import torch
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
+from collections import OrderedDict
 
 from logger.logger import logger
+from metrics.metrics import precision_at_k
 from models.MatchingNetwork import MatchingNetwork
 
 seed_val = 0
@@ -43,16 +58,16 @@ torch.manual_seed(seed_val)
 torch.cuda.manual_seed_all(seed=seed_val)
 
 
-class BuildMN:
+class Run_Network:
     """
-    Initializes an BuildMN object. The BuildMN object takes care of setting up our experiment
+    Initializes an Run_Network object. The Run_Network object takes care of setting up our experiment
     and provides helper functions such as run_training_epoch and run_validation_epoch to simplify out training
     and evaluation procedures.
     """
 
     def __init__(self, data_formatter, cuda_available=None, use_cuda=False):
         """
-        Initializes an BuildMN object. The BuildMN object takes care of setting up our experiment
+        Initializes an Run_Network object. The Run_Network object takes care of setting up our experiment
         and provides helper functions such as run_training_epoch and run_validation_epoch to simplify out training
         and evaluation procedures.
 
@@ -66,9 +81,9 @@ class BuildMN:
         self.use_cuda = use_cuda
         self.data_formatter = data_formatter
 
-    def prepare_mn(self, input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6, weight_decay=1e-4, optim="adam",
-                   dropout=0.2, num_categories=0, fce=True, batch_size=32, samples_per_category=20, num_cat=15,
-                   vectorizer="doc2vec"):
+    def prepare_net(self, input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6, weight_decay=1e-4, optim="adam",
+                    dropout=0.2, num_categories=0, fce=True, batch_size=32, samples_per_category=20, num_cat=15,
+                    vectorizer="doc2vec"):
         """
         Builds the network with all required parameters.
 
@@ -128,29 +143,29 @@ class BuildMN:
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch
-                x_supports, y_support_hots, x_targets, y_target_hots = \
+                x_supports, y_support_hots, x_hats, y_hats_hots = \
                     self.data_formatter.get_batches(
                         batch_size=self.batch_size,
                         categories_per_set=self.num_cat,
                         samples_per_category=self.samples_per_category,
                         vectorizer=self.vectorizer,
                         input_size=self.input_size)
-                # logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
-                #             .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
+                # logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_hats [{}], y_hats_hots [{}]"
+                #             .format(x_supports.shape, y_support_hots.shape, x_hats.shape, y_hats_hots.shape))
 
                 x_supports = Variable(torch.from_numpy(x_supports)).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
-                x_targets = Variable(torch.from_numpy(x_targets)).float()
-                y_target_hots = Variable(torch.from_numpy(y_target_hots), requires_grad=False).float()
+                x_hats = Variable(torch.from_numpy(x_hats)).float()
+                y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
 
                 if self.cuda_available and self.use_cuda:
-                    cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
-                                             x_targets.cuda(), y_target_hots.cuda(),
-                                             batch_size=self.batch_size)
+                    cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                                         x_hats.cuda(), y_hats_hots.cuda(),
+                                                         batch_size=self.batch_size)
                 else:
-                    cc_loss = self.match_net(x_supports, y_support_hots,
-                                             x_targets, y_target_hots,
-                                             batch_size=self.batch_size)
+                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
+                                                         x_hats, y_hats_hots,
+                                                         batch_size=self.batch_size)
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable weights
@@ -165,6 +180,19 @@ class BuildMN:
 
                 # update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
+
+                # p_at = [1,3,5,10]
+                # precision_dict = OrderedDict()
+                precision_dict = {1: 0, 3: 0, 5: 0, 10: 0}
+                precision_mat = np.zeros((hats_preds.size(1), len(precision_dict)))
+                for j in np.arange(hats_preds.size(1)):
+                    for l, k in enumerate(
+                            precision_dict):  # Need to enumerate over prediction.keys as k indexing are not continuous, i.e. 1,3,5.
+                        p_k = precision_at_k(y_hats_hots[:, j, :], hats_preds[:, j, :], k=k)
+                        precision_dict[k] += p_k
+                        precision_mat[j:l] += p_k
+                precision_mat = np.divide(precision_mat, hats_preds.size(1))
+                logger.debug(("precision_mat: ", precision_mat))
 
                 iter_out = "tr_loss: {}".format(cc_loss.item())
                 pbar.set_description(iter_out)
@@ -209,13 +237,13 @@ class BuildMN:
                 y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
 
                 if self.cuda_available and self.use_cuda:
-                    cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
-                                             x_targets.cuda(), y_target_hots.cuda(),
-                                             batch_size=self.batch_size)
+                    cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                                         x_targets.cuda(), y_target_hots.cuda(),
+                                                         batch_size=self.batch_size)
                 else:
-                    cc_loss = self.match_net(x_supports, y_support_hots,
-                                             x_targets, y_target_hots,
-                                             batch_size=self.batch_size)
+                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
+                                                         x_targets, y_target_hots,
+                                                         batch_size=self.batch_size)
 
                 iter_out = "val_loss: {}".format(cc_loss.item())
                 pbar.set_description(iter_out)
@@ -254,11 +282,11 @@ class BuildMN:
                 y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
 
                 if self.cuda_available and self.use_cuda:
-                    cc_loss = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                    cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
                                              x_targets.cuda(), y_target_hots.cuda(),
                                              batch_size=self.batch_size)
                 else:
-                    cc_loss = self.match_net(x_supports, y_support_hots,
+                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
                                              x_targets, y_target_hots,
                                              batch_size=self.batch_size)
 
@@ -319,6 +347,6 @@ class BuildMN:
 
 if __name__ == '__main__':
     logger.debug("Building Model...")
-    cls = BuildMN()
-    cls.prepare_mn(input_size=300, hid_size=100, fce=True, batch_size=32, samples_per_category=15, num_cat=25)
+    cls = Run_Network()
+    cls.prepare_net(input_size=300, hid_size=100, fce=True, batch_size=32, samples_per_category=15, num_cat=25)
     cls.run_training_epoch(num_train_epoch=10)

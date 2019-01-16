@@ -6,6 +6,18 @@
 #  """
 #  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 #  Version : "0.1"
+#  Date : "16/1/19 10:40 AM"
+#  Copyright : "Copyright (c) 2019. All rights reserved."
+#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+#  Last modified : 11/1/19 4:33 PM.
+#  """
+
+#  coding=utf-8
+#  !/usr/bin/python3.6
+#
+#  """
+#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+#  Version : "0.1"
 #  Date : "11/1/19 3:46 PM"
 #  Copyright : "Copyright (c) 2019. All rights reserved."
 #  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
@@ -51,22 +63,15 @@ class Attn(nn.Module):
         :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
         :return: Softmax pdf
         """
-        # logger.debug("(similarities.shape: [{}], [{}] :support_set_y.shape)".format(similarities.shape, support_set_y.shape))
-        # logger.debug("(similarities.type: [{}], [{}] :support_set_y.type)".format(similarities.dtype, support_set_y.dtype))
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
         x_hats_preds = []
-        # logger.debug(softmax_similarities)
-        # logger.debug(softmax_similarities.shape)
         for j in np.arange(softmax_similarities.size(1)):
             softmax_similarities_unsqueeze = softmax_similarities[:,j,:].unsqueeze(1)
-            # logger.debug("softmax_similarities_unsqueeze.shape: {}".format(softmax_similarities_unsqueeze.shape))
             support_set_y_bmm = softmax_similarities_unsqueeze.bmm(support_set_y)
-            # logger.debug("support_set_y_bmm.shape: {}".format(support_set_y_bmm.shape))
             x_hat_pred = support_set_y_bmm.squeeze()
             x_hats_preds.append(x_hat_pred)
         x_hats_preds = torch.stack(x_hats_preds,dim=1)
-        # logger.debug("x_hats_preds.shape: {}".format(x_hats_preds.shape))
         return x_hats_preds
 
 
