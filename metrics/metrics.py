@@ -1,29 +1,4 @@
 # coding=utf-8
-
-#  coding=utf-8
-#  !/usr/bin/python3.6
-#
-#  """
-#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
-#  Version : "0.1"
-#  Date : "16/1/19 10:40 AM"
-#  Copyright : "Copyright (c) 2019. All rights reserved."
-#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
-#  Last modified : 15/1/19 4:06 PM.
-#  """
-
-#  coding=utf-8
-#  !/usr/bin/python3.6
-#
-#  """
-#  Author : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
-#  Version : "0.1"
-#  Date : "11/1/19 3:46 PM"
-#  Copyright : "Copyright (c) 2019. All rights reserved."
-#  Licence : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
-#  Last modified : 11/1/19 3:39 PM.
-#  """
-
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
 __synopsis__    : Matching Networks for Extreme Classification.
@@ -76,8 +51,9 @@ def precision_at_k(ground_truth, predictions, k=5, pos_label=1):
         logger.debug(predictions)
 
     # if len(predictions)>len(ground_truth):
-        # logger.debug("Length of 'predictions'[{}] is more than length of 'ground_truth'[{}]. Reducing the length of 'predictions'.".format(len(predictions),len(ground_truth)))
-        # predictions = predictions[:len(ground_truth)]
+    #     logger.debug("Length of 'predictions'[{}] is more than length of 'ground_truth'[{}]. "
+    #                  "Reducing the length of 'predictions'.".format(len(predictions),len(ground_truth)))
+    #     predictions = predictions[:len(ground_truth)]
 
     n_pos_vals = (ground_truth == pos_label).sum()
     desc_order = np.argsort(predictions)[::-1]  # [::-1] reverses array
