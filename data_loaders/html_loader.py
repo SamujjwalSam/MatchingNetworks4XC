@@ -18,6 +18,7 @@ __methods__     :
 """
 
 import os
+from os.path import join, isfile, isdir
 import torch.utils.data
 from collections import OrderedDict
 
@@ -61,9 +62,9 @@ class HTMLLoader(torch.utils.data.Dataset):
         """
         super(HTMLLoader, self).__init__()
         self.dataset_name = dataset_name
-        self.data_dir = os.path.join(data_dir, self.dataset_name)
-        self.raw_html_dir = os.path.join(self.data_dir, dataset_name + "_RawData")
-        self.raw_txt_dir = os.path.join(self.data_dir, "txt_files")
+        self.data_dir = join(data_dir, self.dataset_name)
+        self.raw_html_dir = join(self.data_dir, dataset_name + "_RawData")
+        self.raw_txt_dir = join(self.data_dir, "txt_files")
         logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
         self.sentences, self.classes, self.categories = self.gen_dicts()
 
@@ -73,7 +74,7 @@ class HTMLLoader(torch.utils.data.Dataset):
         :return: Dict of sentences, classes and categories filtered from samples.
         """
 
-        if os.path.isdir(self.raw_txt_dir):
+        if isdir(self.raw_txt_dir):
             logger.info("Loading data from TXT files.")
             self.samples = self.read_txt_dir(self.raw_txt_dir)
         else:
@@ -140,10 +141,10 @@ class HTMLLoader(torch.utils.data.Dataset):
         data = OrderedDict()
         if raw_txt_dir is None: raw_txt_dir = self.raw_txt_dir
         logger.debug("Raw TXT path: {}".format(raw_txt_dir))
-        if os.path.isdir(raw_txt_dir):
+        if isdir(raw_txt_dir):
             for i in os.listdir(raw_txt_dir):
-                if os.path.isfile(os.path.join(raw_txt_dir, i)) and i.endswith(".txt"):
-                    with open(os.path.join(raw_txt_dir, i), encoding=encoding) as txt_ptr:
+                if isfile(join(raw_txt_dir, i)) and i.endswith(".txt"):
+                    with open(join(raw_txt_dir, i), encoding=encoding) as txt_ptr:
                         data[str(i[:-4])] = str(txt_ptr.read()).splitlines()  # [:-4] to remove the ".txt" from sample id.
         return data
 
@@ -195,15 +196,15 @@ class HTMLLoader(torch.utils.data.Dataset):
         from unidecode import unidecode
         data = OrderedDict()
         # logger.debug("Raw HTML path: {}".format(self.raw_html_dir))
-        os.makedirs(os.path.join(self.data_dir, "txt_files"), exist_ok=True)
-        if os.path.isdir(self.raw_html_dir):
+        os.makedirs(join(self.data_dir, "txt_files"), exist_ok=True)
+        if isdir(self.raw_html_dir):
             trans_table = util.make_trans_table(specials=specials, replace=replace)  # Creating mapping to clean sentences.
             for i in os.listdir(self.raw_html_dir):
-                if os.path.isfile(os.path.join(self.raw_html_dir, i)):
-                    with open(os.path.join(self.raw_html_dir, i), encoding=encoding) as html_ptr:
+                if isfile(join(self.raw_html_dir, i)):
+                    with open(join(self.raw_html_dir, i), encoding=encoding) as html_ptr:
                         h_content = html_parser.handle(html_ptr.read())
                         clean_text = unidecode(str(h_content).splitlines()).translate(trans_table)
-                        util.write_file(clean_text, i, file_path=os.path.join(self.data_dir, "txt_files"))
+                        util.write_file(clean_text, i, file_path=join(self.data_dir, "txt_files"))
                         data[str(i)] = clean_text
         return data
 

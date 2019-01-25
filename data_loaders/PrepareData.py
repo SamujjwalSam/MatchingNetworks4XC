@@ -17,7 +17,8 @@ __variables__   :
 __methods__     :
 """
 
-import os, random
+import random
+from os.path import join
 import numpy as np
 from random import sample
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -31,13 +32,13 @@ from utils import util
 # from sklearn.exceptions import Warning
 # warnings.filterwarnings(action='ignore', category=UserWarning)
 
-seed_val = 0
+seed_val = 0  # for reproducibility
 random.seed(seed_val)
-np.random.seed(seed_val)  # for reproducibility
+np.random.seed(seed_val)
 
 
-class PrepareData():
-    """Prepare data into proper format.
+class PrepareData:
+    """ Prepare data into proper format.
 
         Converts strings to vectors,
         Converts category ids to multi-hot vectors,
@@ -53,6 +54,7 @@ class PrepareData():
         self.dataset = dataset
 
         self.doc2vec_model = None
+        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
 
         self.mlb = MultiLabelBinarizer()
 
@@ -63,7 +65,7 @@ class PrepareData():
         :returns: A dictionary of categories to sample mapping.
         """
         cat2id = OrderedDict()
-        if classes_dict is None: classes_dict = self.selected_classes
+        if classes_dict is None: classes_dict = self.classes_selected
         for k, v in classes_dict.items():
             for cat in v:
                 if cat not in cat2id:
@@ -77,12 +79,14 @@ class PrepareData():
 
         :param load_type: Which data to load: Options: ['train', 'val', 'test']
         """
-        self.selected_sentences, self.selected_classes, self.selected_categories = self.dataset.get_data(load_type=load_type)
-        self.remain_sample_ids = list(self.selected_sentences.keys())
-        self.cat2id_map = self.cat2samples(self.selected_classes)
-        self.remain_cat_ids = list(self.selected_categories.keys())
+        self.sentences_selected, self.classes_selected, self.categories_selected = self.dataset.get_data(
+            load_type=load_type)
+        self.remain_sample_ids = list(self.sentences_selected.keys())
+        self.cat2sample_map = self.cat2samples(self.classes_selected)
+        self.remain_cat_ids = list(self.categories_selected.keys())
         logger.info("[{}] data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(load_type, len(self.selected_sentences), len(self.selected_classes), len(self.selected_categories)))
+                    .format(load_type, len(self.sentences_selected), len(self.classes_selected),
+                            len(self.categories_selected)))
 
     def txt2vec(self, sentences: list, vectorizer="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000,
                 num_chunks=10):
@@ -128,9 +132,13 @@ class PrepareData():
 
         if vectorizer == "doc2vec":
             if self.doc2vec_model is None:
-                self.doc2vec_model = self.text_encoder.load_doc2vec(sentences, vector_size=self.embedding_dim, window=7,
-                                                                    seed=seed_val, negative=10,
-                                                                    doc2vec_dir=os.path.join(self.dataset_dir,self.dataset_name),
+                self.doc2vec_model = self.text_encoder.load_doc2vec(sentences,
+                                                                    vector_size=self.embedding_dim,
+                                                                    window=7,
+                                                                    seed=seed_val,
+                                                                    negative=10,
+                                                                    doc2vec_dir=join(self.dataset_dir,
+                                                                                             self.dataset_name),
                                                                     doc2vec_model_file=self.dataset_name + "_doc2vec")
             vectors_dict = self.text_encoder.get_doc2vecs(sentences, self.doc2vec_model)
             return vectors_dict
@@ -175,7 +183,7 @@ class PrepareData():
 
         return docs_vecs
 
-    def create_doc_vecs(self, sentences: dict, w2v_model, sents_chunk_mode, concat_axis=0):
+    def create_doc_vecs_dict(self, sentences: dict, w2v_model, sents_chunk_mode, concat_axis=0):
         """
         Calculates the average of vectors of all words within a chunk and concatenates the chunks.
 
@@ -252,11 +260,12 @@ class PrepareData():
                 index_start = index_end
         else:
             raise Exception("Unknown document partition mode: [{}]. \n"
-                            "Available options: ['concat','word_avg','sentences','chunked (Default)']".format(sents_chunk_mode))
+                            "Available options: ['concat','word_avg','sentences','chunked (Default)']"
+                            .format(sents_chunk_mode))
         chunks = list(filter(None, chunks))  # Removes empty items, like: ""
         return chunks
 
-    def normalization(self):
+    def normalize_inputs(self):
         """
         Normalizes our data, to have a mean of 0 and sdt of 1.
 
@@ -289,75 +298,99 @@ class PrepareData():
         :param categories_per_set: Number of samples to draw.
         :return:
         """
-        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids, batch_size=categories_per_set,
+        self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids,
+                                                                    batch_size=categories_per_set,
                                                                     remove_keys=False)
-        selected_cat_ids = [int(cat) for cat in
-                            selected_cat_ids]  # For some reason returned values are not int, converting to int.
+        selected_cat_ids = [int(cat) for cat in selected_cat_ids]  # Integer keys are converted to string when
+        # saving as JSON. Converting back to integer.
         return selected_cat_ids
 
-    def get_supports(self, support_cat_ids, cat2id_map=None, input_size=300, samples_per_category=4, vectorizer="doc2vec",
-                     repeat_mode='append'):
+    def select_samples(self, support_cat_ids, cat2sample_map=None, input_size=300, samples_per_category=4,
+                       vectorizer="doc2vec", repeat_mode='append'):
         """
         Returns a batch of feature vectors and multi-hot classes.
 
+        :param input_size:
         :param repeat_mode: How to repeat sample if available data is less than samples_per_class. ["append (default)", "sample"].
-        :param cat2id_map: A dictionary of categories to sample mapping.
+        :param cat2sample_map: A dictionary of categories to samples mapping.
         :return: Next batch
         :param min_match: Minimum number of categories should match.
         :param support_cat_ids:
         :param samples_per_category:
         :param vectorizer:
         """
-        # cat_selected_ids = OrderedDict()
         selected_ids = []
-        if cat2id_map is None: cat2id_map = self.cat2id_map
+        if cat2sample_map is None: cat2sample_map = self.cat2sample_map
         for cat in support_cat_ids:
-            # logger.debug((cat2id_map,cat,samples_per_category))
-            if len(cat2id_map[cat]) == samples_per_category:
-                selected_ids = selected_ids + cat2id_map[cat]
-            elif len(cat2id_map[
+            if len(cat2sample_map[cat]) == samples_per_category:
+                selected_ids = selected_ids + cat2sample_map[cat]
+            elif len(cat2sample_map[
                          cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
-                selected_ids = selected_ids + sample(cat2id_map[cat], k=samples_per_category)
+                selected_ids = selected_ids + sample(cat2sample_map[cat], k=samples_per_category)
             else:  # Less than required, repeat the available classes.
-                selected_ids = selected_ids + cat2id_map[cat]
-                length = len(cat2id_map[cat])
+                selected_ids = selected_ids + cat2sample_map[cat]
+                length = len(cat2sample_map[cat])
                 if repeat_mode == "append":
                     for i in range(samples_per_category - length):
-                        selected_ids.append(cat2id_map[cat][i % length])
+                        selected_ids.append(cat2sample_map[cat][i % length])
                 elif repeat_mode == "sample":
                     empty_count = samples_per_category - length
                     for i in range(
-                            empty_count):  # Sampling [samples_per_category] number of elements from cat2id_map[cat].
-                        selected_ids.append(cat2id_map[cat][sample(range(length), 1)])
+                            empty_count):  # Sampling [samples_per_category] number of elements from cat2sample_map[cat].
+                        selected_ids.append(cat2sample_map[cat][sample(range(length), 1)])
                 else:
                     raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
-        sentences_batch, classes_batch = util.create_batch_repeat(self.selected_sentences, self.selected_classes,
+        sentences_batch, classes_batch = util.create_batch_repeat(self.sentences_selected, self.classes_selected,
                                                                   selected_ids)
-        # logger.debug(input_size)
         x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, vectorizer=vectorizer)
         y_target_hot = self.mlb.transform(classes_batch)
         return x_target, y_target_hot
 
-    def get_targets(self, target_size=4, mode="doc2vec"):
+    def _select_onehot_samples(self, support_cat_ids, cat2sample_map=None, input_size=300, samples_per_category=4,
+                               vectorizer="doc2vec", repeat_mode='append'):
         """
-        Returns a batch of feature vectors and multi-hot classes of randomly selected targets.
+        Returns a batch of feature vectors of samples which belongs to single class only.
 
-        :return: Next batch of targets.
+        NOTE: This method is part of sanity testing using multi-class scenario. It is not part of the project.
+
+        :param input_size:
+        :param repeat_mode: How to repeat sample if available data is less than samples_per_class. ["append (default)", "sample"].
+        :param cat2sample_map: A dictionary of categories to samples mapping.
+        :return: Next batch
+        :param min_match: Minimum number of categories should match.
+        :param support_cat_ids:
+        :param samples_per_category:
+        :param vectorizer:
         """
-        # remain_sample_ids = random.shuffle(list(sentences.keys()))
-        if self.remain_sample_ids is not None:
-            _, supports_batch = util.get_batch_keys(self.remain_sample_ids, target_size, remove_keys=False)
-            # logger.debug((self.remain_sample_ids, supports_batch))
-            support_sentences_batch, support_classes_batch = util.create_batch(self.selected_sentences,
-                                                                               self.selected_classes, supports_batch)
-            x_support = self.txt2vec(support_sentences_batch, vectorizer=mode)
-            y_support_hot = self.create_multihot(support_classes_batch)
-            return x_support, y_support_hot
-        else:
-            logger.warn("No remain_sample_ids.")
-            return
+        selected_ids = []
+        if cat2sample_map is None: cat2sample_map = self.cat2sample_map
+        for cat in support_cat_ids:
+            if len(cat2sample_map[cat]) == samples_per_category:
+                selected_ids = selected_ids + cat2sample_map[cat]
+            elif len(cat2sample_map[
+                         cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
+                selected_ids = selected_ids + sample(cat2sample_map[cat], k=samples_per_category)
+            else:  # Less than required, repeat the available classes.
+                selected_ids = selected_ids + cat2sample_map[cat]
+                length = len(cat2sample_map[cat])
+                if repeat_mode == "append":
+                    for i in range(samples_per_category - length):
+                        selected_ids.append(cat2sample_map[cat][i % length])
+                elif repeat_mode == "sample":
+                    empty_count = samples_per_category - length
+                    for i in range(
+                            empty_count):  # Sampling [samples_per_category] number of elements from cat2sample_map[cat].
+                        selected_ids.append(cat2sample_map[cat][sample(range(length), 1)])
+                else:
+                    raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
+        sentences_batch, classes_batch = util.create_batch_repeat(self.sentences_selected, self.classes_selected,
+                                                                  selected_ids)
+        x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, vectorizer=vectorizer)
+        y_target_hot = self.mlb.transform(classes_batch)
+        return x_target, y_target_hot
 
-    def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, samples_per_category=4, vectorizer="doc2vec"):
+    def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, samples_per_category=4,
+                    vectorizer="doc2vec"):
         """
         Returns an iterator over data.
 
@@ -369,7 +402,6 @@ class PrepareData():
         :param vectorizer:
         :returns: An iterator over data.
         """
-        # logger.debug(self.remain_sample_ids)
         support_cat_ids = self.get_support_cats(categories_per_set=categories_per_set)
         support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
         for ids in support_cat_ids:
@@ -380,14 +412,15 @@ class PrepareData():
         x_targets = []
         y_target_hots = []
         for i in range(batch_size):
-            x_support, y_support_hot = self.get_supports(support_cat_ids, samples_per_category=samples_per_category,
-                                                         vectorizer=vectorizer, input_size=input_size)
+            x_support, y_support_hot = self.select_samples(support_cat_ids,
+                                                           samples_per_category=samples_per_category,
+                                                           vectorizer=vectorizer,
+                                                           input_size=input_size)
             sel_cat = sample(support_cat_ids, k=1)
-            # logger.debug(sel_cat)
-            x_target, y_target_hot = self.get_supports(sel_cat, samples_per_category=samples_per_category, vectorizer=vectorizer,
-                                                       input_size=input_size)
-            # logger.debug(x_support.shape)
-            # logger.debug(y_support_hot.shape)
+            x_target, y_target_hot = self.select_samples(sel_cat,
+                                                         samples_per_category=samples_per_category,
+                                                         vectorizer=vectorizer,
+                                                         input_size=input_size)
             x_supports.append(x_support)
             y_support_hots.append(y_support_hot)
             x_targets.append(x_target)
@@ -401,9 +434,22 @@ class PrepareData():
 
 if __name__ == '__main__':
     logger.debug("Preparing Data...")
-    cls = PrepareData(default_load="train")
-    x_supports, y_support_hots, x_targets, y_target_hots = cls.get_batches(batch_size=32, categories_per_set=5,
-                                                                           samples_per_category=4)
+    from data_loaders.common_data_handler import Common_JSON_Handler
+
+    config = util.load_json('MNXC.config', ext=False)
+    plat = util.get_platform()
+
+    data_loader = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+                                      dataset_name=config["data"]["dataset_name"],
+                                      data_dir=config["paths"]["dataset_dir"][plat])
+
+    data_formatter = PrepareData(dataset=data_loader,
+                                 dataset_name=config["data"]["dataset_name"],
+                                 dataset_dir=config["paths"]["dataset_dir"][plat])
+
+    x_supports, y_support_hots, x_targets, y_target_hots = data_formatter.get_batches(batch_size=2,
+                                                                                      categories_per_set=3,
+                                                                                      samples_per_category=5)
     logger.debug(x_supports.shape)
     logger.debug(y_support_hots.shape)
     logger.debug(x_targets.shape)

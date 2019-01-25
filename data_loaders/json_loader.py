@@ -17,7 +17,7 @@ __variables__   :
 __methods__     :
 """
 
-import os
+from os.path import join
 import torch.utils.data
 from collections import OrderedDict
 from smart_open import smart_open as sopen  # Better alternative to Python open().
@@ -61,11 +61,11 @@ class JSONLoader(torch.utils.data.Dataset):
         """
         super(JSONLoader, self).__init__()
         self.dataset_name = dataset_name
-        self.data_dir = os.path.join(data_dir, self.dataset_name)
-        self.raw_json_dir = os.path.join(self.data_dir, self.dataset_name + "_RawData")
+        self.data_dir = join(data_dir, self.dataset_name)
+        self.raw_json_dir = join(self.data_dir, self.dataset_name + "_RawData")
         self.raw_json_file = self.dataset_name + "_RawData.json"
         logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
-        self.sentences, self.classes, self.categories = self.gen_dicts(json_path=os.path.join(self.raw_json_dir,self.raw_json_file), encoding="UTF-8")
+        self.sentences, self.classes, self.categories = self.gen_dicts(json_path=join(self.raw_json_dir,self.raw_json_file), encoding="UTF-8")
 
     def gen_dicts(self,json_path=None, encoding='latin-1',specials="""_-@*#'"/\\""", replace=' '):
         """

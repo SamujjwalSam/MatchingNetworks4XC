@@ -18,7 +18,6 @@ __methods__     :
 """
 
 import numpy as np
-import torch
 import torch.nn as nn
 
 from logger.logger import logger
@@ -40,6 +39,7 @@ class Attn(nn.Module):
         """
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
+        logger.debug(softmax_similarities)
         x_hats_preds = []
         for j in np.arange(softmax_similarities.size(1)):
             softmax_similarities_unsqueeze = softmax_similarities[:,j,:].unsqueeze(1)
@@ -64,23 +64,32 @@ if __name__ == '__main__':
                        [0., 1.5]],
                       [[1., 0.4],
                        [1., 1.5]]])
-    a = torch.ones(32,20,7)
-    logger.debug(a)
+    # a = torch.ones(1,4,7)
+    # logger.debug(a)
     logger.debug(a.shape)
-    b = torch.ones(32,4,7)
-    logger.debug(b)
+    # b = torch.ones(1,2,7)
+    # logger.debug(b)
     logger.debug(b.shape)
     test_DN = C.PairCosineSim()
     sim = test_DN(a, b)
     logger.debug(sim.shape)
     logger.debug("sim: {}".format(sim))
 
-    y = torch.tensor([[1., 0.],
-                      [0., 1.],
-                      [1., 0.]])
-    y = torch.ones(32, 20, 5)
+    # y = torch.tensor([[1., 0.],
+    #                   [0., 1.],
+    #                   [1., 0.]])
+    y = torch.tensor([[[1., 0.],
+                       [0., 1.]],
+                      [[0., 1.],
+                       [1., 0.]]])
+    # y = torch.ones(2, 2, 5)
+    # y = torch.ones(1, 4, 5)
     logger.debug("y.shape: {}".format(y.shape))
+    logger.debug("y: {}".format(y))
     test_attn = Attn()
     result = test_attn(sim, y)
-    logger.debug("result: {}".format(result))
-    logger.debug("result.shape: {}".format(result.shape))
+    logger.debug("Attention: {}".format(result))
+    logger.debug("Attention.shape: {}".format(result.shape))
+    # result = test_attn.forward2(sim, y)
+    # logger.debug("Attention: {}".format(result))
+    # logger.debug("Attention.shape: {}".format(result.shape))

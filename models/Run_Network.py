@@ -22,7 +22,6 @@ import tqdm
 import torch
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
-from collections import OrderedDict
 
 from logger.logger import logger
 from metrics.metrics import precision_at_k

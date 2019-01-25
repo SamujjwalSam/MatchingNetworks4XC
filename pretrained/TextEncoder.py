@@ -17,15 +17,17 @@ __variables__   :
 __methods__     :
 """
 
+# import os
+import numpy as np
+from os import mkdir
+from os.path import join, exists, split
+from collections import OrderedDict
+
 from gensim.models import word2vec, doc2vec
 from gensim.models.fasttext import FastText
 from gensim.models.keyedvectors import KeyedVectors
 from gensim.test.utils import get_tmpfile
 from gensim.utils import simple_preprocess
-from os.path import join, exists, split
-from collections import OrderedDict
-import os
-import numpy as np
 
 from logger.logger import logger
 
@@ -33,7 +35,7 @@ seed_val = 0
 np.random.seed(seed_val)  # for reproducibility
 
 
-class TextEncoder(object):
+class TextEncoder:
     """
     Class to process and load pretrained models.
 
@@ -118,9 +120,9 @@ class TextEncoder(object):
         :param seed:
         """
         full_model_name = doc2vec_model_file+str(vector_size)+str(window)+str(min_count)+str(negative)
-        if os.path.exists(os.path.join(doc2vec_dir, full_model_name)):
-            logger.info("Loading doc2vec model from: [{}]".format(os.path.join(doc2vec_dir, full_model_name)))
-            doc2vec_model = doc2vec.Doc2Vec.load(os.path.join(doc2vec_dir, full_model_name))
+        if exists(join(doc2vec_dir, full_model_name)):
+            logger.info("Loading doc2vec model from: [{}]".format(join(doc2vec_dir, full_model_name)))
+            doc2vec_model = doc2vec.Doc2Vec.load(join(doc2vec_dir, full_model_name))
         else:
             train_corpus = list(self.read_corpus(documents))
             doc2vec_model = doc2vec.Doc2Vec(train_corpus, vector_size=vector_size, window=window, min_count=min_count,
@@ -128,7 +130,7 @@ class TextEncoder(object):
             # doc2vec_model.build_vocab(train_corpus)
             doc2vec_model.train(train_corpus, total_examples=doc2vec_model.corpus_count, epochs=doc2vec_model.epochs)
             if save_model:
-                save_path = get_tmpfile(os.path.join(doc2vec_dir,full_model_name))
+                save_path = get_tmpfile(join(doc2vec_dir,full_model_name))
                 doc2vec_model.save(save_path)
                 logger.info("Saved doc2vec model to: [{}]".format(save_path))
             if clean_tmp:  # Do this when finished training a model (no more updates, only querying, reduce memory usage)
@@ -173,30 +175,30 @@ class TextEncoder(object):
         model_type      # GoogleNews / glove
         embedding_dim    # Word vector dimensionality
         """
-        logger.debug("Using [{0}] model from [{1}]".format(model_type, os.path.join(model_dir, model_file_name)))
+        logger.debug("Using [{0}] model from [{1}]".format(model_type, join(model_dir, model_file_name)))
         if model_type == 'googlenews' or model_type == "fasttext_wiki":
-            assert (exists(os.path.join(model_dir, model_file_name)))
-            if os.path.exists(os.path.join(model_dir, model_file_name+'.bin')):
+            assert (exists(join(model_dir, model_file_name)))
+            if exists(join(model_dir, model_file_name+'.bin')):
                 try:
-                    pretrain_model = FastText.load_fasttext_format(os.path.join(model_dir, model_file_name+'.bin'))  # For original fasttext *.bin format.
+                    pretrain_model = FastText.load_fasttext_format(join(model_dir, model_file_name+'.bin'))  # For original fasttext *.bin format.
                 except Exception as e:
-                    pretrain_model = KeyedVectors.load_word2vec_format(os.path.join(model_dir, model_file_name+'.bin'), binary=True)
+                    pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name+'.bin'), binary=True)
             else:
                 try:
-                    pretrain_model = KeyedVectors.load_word2vec_format(os.path.join(model_dir, model_file_name),
+                    pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name),
                                                                        binary=self.binary)
                 except Exception as e:  # On exception, trying a different format.
                     logger.debug('Loading original word2vec format failed. Trying Gensim format.')
-                    pretrain_model = KeyedVectors.load(os.path.join(model_dir, model_file_name))
-                pretrain_model.save_word2vec_format(os.path.join(model_dir, model_file_name + ".bin"), binary=True)  # Save model in binary format for faster loading in future.
-                logger.debug("Saved binary model at: [{0}]".format(os.path.join(model_dir, model_file_name + ".bin")))
+                    pretrain_model = KeyedVectors.load(join(model_dir, model_file_name))
+                pretrain_model.save_word2vec_format(join(model_dir, model_file_name + ".bin"), binary=True)  # Save model in binary format for faster loading in future.
+                logger.debug("Saved binary model at: [{0}]".format(join(model_dir, model_file_name + ".bin")))
                 logger.info(type(pretrain_model))
         elif model_type == 'glove':
-            assert (exists(os.path.join(model_dir, model_file_name)))
-            logger.debug('Loading existing Glove model: [{0}]'.format(os.path.join(model_dir, model_file_name)))
+            assert (exists(join(model_dir, model_file_name)))
+            logger.debug('Loading existing Glove model: [{0}]'.format(join(model_dir, model_file_name)))
             # dictionary, where key is word, value is word vectors
             pretrain_model = OrderedDict()
-            for line in open(os.path.join(model_dir, model_file_name), encoding=encoding):
+            for line in open(join(model_dir, model_file_name), encoding=encoding):
                 tmp = line.strip().split()
                 word, vec = tmp[0], map(float, tmp[1:])
                 assert (len(vec) == self.embedding_dim)
@@ -205,11 +207,11 @@ class TextEncoder(object):
             logger.debug('Found [{}] word vectors.'.format(len(pretrain_model)))
             assert (len(pretrain_model) == 400000)
         elif model_type == "bert_multi":
-            # pretrain_model = FastText.load_fasttext_format(os.path.join(model_dir,model_file_name))
-            # pretrain_model = FastText.load_binary_data (os.path.join(model_dir,model_file_name))
-            pretrain_model = KeyedVectors.load_word2vec_format(os.path.join(model_dir, model_file_name), binary=False)
+            # pretrain_model = FastText.load_fasttext_format(join(model_dir,model_file_name))
+            # pretrain_model = FastText.load_binary_data (join(model_dir,model_file_name))
+            pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name), binary=False)
             # import io
-            # fin = io.open(os.path.join(model_dir, model_file_name), encoding=encoding, newline=newline,
+            # fin = io.open(join(model_dir, model_file_name), encoding=encoding, newline=newline,
             #               errors=errors)
             # n, d = map(int, fin.readline().split())
             # pretrain_model = OrderedDict()
@@ -261,7 +263,7 @@ class TextEncoder(object):
 
             # Saving the model for later use. You can load it later using Word2Vec.load()
             if not exists(model_dir):
-                os.mkdir(model_dir)
+                mkdir(model_dir)
             logger.debug('Saving Word2Vec model \'%s\'' % split(model_name)[-1])
             pretrain_model.save(model_name)
 

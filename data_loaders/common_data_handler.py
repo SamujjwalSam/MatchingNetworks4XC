@@ -17,8 +17,8 @@ __variables__   :
 __methods__     :
 """
 
-import os, gc
-import torch.utils.data
+import gc
+from os.path import join, isfile
 from collections import OrderedDict
 
 from data_loaders import html_loader as html
@@ -30,7 +30,7 @@ from logger.logger import logger
 seed_val = 0
 
 
-class Common_JSON_Handler(torch.utils.data.Dataset):
+class Common_JSON_Handler:
     """
     Class to load and prepare and split pre-built json files.
 
@@ -58,24 +58,16 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         super(Common_JSON_Handler, self).__init__()
         self.dataset_name = dataset_name
         self.dataset_type = dataset_type
-        self.data_dir = os.path.join(data_dir, self.dataset_name)
+        self.data_dir = join(data_dir, self.dataset_name)
 
-        self.selected_sentences = None
-        self.selected_classes = None
-        self.selected_categories = None
+        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
 
-        self.sentences_train = None
-        self.classes_train = None
-        self.categories_train = None
-        self.sentences_val = None
-        self.classes_val = None
-        self.categories_val = None
-        self.sentences_test = None
-        self.classes_test = None
-        self.categories_test = None
+        self.sentences_train, self.classes_train, self.categories_train = None, None, None
+        self.sentences_test, self.classes_test, self.categories_test = None, None, None
+        self.sentences_val, self.classes_val, self.categories_val = None, None, None
 
         # logger.debug("Check if processed json file already exists at [{}], then load."
-                     # .format(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")))
+                     # .format(join(self.data_dir, self.dataset_name + "_sentences_train.json")))
         # if self.default_load == "train": self.load_train()
         # elif self.default_load == "val": self.load_val()
         # elif self.default_load == "test": self.load_test()
@@ -86,11 +78,11 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         """
         Loads full dataset and splits the data into train, val and test.
         """
-        if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences.json")) \
-                and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes.json")) \
-                and os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories.json")):
+        if isfile(join(self.data_dir, self.dataset_name + "_sentences.json")) \
+                and isfile(join(self.data_dir, self.dataset_name + "_classes.json")) \
+                and isfile(join(self.data_dir, self.dataset_name + "_categories.json")):
             logger.info("Loading pre-processed json files from: [{}]".format(
-                os.path.join(self.data_dir, self.dataset_name)))
+                join(self.data_dir, self.dataset_name)))
             sentences = util.load_json(self.dataset_name + "_sentences", file_path=self.data_dir)
             classes = util.load_json(self.dataset_name + "_classes", file_path=self.data_dir)
             categories = util.load_json(self.dataset_name + "_categories", file_path=self.data_dir)
@@ -116,14 +108,14 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
             util.save_json(sentences, self.dataset_name + "_sentences", file_path=self.data_dir)
             util.save_json(classes, self.dataset_name + "_classes", file_path=self.data_dir)
             logger.info("Saved sentences [{0}], classes [{1}] and categories [{2}] as json files.".format(
-                os.path.join(self.data_dir + "_sentences.json"),
-                os.path.join(self.data_dir + "_classes.json"),
-                os.path.join(self.data_dir + "_categories.json")))
+                join(self.data_dir + "_sentences.json"),
+                join(self.data_dir + "_classes.json"),
+                join(self.data_dir + "_categories.json")))
         # Splitting data into train, validation and test sets.
         self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val, \
         self.categories_val, self.sentences_test, self.classes_test, self.categories_test = \
             self.split_data(sentences=sentences, classes=classes, categories=categories)
-        sentences, classes, categories = None, None, None  # To remove large dicts and free up memory.
+        sentences, classes, categories = None, None, None  # Remove large dicts and free up memory.
         gc.collect()
         # return self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val,\
         #        self.categories_val, self.sentences_test, self.classes_test, self.categories_test
@@ -174,24 +166,24 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         util.save_json(sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
         util.save_json(classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
 
-        if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_id2cat_map.json")):
-            id2cat_map = util.load_json(self.dataset_name + "_id2cat_map", file_path=self.data_dir)
-            # integer keys are converted to string when saving as JSON. Need to convert it back to integer.
-            id2cat_map_int = OrderedDict()
-            for k, v in id2cat_map.items():
-                id2cat_map_int[int(k)] = v
-            id2cat_map = id2cat_map_int
+        if isfile(join(self.data_dir, self.dataset_name + "_cat_id2text_map.json")):
+            cat_id2text_map = util.load_json(self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
+            # Integer keys are converted to string when saving as JSON. Converting back to integer.
+            cat_id2text_map_int = OrderedDict()
+            for k, v in cat_id2text_map.items():
+                cat_id2text_map_int[int(k)] = v
+            cat_id2text_map = cat_id2text_map_int
         else:
             logger.info("Generating inverted categories.")
-            id2cat_map = util.inverse_dict_elm(categories)
-            util.save_json(id2cat_map, self.dataset_name + "_id2cat_map", file_path=self.data_dir)
+            cat_id2text_map = util.inverse_dict_elm(categories)
+            util.save_json(cat_id2text_map, self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
 
         logger.info("Creating train categories.")
         categories_train = OrderedDict()
         for k, v in classes_train.items():
             for cat_id in v:
                 if cat_id not in categories_train:
-                    categories_train[cat_id] = id2cat_map[cat_id]
+                    categories_train[cat_id] = cat_id2text_map[cat_id]
         categories_train = categories_train
         util.save_json(categories_train, self.dataset_name + "_categories_train", file_path=self.data_dir)
 
@@ -200,7 +192,7 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         for k, v in classes_val.items():
             for cat_id in v:
                 if cat_id not in categories_val:
-                    categories_val[cat_id] = id2cat_map[cat_id]
+                    categories_val[cat_id] = cat_id2text_map[cat_id]
         categories_val = categories_val
         util.save_json(categories_val, self.dataset_name + "_categories_val", file_path=self.data_dir)
 
@@ -209,7 +201,7 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         for k, v in classes_test.items():
             for cat_id in v:
                 if cat_id not in categories_test:
-                    categories_test[cat_id] = id2cat_map[cat_id]
+                    categories_test[cat_id] = cat_id2text_map[cat_id]
         categories_test = categories_test
         util.save_json(categories_test, self.dataset_name + "_categories_test", file_path=self.data_dir)
         return sentences_train, classes_train, categories_train, sentences_val, classes_val, categories_val, sentences_test, classes_test, categories_test
@@ -221,7 +213,7 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
         :returns: A dictionary of categories to sample mapping.
         """
         cat2id = OrderedDict()
-        if classes_dict is None: classes_dict = self.selected_classes
+        if classes_dict is None: classes_dict = self.classes_selected
         for k, v in classes_dict.items():
             for cat in v:
                 if cat not in cat2id:
@@ -232,32 +224,32 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
     def get_data(self, load_type="train"):
         """:returns loaded dictionaries based on "load_type" value."""
         if load_type == "train":
-            self.selected_sentences, self.selected_classes, self.selected_categories = self.load_train()
+            self.sentences_selected, self.classes_selected, self.categories_selected = self.load_train()
         elif load_type == "val":
-            self.selected_sentences, self.selected_classes, self.selected_categories = self.load_val()
+            self.sentences_selected, self.classes_selected, self.categories_selected = self.load_val()
         elif load_type == "test":
-            self.selected_sentences, self.selected_classes, self.selected_categories = self.load_test()
+            self.sentences_selected, self.classes_selected, self.categories_selected = self.load_test()
         else:
             raise Exception("Unknown 'load_type': [{}]. \n Available options: ['train','val','test']".format(load_type))
-        return self.selected_sentences, self.selected_classes, self.selected_categories
+        return self.sentences_selected, self.classes_selected, self.categories_selected
 
     def load_train(self):
         """Loads and returns training set."""
-        logger.debug(os.path.join(self.data_dir, self.dataset_name, self.dataset_name + "_sentences_train.json"))
+        logger.debug(join(self.data_dir, self.dataset_name, self.dataset_name + "_sentences_train.json"))
         if self.sentences_train is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_train.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_sentences_train.json")):
                 self.sentences_train = util.load_json(self.dataset_name + "_sentences_train", file_path=self.data_dir)
             else:
                 self.load_full_json()
 
         if self.classes_train is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_train.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_classes_train.json")):
                 self.classes_train = util.load_json(self.dataset_name + "_classes_train", file_path=self.data_dir)
             else:
                 self.load_full_json()
 
         if self.categories_train is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_train.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_categories_train.json")):
                 self.categories_train = util.load_json(self.dataset_name + "_categories_train", file_path=self.data_dir)
             else:
                 self.load_full_json()
@@ -270,19 +262,19 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
     def load_val(self):
         """Loads and returns validation set."""
         if self.sentences_val is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_val.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_sentences_val.json")):
                 self.sentences_val = util.load_json(self.dataset_name + "_sentences_val", file_path=self.data_dir)
             else:
                 self.load_full_json()
 
         if self.classes_val is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_val.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_classes_val.json")):
                 self.classes_val = util.load_json(self.dataset_name + "_classes_val", file_path=self.data_dir)
             else:
                 self.load_full_json()
 
         if self.categories_val is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_val.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_categories_val.json")):
                 self.categories_val = util.load_json(self.dataset_name + "_categories_val", file_path=self.data_dir)
             else:
                 self.load_full_json()
@@ -295,19 +287,19 @@ class Common_JSON_Handler(torch.utils.data.Dataset):
     def load_test(self):
         """Loads and returns test set."""
         if self.sentences_test is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_sentences_test.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_sentences_test.json")):
                 self.sentences_test = util.load_json(self.dataset_name + "_sentences_test", file_path=self.data_dir)
             else:
                 self.load_full_json()
 
         if self.classes_test is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_classes_test.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_classes_test.json")):
                 self.classes_test = util.load_json(self.dataset_name + "_classes_test", file_path=self.data_dir)
             else:
                 self.load_full_json()
 
         if self.categories_test is None:
-            if os.path.isfile(os.path.join(self.data_dir, self.dataset_name + "_categories_test.json")):
+            if isfile(join(self.data_dir, self.dataset_name + "_categories_test.json")):
                 self.categories_test = util.load_json(self.dataset_name + "_categories_test", file_path=self.data_dir)
             else:
                 self.load_full_json()

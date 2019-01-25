@@ -103,8 +103,8 @@ def main(args):
 
     match_net = Run_Network(data_formatter, use_cuda=use_cuda)
 
-    match_net.prepare_net(num_categories=0,
-                          fce=True,
+    match_net.prepare_net(fce=True,
+                          num_categories=0,
                           input_size=config["model"]["input_size"],
                           hid_size=config["model"]["hid_size"],
                           lr=config["model"]["learning_rate"],

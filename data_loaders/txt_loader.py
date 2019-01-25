@@ -17,7 +17,7 @@ __variables__   :
 __methods__     :
 """
 
-import os
+from os.path import join
 import torch.utils.data
 from collections import OrderedDict
 from smart_open import smart_open as sopen  # Better alternative to Python open().
@@ -61,8 +61,8 @@ class TXTLoader(torch.utils.data.Dataset):
         """
         super(TXTLoader, self).__init__()
         self.dataset_name = dataset_name
-        self.data_dir = os.path.join(data_dir, self.dataset_name)
-        self.raw_txt_dir = os.path.join(self.data_dir, self.dataset_name + "_RawData")
+        self.data_dir = join(data_dir, self.dataset_name)
+        self.raw_txt_dir = join(self.data_dir, self.dataset_name + "_RawData")
         # self.raw_txt_file = self.dataset_name + "_RawData.txt"
         logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
         self.sentences, self.classes, self.categories = self.gen_dicts()
@@ -113,7 +113,7 @@ class TXTLoader(torch.utils.data.Dataset):
         classes = OrderedDict()
         cat_pool = set()
         if classes_dir is None: classes_dir = self.raw_txt_dir
-        with sopen(os.path.join(classes_dir, classes_file), encoding=encoding) as raw_cat_ptr:
+        with sopen(join(classes_dir, classes_file), encoding=encoding) as raw_cat_ptr:
             sample_idx = raw_cat_ptr.readline().strip()
             for cnt, line in enumerate(raw_cat_ptr):
                 if cat_line_phrase in line:
@@ -139,7 +139,7 @@ class TXTLoader(torch.utils.data.Dataset):
         """
         logger.debug("Reads the titles.txt file and returns a OrderedDict of id : title.")
         titles = OrderedDict()
-        if title_path is None: title_path = os.path.join(self.raw_txt_dir, title_file)
+        if title_path is None: title_path = join(self.raw_txt_dir, title_file)
         with sopen(title_path, encoding=encoding) as raw_title_ptr:
             for cnt, line in enumerate(raw_title_ptr):
                 line = line.split()
@@ -163,7 +163,7 @@ class TXTLoader(torch.utils.data.Dataset):
         desc_remove = 21  # Length of [desc_phrase], to be removed from line.
         logger.debug("Reads the descriptions.txt file and returns a OrderedDict of id : desc.")
         descriptions = OrderedDict()
-        if desc_path is None: desc_path = os.path.join(self.raw_txt_dir, desc_file)
+        if desc_path is None: desc_path = join(self.raw_txt_dir, desc_file)
         import itertools
         with sopen(desc_path, encoding=encoding) as raw_desc_ptr:
             for idx_line, desc_line in itertools.zip_longest(

@@ -17,17 +17,16 @@ __variables__   :
 __methods__     :
 """
 
-import os, sys, json
+import json, unicodedata
 import pickle as pk
+
+from os.path import join, exists, isfile
 from random import sample
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
-
-from scipy import *
-from scipy import sparse
+from scipy import sparse, random, math
 from unidecode import unidecode
-import unicodedata
 
 from logger.logger import logger
 
@@ -366,25 +365,25 @@ def save_json(data, filename, file_path='', overwrite=False, indent=2, date_time
     :param date_time_tag:
     :return:
     """
-    logger.debug("Saving JSON file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".json")))
-    if not overwrite and os.path.exists(os.path.join(file_path, date_time_tag + filename + ".json")):
+    logger.debug("Saving JSON file: [{0}]".format(join(file_path, date_time_tag + filename + ".json")))
+    if not overwrite and exists(join(file_path, date_time_tag + filename + ".json")):
         logger.warning("File [{0}] already exists and Overwrite == False.".format(
-            os.path.join(file_path, date_time_tag + filename + ".json")))
+            join(file_path, date_time_tag + filename + ".json")))
         return True
     try:
-        with sopen(os.path.join(file_path, date_time_tag + filename + ".json"), 'w') as json_file:
+        with sopen(join(file_path, date_time_tag + filename + ".json"), 'w') as json_file:
             try:
                 json_file.write(json.dumps(data, indent=indent))
             except Exception as e:
                 logger.warning("Writing JSON failed: [{0}]".format(e))
                 logger.warning(
-                    "Writing as string: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".json")))
+                    "Writing as string: [{0}]".format(join(file_path, date_time_tag + filename + ".json")))
                 json_file.write(json.dumps(str(data), indent=indent))
                 return True
         json_file.close()
         return True
     except Exception as e:
-        logger.warning("Writing JSON file [{0}] failed:{1}".format(os.path.join(file_path, filename), e))
+        logger.warning("Writing JSON file [{0}] failed:{1}".format(join(file_path, filename), e))
         logger.warning("Writing as TXT: [{0}]".format(filename + ".txt"))
         write_file(data, filename, date_time_tag=date_time_tag)
         return False
@@ -400,21 +399,21 @@ def load_json(filename, file_path='', date_time_tag='', ext=True):
     :param date_time_tag:
     :return: OrderedDict
     """
-    # logger.debug("Reading JSON file: ",os.path.join(file_path,date_time_tag+filename+".json"))
+    # logger.debug("Reading JSON file: ",join(file_path,date_time_tag+filename+".json"))
     if ext:
-        if os.path.exists(os.path.join(file_path, date_time_tag + filename + ".json")):
-            with sopen(os.path.join(file_path, date_time_tag + filename + ".json"), encoding="utf-8") as file:
+        if exists(join(file_path, date_time_tag + filename + ".json")):
+            with sopen(join(file_path, date_time_tag + filename + ".json"), encoding="utf-8") as file:
                 json_dict = OrderedDict(json.load(file))
             file.close()
             return json_dict
         else:
             logger.warning(
                 "Warning: Could not open file: [{0}]".format(
-                    os.path.join(file_path, date_time_tag + filename + ".json")))
+                    join(file_path, date_time_tag + filename + ".json")))
             return False
     else:
-        if os.path.exists(os.path.join(file_path, date_time_tag + filename)):
-            with sopen(os.path.join(file_path, date_time_tag + filename), encoding="utf-8") as file:
+        if exists(join(file_path, date_time_tag + filename)):
+            with sopen(join(file_path, date_time_tag + filename), encoding="utf-8") as file:
                 json_dict = OrderedDict(json.load(file))
             file.close()
             return json_dict
@@ -433,13 +432,13 @@ def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding
     :param date_time_tag:
     :return:
     """
-    if not overwrite and os.path.exists(os.path.join(file_path, date_time_tag + filename + ".txt")):
+    if not overwrite and exists(join(file_path, date_time_tag + filename + ".txt")):
         # logger.warning("File [{0}] already exists and Overwrite == False.".format(
-        #     os.path.join(file_path, date_time_tag + filename + ".txt")))
+        #     join(file_path, date_time_tag + filename + ".txt")))
         return True
-    with sopen(os.path.join(file_path, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
+    with sopen(join(file_path, date_time_tag + filename + ".txt"), mode, encoding=encoding) as text_file:
         if verbose:
-            logger.debug("Saving text file: [{0}]".format(os.path.join(file_path, date_time_tag + filename + ".txt")))
+            logger.debug("Saving text file: [{0}]".format(join(file_path, date_time_tag + filename + ".txt")))
         text_file.write(str(data))
         text_file.write("\n")
         text_file.write("\n")
@@ -454,12 +453,12 @@ def load_npz(filename, file_path=''):
     :param file_path:
     :return:
     """
-    logger.debug("Reading NPZ file: [{0}]".format(os.path.join(file_path, filename + ".npz")))
-    if os.path.isfile(os.path.join(file_path, filename + ".npz")):
-        npz = sparse.load_npz(os.path.join(file_path, filename + ".npz"))
+    logger.debug("Reading NPZ file: [{0}]".format(join(file_path, filename + ".npz")))
+    if isfile(join(file_path, filename + ".npz")):
+        npz = sparse.load_npz(join(file_path, filename + ".npz"))
         return npz
     else:
-        logger.warning("Warning: Could not open file: [{0}]".format(os.path.join(file_path, filename + ".npz")))
+        logger.warning("Warning: Could not open file: [{0}]".format(join(file_path, filename + ".npz")))
         return False
 
 
@@ -473,16 +472,16 @@ def save_npz(data, filename, file_path='', overwrite=False):
     :param overwrite:
     :return:
     """
-    logger.debug("Saving NPZ file: [{0}]".format(os.path.join(file_path, filename + ".npz")))
-    if not overwrite and os.path.exists(os.path.join(file_path, filename + ".npz")):
+    logger.debug("Saving NPZ file: [{0}]".format(join(file_path, filename + ".npz")))
+    if not overwrite and exists(join(file_path, filename + ".npz")):
         logger.warning(
-            "File [{0}] already exists and Overwrite == False.".format(os.path.join(file_path, filename + ".npz")))
+            "File [{0}] already exists and Overwrite == False.".format(join(file_path, filename + ".npz")))
         return True
     try:
-        sparse.save_npz(os.path.join(file_path, filename + ".npz"), data)
+        sparse.save_npz(join(file_path, filename + ".npz"), data)
         return True
     except Exception as e:
-        logger.warning("Could not write to npz file: [{0}]".format(os.path.join(file_path, filename + ".npz")))
+        logger.warning("Could not write to npz file: [{0}]".format(join(file_path, filename + ".npz")))
         logger.warning("Failure reason: [{0}]".format(e))
         return False
 
@@ -498,22 +497,22 @@ def save_pickle(data, pkl_file_name, pkl_file_path, overwrite=False):
     :return:
     """
     logger.debug("Method: save_pickle(data, pkl_file_name, pkl_file_path, overwrite=False)")
-    logger.debug("Writing to pickle file: [{0}]".format(os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
-    if not overwrite and os.path.exists(os.path.join(pkl_file_path, pkl_file_name + ".pkl")):
+    logger.debug("Writing to pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
+    if not overwrite and exists(join(pkl_file_path, pkl_file_name + ".pkl")):
         logger.warning("File [{0}] already exists and Overwrite == False.".format(
-            os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
+            join(pkl_file_path, pkl_file_name + ".pkl")))
         return True
     try:
-        if os.path.isfile(os.path.join(pkl_file_path, pkl_file_name + ".pkl")):
+        if isfile(join(pkl_file_path, pkl_file_name + ".pkl")):
             logger.info(
-                "Overwriting on pickle file: [{0}]".format(os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
-        with sopen(os.path.join(pkl_file_path, pkl_file_name + ".pkl"), 'wb') as pkl_file:
+                "Overwriting on pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
+        with sopen(join(pkl_file_path, pkl_file_name + ".pkl"), 'wb') as pkl_file:
             pk.dump(data, pkl_file)
         pkl_file.close()
         return True
     except Exception as e:
         logger.warning(
-            "Could not write to pickle file: [{0}]".format(os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
+            "Could not write to pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
         logger.warning("Failure reason: [{0}]".format(e))
         return False
 
@@ -527,14 +526,14 @@ def load_pickle(pkl_file_name, pkl_file_path):
     :return:
     """
     logger.debug("Method: load_pickle(pkl_file)")
-    if os.path.exists(os.path.join(pkl_file_path, pkl_file_name + ".pkl")):
-        logger.debug("Reading pickle file: [{0}]".format(os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
-        with sopen(os.path.join(pkl_file_path, pkl_file_name + ".pkl"), 'rb') as pkl_file:
+    if exists(join(pkl_file_path, pkl_file_name + ".pkl")):
+        logger.debug("Reading pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
+        with sopen(join(pkl_file_path, pkl_file_name + ".pkl"), 'rb') as pkl_file:
             loaded = pk.load(pkl_file)
         return loaded
     else:
         logger.warning(
-            "Warning: Could not open file: [{0}]".format(os.path.join(pkl_file_path, pkl_file_name + ".pkl")))
+            "Warning: Could not open file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
         return False
 
 
@@ -552,44 +551,44 @@ def read_inputs(dataset_path, dataset, read_test=False):
         filename = '_test'
 
     file = dataset + filename
-    file = os.path.join(dataset_path, dataset, dataset, file)
+    file = join(dataset_path, dataset, dataset, file)
     X, Y, V, E = False, False, False, False
     logger.debug('Reading files from path{0}'.format(file))
-    if os.path.exists(os.path.join(dataset_path, dataset, "X" + filename + ".npz")):
-        X = load_npz("X" + filename, file_path=os.path.join(dataset_path, dataset))
+    if exists(join(dataset_path, dataset, "X" + filename + ".npz")):
+        X = load_npz("X" + filename, file_path=join(dataset_path, dataset))
 
-    if os.path.exists(os.path.join(dataset_path, dataset, "Y_ints" + filename + ".pkl")):
-        Y = load_pickle(pkl_file_name="Y_ints" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
+    if exists(join(dataset_path, dataset, "Y_ints" + filename + ".pkl")):
+        Y = load_pickle(pkl_file_name="Y_ints" + filename, pkl_file_path=join(dataset_path, dataset))
 
-    if os.path.exists(os.path.join(dataset_path, dataset, "V_ints" + filename + ".pkl")):
-        V = load_pickle(pkl_file_name="V_ints" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
+    if exists(join(dataset_path, dataset, "V_ints" + filename + ".pkl")):
+        V = load_pickle(pkl_file_name="V_ints" + filename, pkl_file_path=join(dataset_path, dataset))
 
-    if os.path.exists(os.path.join(dataset_path, dataset, "E" + filename + ".pkl")):
-        E = load_pickle(pkl_file_name="E" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
+    if exists(join(dataset_path, dataset, "E" + filename + ".pkl")):
+        E = load_pickle(pkl_file_name="E" + filename, pkl_file_path=join(dataset_path, dataset))
 
     # logger.debug(X, Y, V, E)
     if X is False or Y is False or V is False or E is False:
         logger.info('Generating data from train and test files.')
-        _, _, _, X, Y, V, E = get_x_y_v_e(os.path.join(dataset_path, dataset, dataset, dataset + filename + '.txt'))
+        _, _, _, X, Y, V, E = get_x_y_v_e(join(dataset_path, dataset, dataset, dataset + filename + '.txt'))
 
-        save_npz(X, "X" + filename, file_path=os.path.join(dataset_path, dataset), overwrite=False)
+        save_npz(X, "X" + filename, file_path=join(dataset_path, dataset), overwrite=False)
         Y_ints = []
         for y_list in Y:
             Y_ints.append([int(i) for i in y_list])
-        save_pickle(Y_ints, pkl_file_name="Y_ints" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
-        save_pickle(Y, pkl_file_name="Y" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
+        save_pickle(Y_ints, pkl_file_name="Y_ints" + filename, pkl_file_path=join(dataset_path, dataset))
+        save_pickle(Y, pkl_file_name="Y" + filename, pkl_file_path=join(dataset_path, dataset))
 
         V_ints = []
         for y_list in V:
             V_ints.append(int(y_list))
-        save_pickle(V_ints, pkl_file_name="V_ints" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
-        save_pickle(V, pkl_file_name="V" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
+        save_pickle(V_ints, pkl_file_name="V_ints" + filename, pkl_file_path=join(dataset_path, dataset))
+        save_pickle(V, pkl_file_name="V" + filename, pkl_file_path=join(dataset_path, dataset))
 
         ## Converting [E] to default dict as returned [E] is not pickle serializable
         E_tr_2 = OrderedDict()
         for i, j in E.items():
             E_tr_2[i] = j
-        save_pickle(E_tr_2, pkl_file_name="E" + filename, pkl_file_path=os.path.join(dataset_path, dataset))
+        save_pickle(E_tr_2, pkl_file_name="E" + filename, pkl_file_path=join(dataset_path, dataset))
     return X, Y, V, E
 
 
@@ -672,12 +671,12 @@ def main(args):
     datasets = ['RCV1-2K']
     for dataset in datasets:
         train_graph_file = dataset + '_train.txt'
-        train_graph_file = os.path.join(args.dataset_path, dataset, train_graph_file)
+        train_graph_file = join(args.dataset_path, dataset, train_graph_file)
 
         total_points, feature_dm, number_of_labels, X, Y, V, E = get_x_y_v_e(train_graph_file)
 
-        save_json(V, dataset + '_V_train', os.path.join(args.dataset_path, dataset))
-        save_json(E, dataset + '_E_train', os.path.join(args.dataset_path, dataset), overwrite=True)
+        save_json(V, dataset + '_V_train', join(args.dataset_path, dataset))
+        save_json(E, dataset + '_E_train', join(args.dataset_path, dataset), overwrite=True)
 
         # Collecting some stats about the dataset and graph.
         e_stats, edge_occurances_sorted = edge_stats(E)
@@ -688,12 +687,12 @@ def main(args):
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_train_edge_occurances_sorted_log.jpg', log=True)
 
         test_graph_file = dataset + '_test.txt'
-        test_graph_file = os.path.join(args.dataset_path, dataset, test_graph_file)
+        test_graph_file = join(args.dataset_path, dataset, test_graph_file)
 
         total_points, feature_dm, number_of_labels, X, Y, V, E = get_x_y_v_e(test_graph_file)
 
-        save_json(V, dataset + '_V_test', os.path.join(args.dataset_path, dataset))
-        save_json(E, dataset + '_E_test', os.path.join(args.dataset_path, dataset), overwrite=True)
+        save_json(V, dataset + '_V_test', join(args.dataset_path, dataset))
+        save_json(E, dataset + '_E_test', join(args.dataset_path, dataset), overwrite=True)
 
         # Collecting some stats about the dataset and graph.
         e_stats, edge_occurances_sorted = edge_stats(E)

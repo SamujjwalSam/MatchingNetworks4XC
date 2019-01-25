@@ -18,7 +18,7 @@ __methods__     :
 """
 
 import logging
-import os
+from os.path import join, exists
 import sys
 from copy import copy
 from datetime import datetime
@@ -78,11 +78,11 @@ def create_logger(logger_name='root',
     :param console_level:
     :return:
     """
-    if not os.path.exists(file_path):
+    if not exists(file_path):
         os.makedirs(file_path)
     logger = logging.getLogger(logger_name)
     logger.setLevel(file_level)
-    file_logger = FileHandler(os.path.join(file_path, log_filename + '.log'))
+    file_logger = FileHandler(join(file_path, log_filename + '.log'))
     file_logger.setLevel(file_level)
     file_logger.setFormatter(Formatter(file_format))
     logger.addHandler(file_logger)

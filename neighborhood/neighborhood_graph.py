@@ -17,8 +17,7 @@ __variables__   :
 __methods__     :
 """
 
-import os
-import numpy as np
+from os.path import join, exists
 import networkx as nx
 from scipy import *
 from queue import Queue  # Python 2.7 does not have this library
@@ -34,7 +33,7 @@ from logger.logger import logger
 RANDOM_INIT = 0
 
 
-class Neighborhood(object):
+class Neighborhood:
     """
     Class to generate neighborhood graph based on label similarity between samples.
 
@@ -56,8 +55,8 @@ class Neighborhood(object):
         self.dataset_name = dataset_name
         self.graph_format = graph_format
         self.k = k
-        self.classes = util.load_json(os.path.join(graph_dir,dataset_name,dataset_name+"_text_json",dataset_name+"_classes"))
-        self.categories = util.load_json(os.path.join(graph_dir,dataset_name,dataset_name+"_text_json",dataset_name+"_categories"))
+        self.classes = util.load_json(join(graph_dir,dataset_name,dataset_name+"_text_json",dataset_name+"_classes"))
+        self.categories = util.load_json(join(graph_dir,dataset_name,dataset_name+"_text_json",dataset_name+"_categories"))
         self.id2cat_map = util.inverse_dict_elm(self.categories)
 
     def create_V(self):
@@ -155,20 +154,20 @@ class Neighborhood(object):
         """
         if k is None:
             k = self.k
-        if os.path.exists(os.path.join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")):
-            G = nx.read_graphml(os.path.join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml"))
-            logger.debug("Loaded neighborhood graph from [{0}]".format(os.path.join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")))
-            # stats = util.load_json(os.path.join(self.graph_dir,self.dataset_name,self.dataset_name+"_stats_"+str(self.k)))
+        if exists(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")):
+            G = nx.read_graphml(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml"))
+            logger.debug("Loaded neighborhood graph from [{0}]".format(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")))
+            # stats = util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name+"_stats_"+str(self.k)))
             stats = self.graph_stats(G)
-            # util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.k),file_path=os.path.join(self.graph_dir,self.dataset_name),overwrite=True)
+            # util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.k),file_path=join(self.graph_dir,self.dataset_name),overwrite=True)
         else:
             data_dict = self.convert_multihot()
             neighbor_idx = self.topk_sim_idx(data_dict, k)
             G = self.create_neighborhood_graph(neighbor_idx)
             stats = self.graph_stats(G)
-        logger.debug("Saving neighborhood graph at [{0}]".format(os.path.join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")))
-        nx.write_graphml(G, os.path.join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml"))
-        util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.k),file_path=os.path.join(self.graph_dir,self.dataset_name),overwrite=True)
+        logger.debug("Saving neighborhood graph at [{0}]".format(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")))
+        nx.write_graphml(G, join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml"))
+        util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.k),file_path=join(self.graph_dir,self.dataset_name),overwrite=True)
         logger.debug("Graph stats: [{0}]".format(stats))
         return G, stats
 
@@ -492,15 +491,15 @@ def main(dataset_path):
     for dataset in datasets:
         train_graph_file = dataset + '_train.txt'
         # train_graph_file = dataset+'/'+dataset+'_train.txt'
-        train_graph_file = os.path.join(dataset_path, dataset, train_graph_file)
+        train_graph_file = join(dataset_path, dataset, train_graph_file)
 
         # label_map = dataset+'_mappings/'+dataset+'_label_map.txt'
-        # label_map_file = os.path.join(args.dataset_path,dataset,label_map)
+        # label_map_file = join(args.dataset_path,dataset,label_map)
 
         total_points, feature_dm, number_of_labels, X, classes, V, E = get_cooccurance_dict(train_graph_file)
 
-        util.save_json(V, dataset + '_V_train', os.path.join(dataset_path, dataset))
-        util.save_json(E, dataset + '_E_train', os.path.join(dataset_path, dataset), overwrite=True)
+        util.save_json(V, dataset + '_V_train', join(dataset_path, dataset))
+        util.save_json(E, dataset + '_E_train', join(dataset_path, dataset), overwrite=True)
 
         # Collecting some stats about the dataset and graph.
         e_stats, edge_occurances_sorted = edge_stats(E)
@@ -511,15 +510,15 @@ def main(dataset_path):
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_train_edge_occurances_sorted_log.jpg', log=True)
 
         test_graph_file = dataset + '_test.txt'
-        test_graph_file = os.path.join(dataset_path, dataset, test_graph_file)
+        test_graph_file = join(dataset_path, dataset, test_graph_file)
 
         # label_map = dataset+'_mappings/'+dataset+'_label_map.txt'
-        # label_map_file = os.path.join(args.dataset_path,dataset,label_map)
+        # label_map_file = join(args.dataset_path,dataset,label_map)
 
         total_points, feature_dm, number_of_labels, X, classes, V, E = get_cooccurance_dict(test_graph_file)
 
-        util.save_json(V, dataset + '_V_test', os.path.join(dataset_path, dataset))
-        util.save_json(E, dataset + '_E_test', os.path.join(dataset_path, dataset), overwrite=True)
+        util.save_json(V, dataset + '_V_test', join(dataset_path, dataset))
+        util.save_json(E, dataset + '_E_test', join(dataset_path, dataset), overwrite=True)
 
         # Collecting some stats about the dataset and graph.
         e_stats, edge_occurances_sorted = edge_stats(E)
