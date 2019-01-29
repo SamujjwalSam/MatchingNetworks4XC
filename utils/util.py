@@ -323,10 +323,11 @@ def get_dataset_path():
     :return: Returns dataset path based on OS.
     """
     import platform
+    from sys import path
 
     if platform.system() == 'Windows':
-        dataset_path = 'D:\Datasets\Extreme Classification'
-        sys.path.append('D:\GDrive\Dropbox\IITH\\0 Research')
+        dataset_path = 'D:\\Datasets\\Extreme Classification'
+        path.append('D:\\GDrive\\Dropbox\\IITH\\0 Research')
     elif platform.system() == 'Linux':
         # dataset_path = '/raid/ravi'
         dataset_path = '/home/cs16resch01001/datasets/Extreme Classification'

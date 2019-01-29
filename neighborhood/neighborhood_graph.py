@@ -17,8 +17,8 @@ __variables__   :
 __methods__     :
 """
 
-from os.path import join, exists
 import networkx as nx
+from os.path import join, exists
 from scipy import *
 from queue import Queue  # Python 2.7 does not have this library
 from collections import OrderedDict

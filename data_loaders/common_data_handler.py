@@ -18,6 +18,7 @@ __methods__     :
 """
 
 import gc
+from os import makedirs
 from os.path import join, isfile
 from collections import OrderedDict
 
@@ -47,7 +48,7 @@ class Common_JSON_Handler:
     def __init__(self,
                  dataset_name: str,
                  dataset_type="html",
-                 data_dir: str = "D:\\Datasets\\Extreme Classification",):
+                 data_dir: str = "D:\\Datasets\\Extreme Classification", ):
         """
         Loads train val or test data based on run_mode.
 
@@ -66,15 +67,7 @@ class Common_JSON_Handler:
         self.sentences_test, self.classes_test, self.categories_test = None, None, None
         self.sentences_val, self.classes_val, self.categories_val = None, None, None
 
-        # logger.debug("Check if processed json file already exists at [{}], then load."
-                     # .format(join(self.data_dir, self.dataset_name + "_sentences_train.json")))
-        # if self.default_load == "train": self.load_train()
-        # elif self.default_load == "val": self.load_val()
-        # elif self.default_load == "test": self.load_test()
-        # else: raise Exception("Unknown 'default_load' value: [{}]. \n\tAvailable options: ['train','val','test']"
-        #                       .format(self.default_load))
-
-    def load_full_json(self):
+    def load_full_json(self, return_values=False):
         """
         Loads full dataset and splits the data into train, val and test.
         """
@@ -115,17 +108,21 @@ class Common_JSON_Handler:
         self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val, \
         self.categories_val, self.sentences_test, self.classes_test, self.categories_test = \
             self.split_data(sentences=sentences, classes=classes, categories=categories)
-        sentences, classes, categories = None, None, None  # Remove large dicts and free up memory.
-        gc.collect()
+        if return_values:
+            return sentences, classes, categories
+        else:
+            sentences, classes, categories = None, None, None  # Remove large dicts and free up memory.
+            gc.collect()
         # return self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val,\
         #        self.categories_val, self.sentences_test, self.classes_test, self.categories_test
 
-    def load_raw_data(self, dataset_type):
+    def load_raw_data(self, dataset_type=None):
         """
         Loads raw data based on type of dataset.
 
         :param dataset_type: Type of dataset.
         """
+        if dataset_type is None: dataset_type = self.dataset_type
         if dataset_type == "html":
             self.dataset = html.HTMLLoader(dataset_name=self.dataset_name, data_dir=self.data_dir)
         elif dataset_type == "json":
@@ -212,14 +209,14 @@ class Common_JSON_Handler:
 
         :returns: A dictionary of categories to sample mapping.
         """
-        cat2id = OrderedDict()
+        cat2samples_map = OrderedDict()
         if classes_dict is None: classes_dict = self.classes_selected
         for k, v in classes_dict.items():
             for cat in v:
-                if cat not in cat2id:
-                    cat2id[cat] = []
-                cat2id[cat].append(k)
-        return cat2id
+                if cat not in cat2samples_map:
+                    cat2samples_map[cat] = []
+                cat2samples_map[cat].append(k)
+        return cat2samples_map
 
     def get_data(self, load_type="train"):
         """:returns loaded dictionaries based on "load_type" value."""
@@ -309,14 +306,54 @@ class Common_JSON_Handler:
                     .format(len(self.sentences_test), len(self.classes_test), len(self.categories_test)))
         return self.sentences_test, self.classes_test, self.categories_test
 
+    def create_oneclass_data(self, save_dir=None):
+        """Creates a dataset of samples which belongs to single class only.
+
+        NOTE: This method is used only for sanity testing using multi-class scenario.
+        """
+        sentences, classes, _ = self.load_full_json(return_values=True)
+        cat_id2text_map = util.load_json(self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
+        sentences_one = OrderedDict()
+        classes_one = OrderedDict()
+        categories_one = OrderedDict()
+        for k, v in classes.items():
+            if len(v) == 1:
+                classes_one[k] = v
+                sentences_one[k] = sentences[k]
+                for lbl in classes_one[k]:
+                    if lbl not in categories_one:
+                        categories_one[cat_id2text_map[str(lbl)]] = lbl
+
+        # Storing one-class classes
+        if save_dir is None: save_dir = join(self.data_dir, self.dataset_name + "_onehot")
+        makedirs(save_dir, exist_ok=True)
+        util.save_json(classes_one,self.dataset_name+"_classes",file_path=save_dir)
+        util.save_json(sentences_one, self.dataset_name + "_sentences",file_path=save_dir)
+        util.save_json(categories_one, self.dataset_name + "_categories",file_path=save_dir)
+
+        return classes_one, sentences_one, categories_one
+
 
 def main():
-    # config = read_config(args)
-    cls = Common_JSON_Handler()
-    sentences_val, classes_val, categories_val = cls.load_val()
-    util.print_dict(sentences_val)
-    util.print_dict(classes_val)
-    util.print_dict(categories_val)
+    config = util.load_json('../MNXC.config', ext=False)
+    plat = util.get_platform()
+
+    common_handler = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+                                         dataset_name=config["data"]["dataset_name"],
+                                         data_dir=config["paths"]["dataset_dir"][plat])
+    classes_one, sentences_one, categories_one = common_handler.create_oneclass_data()
+
+    # util.print_dict(classes_one, count=5)
+    # util.print_dict(sentences_one, count=5)
+    # util.print_dict(categories_one, count=5)
+    logger.debug(len(classes_one))
+    logger.debug(len(sentences_one))
+    logger.debug(len(categories_one))
+    # logger.debug(classes_one)
+    # sentences_val, classes_val, categories_val = common_handler.load_val()
+    # util.print_dict(sentences_val)
+    # util.print_dict(classes_val)
+    # util.print_dict(categories_val)
 
 
 if __name__ == '__main__':

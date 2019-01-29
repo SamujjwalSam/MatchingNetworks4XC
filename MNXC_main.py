@@ -43,7 +43,7 @@ Variable naming:
     -------------------------------------
     Categories  ->  Labels / Classes {}
     Sample      ->  [Feature, Categories]
-    *_hot       ->  multi-hot format
+    *_hot       ->  multi-hot vector
     x_hat       ->  test sample
     no_cat_ids [list]  -> ids for which no categories were found.
 =========================================

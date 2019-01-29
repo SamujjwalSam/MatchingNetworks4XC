@@ -18,6 +18,7 @@ __methods__     :
 """
 
 import logging
+from os import makedirs
 from os.path import join, exists
 import sys
 from copy import copy
@@ -79,7 +80,7 @@ def create_logger(logger_name='root',
     :return:
     """
     if not exists(file_path):
-        os.makedirs(file_path)
+        makedirs(file_path)
     logger = logging.getLogger(logger_name)
     logger.setLevel(file_level)
     file_logger = FileHandler(join(file_path, log_filename + '.log'))

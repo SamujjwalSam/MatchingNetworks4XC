@@ -346,49 +346,6 @@ class PrepareData:
         y_target_hot = self.mlb.transform(classes_batch)
         return x_target, y_target_hot
 
-    def _select_onehot_samples(self, support_cat_ids, cat2sample_map=None, input_size=300, samples_per_category=4,
-                               vectorizer="doc2vec", repeat_mode='append'):
-        """
-        Returns a batch of feature vectors of samples which belongs to single class only.
-
-        NOTE: This method is part of sanity testing using multi-class scenario. It is not part of the project.
-
-        :param input_size:
-        :param repeat_mode: How to repeat sample if available data is less than samples_per_class. ["append (default)", "sample"].
-        :param cat2sample_map: A dictionary of categories to samples mapping.
-        :return: Next batch
-        :param min_match: Minimum number of categories should match.
-        :param support_cat_ids:
-        :param samples_per_category:
-        :param vectorizer:
-        """
-        selected_ids = []
-        if cat2sample_map is None: cat2sample_map = self.cat2sample_map
-        for cat in support_cat_ids:
-            if len(cat2sample_map[cat]) == samples_per_category:
-                selected_ids = selected_ids + cat2sample_map[cat]
-            elif len(cat2sample_map[
-                         cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
-                selected_ids = selected_ids + sample(cat2sample_map[cat], k=samples_per_category)
-            else:  # Less than required, repeat the available classes.
-                selected_ids = selected_ids + cat2sample_map[cat]
-                length = len(cat2sample_map[cat])
-                if repeat_mode == "append":
-                    for i in range(samples_per_category - length):
-                        selected_ids.append(cat2sample_map[cat][i % length])
-                elif repeat_mode == "sample":
-                    empty_count = samples_per_category - length
-                    for i in range(
-                            empty_count):  # Sampling [samples_per_category] number of elements from cat2sample_map[cat].
-                        selected_ids.append(cat2sample_map[cat][sample(range(length), 1)])
-                else:
-                    raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
-        sentences_batch, classes_batch = util.create_batch_repeat(self.sentences_selected, self.classes_selected,
-                                                                  selected_ids)
-        x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, vectorizer=vectorizer)
-        y_target_hot = self.mlb.transform(classes_batch)
-        return x_target, y_target_hot
-
     def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, samples_per_category=4,
                     vectorizer="doc2vec"):
         """
@@ -436,7 +393,7 @@ if __name__ == '__main__':
     logger.debug("Preparing Data...")
     from data_loaders.common_data_handler import Common_JSON_Handler
 
-    config = util.load_json('MNXC.config', ext=False)
+    config = util.load_json('../MNXC.config', ext=False)
     plat = util.get_platform()
 
     data_loader = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
