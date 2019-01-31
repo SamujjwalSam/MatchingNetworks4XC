@@ -194,38 +194,37 @@ class Run_Network:
         self.data_formatter.prepare_data(load_type='val')
 
         with tqdm.tqdm(total=num_val_epoch) as pbar:
-            for i in range(num_val_epoch):  # 1 validation epoch
-                x_supports, y_support_hots, x_targets, y_target_hots = \
-                    self.data_formatter.get_batches(
-                        batch_size=self.batch_size,
-                        categories_per_set=self.num_cat,
-                        samples_per_category=self.samples_per_category,
-                        vectorizer=self.vectorizer,
-                        input_size=self.input_size)
-                logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
-                            .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
+            with torch.no_grad():
+                for i in range(num_val_epoch):  # 1 validation epoch
+                    x_supports, y_support_hots, x_targets, y_target_hots = \
+                        self.data_formatter.get_batches(
+                            batch_size=self.batch_size,
+                            categories_per_set=self.num_cat,
+                            samples_per_category=self.samples_per_category,
+                            vectorizer=self.vectorizer,
+                            input_size=self.input_size)
+                    logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
+                                .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
 
-                x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
-                y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
-                x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
-                y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
+                    x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
+                    y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
+                    x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
+                    y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
 
-                if self.cuda_available and self.use_cuda:
-                    cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
-                                                         x_targets.cuda(), y_target_hots.cuda(),
-                                                         batch_size=self.batch_size)
-                else:
-                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
-                                                         x_targets, y_target_hots,
-                                                         batch_size=self.batch_size)
+                    if self.cuda_available and self.use_cuda:
+                        cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                                             x_targets.cuda(), y_target_hots.cuda(),
+                                                             batch_size=self.batch_size)
+                    else:
+                        cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
+                                                             x_targets, y_target_hots,
+                                                             batch_size=self.batch_size)
 
-                iter_out = "val_loss: {}".format(cc_loss.item())
-                pbar.set_description(iter_out)
-                pbar.update(1)
-
-                total_val_c_loss += cc_loss.item()
-
-        total_val_c_loss = total_val_c_loss / num_val_epoch
+                    iter_out = "val_loss: {}".format(cc_loss.item())
+                    pbar.set_description(iter_out)
+                    pbar.update(1)
+                    total_val_c_loss += cc_loss.item()
+                total_val_c_loss = total_val_c_loss / num_val_epoch
 
         return total_val_c_loss
 
@@ -241,35 +240,36 @@ class Run_Network:
         total_test_c_loss = 0.
         self.data_formatter.prepare_data(load_type='test')
         with tqdm.tqdm(total=total_test_batches) as pbar:
-            for i in range(total_test_batches):  # 1 test epoch
-                x_supports, y_support_hots, x_targets, y_target_hots = \
-                    self.data_formatter.get_batches(
-                        batch_size=self.batch_size,
-                        categories_per_set=self.num_cat,
-                        samples_per_category=self.samples_per_category,
-                        vectorizer=self.vectorizer,
-                        input_size=self.input_size)
+            with torch.no_grad():
+                for i in range(total_test_batches):  # 1 test epoch
+                    x_supports, y_support_hots, x_targets, y_target_hots = \
+                        self.data_formatter.get_batches(
+                            batch_size=self.batch_size,
+                            categories_per_set=self.num_cat,
+                            samples_per_category=self.samples_per_category,
+                            vectorizer=self.vectorizer,
+                            input_size=self.input_size)
 
-                x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
-                y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
-                x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
-                y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
+                    x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
+                    y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
+                    x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
+                    y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
 
-                if self.cuda_available and self.use_cuda:
-                    cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
-                                             x_targets.cuda(), y_target_hots.cuda(),
-                                             batch_size=self.batch_size)
-                else:
-                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
-                                             x_targets, y_target_hots,
-                                             batch_size=self.batch_size)
+                    if self.cuda_available and self.use_cuda:
+                        cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                                 x_targets.cuda(), y_target_hots.cuda(),
+                                                 batch_size=self.batch_size)
+                    else:
+                        cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
+                                                 x_targets, y_target_hots,
+                                                 batch_size=self.batch_size)
 
-                iter_out = "test_loss: {}".format(cc_loss.data[0])
-                pbar.set_description(iter_out)
-                pbar.update(1)
+                    iter_out = "test_loss: {}".format(cc_loss.item())
+                    pbar.set_description(iter_out)
+                    pbar.update(1)
 
-                total_test_c_loss += cc_loss.data[0]
-            total_test_c_loss = total_test_c_loss / total_test_batches
+                    total_test_c_loss += cc_loss.item()
+                total_test_c_loss = total_test_c_loss / total_test_batches
         return total_test_c_loss
 
     def __adjust_learning_rate(self, optimizer):

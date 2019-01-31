@@ -22,7 +22,6 @@ import torch.nn.functional as F
 import numpy as np
 
 from logger.logger import logger
-# from metrics.metrics import precision_at_k
 from models import Attn
 from models import BiLSTM
 from models import PairCosineSim
@@ -32,7 +31,7 @@ from models import EmbedText
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
 
-    def __init__(self, input_size=28, hid_size=1, fce=True,use_cuda=True,num_categories=0, dropout=0.2):
+    def __init__(self, input_size=28, hid_size=1, fce=True, use_cuda=True, num_categories=0, dropout=0.2):
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 
@@ -50,21 +49,20 @@ class MatchingNetwork(nn.Module):
         super(MatchingNetwork, self).__init__()
         self.fce = fce
 
+        self.attn = Attn()
+        self.cosine_dis = PairCosineSim.PairCosineSim()
         self.g = EmbedText(num_layers=1,
-                           model_type="lstm",
-                           num_categories=num_categories,
-                           input_size=input_size,
-                           hid_size=hid_size,
-                           dropout=dropout,
-                           use_cuda=use_cuda)
+                                     model_type="lstm",
+                                     num_categories=num_categories,
+                                     input_size=input_size,
+                                     hid_size=hid_size,
+                                     dropout=dropout,
+                                     use_cuda=use_cuda)
         if self.fce:
             self.lstm = BiLSTM(hid_size=hid_size,
-                               input_size=self.g.output_size,
-                               dropout=dropout,
-                               use_cuda=use_cuda)
-
-        self.cosine_dis = PairCosineSim.PairCosineSim()
-        self.attn = Attn()
+                                      input_size=self.g.output_size,
+                                      dropout=dropout,
+                                      use_cuda=use_cuda)
 
     def forward(self, supports_x, supports_hots, hats_x, hats_hots, batch_size=64):
         """
@@ -86,12 +84,6 @@ class MatchingNetwork(nn.Module):
         :return:
         """
         encoded_supports = self.g(supports_x, batch_size=batch_size)
-        # encoded_supports = []
-        # for i in np.arange(supports_x.size(1)):
-        #     logger.debug(supports_x[:, i, :].shape)
-        #     gen_encode = self.g(supports_x[:, i, :],batch_size=32)
-        #     encoded_supports.append(gen_encode)
-        # encoded_supports = torch.stack(encoded_supports)
 
         # produce embeddings for target samples
         encoded_x_hat = self.g(hats_x, batch_size=batch_size)
@@ -100,14 +92,14 @@ class MatchingNetwork(nn.Module):
             encoded_x_hat, hn, cn = self.lstm(encoded_x_hat, batch_size=batch_size)
 
         # get similarity between support set embeddings and target
-        similarities = self.cosine_dis(support_set=encoded_supports, X_hats=encoded_x_hat)
+        similarities = self.cosine_dis(support_sets=encoded_supports, X_hats=encoded_x_hat)
         # similarities = similarities.t()  # TODO: need to transpose?
 
         # produce predictions for target probabilities
         hats_preds = self.attn(similarities,
-                                 support_set_y=supports_hots)  # batch_size x Multi-hot vector size == hats_hots.shape
+                               support_set_y=supports_hots)  # batch_size x # classes = hats_hots.shape
 
-        assert hats_preds.shape == hats_hots.shape, "hats_preds.shape ({}) == ({}) hats_hots.shape"\
+        assert hats_preds.shape == hats_hots.shape, "hats_preds.shape ({}) == ({}) hats_hots.shape" \
             .format(hats_preds.shape, hats_hots.shape)
 
         # calculate accuracy and crossentropy loss
@@ -118,7 +110,7 @@ class MatchingNetwork(nn.Module):
         crossentropy_loss_x_hats = 0
         for j in np.arange(hats_preds.size(1)):
             crossentropy_loss_x_hats += F.binary_cross_entropy_with_logits(hats_hots[:, j, :], hats_preds[:, j, :])
-            # crossentropy_loss_x_hats += F.multilabel_margin_loss(hats_preds[:, j, :], hats_hots.long()[:, j, :])
+            # crossentropy_loss_x_hats += F.cross_entropy(hats_preds[:, j, :], hats_hots.long()[:, j, :])
         crossentropy_loss = crossentropy_loss_x_hats / hats_x.size(1)
 
         return crossentropy_loss, hats_preds
@@ -127,11 +119,55 @@ class MatchingNetwork(nn.Module):
 if __name__ == '__main__':
     import torch
 
-    support_set = torch.rand(4, 5, 4)  # [batch_size, sequence_size, input_size]
-    support_set_hot = torch.ones(4, 5)  # [batch_size, n_classes]
-    x_hat = torch.rand(4, 5, 4)
-    x_hat_hot = torch.ones(4, 5)
-    cls = MatchingNetwork(input_size=4, hid_size=4, num_categories=5)
+    support_set = torch.rand(4, 2, 4)  # [batch_size, sequence_size, input_size]
+    support_set_hot = torch.zeros(4, 2, 1)  # [batch_size, n_classes]
+    x_hat = torch.rand(4, 2, 4)
+    x_hat_hot = torch.zeros(4, 2, 1)
+    logger.debug(support_set_hot)
+    logger.debug(x_hat_hot)
+
+    # support_set = torch.tensor([[[1., 0.4],
+    #                              [1., 1.]],
+    #                             [[1., 0.4],
+    #                              [0., 1.5]],
+    #                             [[1., 0.4],
+    #                              [1., 1.5]]])
+    #
+    support_set_hot = torch.tensor([[[1., 0.],
+                                     [0., 1.]],
+
+                                    [[1., 0.],
+                                     [0., 1.]],
+
+                                    [[1., 0.],
+                                     [0., 1.]],
+
+                                    [[1., 0.],
+                                     [0., 1.]]])
+    #
+    # x_hat = torch.tensor([[[1., 0.4],
+    #                        [0., 1.5]],
+    #                       [[1., 0.4],
+    #                        [1., 1.5]]])
+    #
+    x_hat_hot = torch.tensor([[[1., 0.],
+                               [0., 1.]],
+
+                              [[1., 0.],
+                               [0., 1.]],
+
+                              [[1., 0.],
+                               [0., 1.]],
+
+                              [[1., 0.],
+                               [0., 1.]]])
+
+    logger.debug(support_set.shape)
+    logger.debug(support_set_hot.shape)
+    logger.debug(x_hat.shape)
+    logger.debug(x_hat_hot.shape)
+
+    cls = MatchingNetwork(input_size=4, hid_size=4, num_categories=5, use_cuda=False)
     logger.debug(cls)
     sim = cls.forward(support_set, support_set_hot, x_hat, x_hat_hot, batch_size=4)
     logger.debug(sim)

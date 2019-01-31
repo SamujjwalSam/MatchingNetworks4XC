@@ -17,6 +17,7 @@ __variables__   :
 __methods__     :
 """
 
+import torch
 import numpy as np
 import torch.nn as nn
 
@@ -39,7 +40,7 @@ class Attn(nn.Module):
         """
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
-        logger.debug(softmax_similarities)
+        # logger.debug(softmax_similarities)
         x_hats_preds = []
         for j in np.arange(softmax_similarities.size(1)):
             softmax_similarities_unsqueeze = softmax_similarities[:,j,:].unsqueeze(1)
@@ -51,7 +52,6 @@ class Attn(nn.Module):
 
 
 if __name__ == '__main__':
-    import torch
 
     a = torch.tensor([[[1., 0.4],
                        [1., 1.]],
