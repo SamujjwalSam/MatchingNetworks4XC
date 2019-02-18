@@ -95,8 +95,8 @@ class BiLSTM(nn.Module):
         # logger.debug(self.lstm)
         # logger.debug((inputs.shape,h0.shape, c0.shape))
         output, (hn, cn) = self.lstm(inputs, (h0, c0))
-        if dropout_extrenal and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM uses dropout only on
-            # last layer and if there is only one layer, dropout will not be used.
+        if dropout_extrenal and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM applies dropout only on
+            # last layer and if there is only one layer, dropout will not be applied.
             logger.info("Applying dropout externally.")
             # logger.debug(output)
             output = F.dropout(output, p=dropout, training=training, inplace=False)
@@ -104,6 +104,7 @@ class BiLSTM(nn.Module):
         # logger.debug(output.shape)
         # assert input.shape == text_lstm.shape, "Input {} and Output {} shape should match.".format(input.shape, text_lstm.shape)
 
+        # logger.debug("BiLSTM output: {}".format(output))
         return output, hn, cn
 
 

@@ -27,6 +27,11 @@ from models.Run_Network import Run_Network
 from data_loaders.PrepareData import PrepareData
 from data_loaders.common_data_handler import Common_JSON_Handler
 
+seed_val = 0
+# random.seed(seed_val)
+# np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
 """ Details
 TODOs:
 -----------------------------------------
@@ -74,6 +79,18 @@ Data formats:
                     "classes":""
                  }
 ==========================================
+Config values for testing:
+------------------------------------------
+        
+        "hid_size" : 2,
+        "input_size" : 3,
+
+        "num_epochs" : 2,
+        "num_train_epoch" : 3,
+        "batch_size" : 4,
+        "num_cat" : 5,
+        "samples_per_category" : 1
+==========================================
 
 To solve MKL problem: Adding <conda-env-root>/Library/bin to the path in the run configuration solves the issue, but adding it to the interpreter paths in the project settings doesn't.
 https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-error-cannot-load-mkl-intel-thread-dll
@@ -103,7 +120,7 @@ def main(args):
 
     match_net = Run_Network(data_formatter, use_cuda=use_cuda)
 
-    match_net.prepare_net(fce=True,
+    match_net.prepare_net(fce=False,
                           num_categories=0,
                           input_size=config["model"]["input_size"],
                           hid_size=config["model"]["hid_size"],

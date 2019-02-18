@@ -116,7 +116,6 @@ data/
 *.pt
 *.sav
 .idea/
-.idea/vcs.xml
 28c2683bf83c82e8675fbecf02054495.html
 data_loaders/desktop.ini
 graph_data/
@@ -141,4 +140,5 @@ MNXC.ipynb
 metrics/desktop.ini
 support_set/
 test_cosine.py
-Old/
+.old/
+old/

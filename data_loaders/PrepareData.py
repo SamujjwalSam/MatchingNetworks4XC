@@ -32,9 +32,11 @@ from utils import util
 # from sklearn.exceptions import Warning
 # warnings.filterwarnings(action='ignore', category=UserWarning)
 
-seed_val = 0  # for reproducibility
+seed_val = 0
 random.seed(seed_val)
 np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
 
 
 class PrepareData:
@@ -138,7 +140,7 @@ class PrepareData:
                                                                     seed=seed_val,
                                                                     negative=10,
                                                                     doc2vec_dir=join(self.dataset_dir,
-                                                                                             self.dataset_name),
+                                                                                     self.dataset_name),
                                                                     doc2vec_model_file=self.dataset_name + "_doc2vec")
             vectors_dict = self.text_encoder.get_doc2vecs(sentences, self.doc2vec_model)
             return vectors_dict
@@ -310,6 +312,7 @@ class PrepareData:
         """
         Returns a batch of feature vectors and multi-hot classes.
 
+        :param cat_indices: If true category indices are returned instead of multi-hot vectors. (Used only for cross entropy loss function.)
         :param input_size:
         :param repeat_mode: How to repeat sample if available data is less than samples_per_class. ["append (default)", "sample"].
         :param cat2sample_map: A dictionary of categories to samples mapping.
@@ -344,7 +347,9 @@ class PrepareData:
                                                                   selected_ids)
         x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, vectorizer=vectorizer)
         y_target_hot = self.mlb.transform(classes_batch)
-        return x_target, y_target_hot
+        # y_target_list = self.mlb.inverse_transform(y_target_hot)
+        y_target_indices = y_target_hot.argmax(1)
+        return x_target, y_target_hot, y_target_indices
 
     def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, samples_per_category=4,
                     vectorizer="doc2vec"):
@@ -354,7 +359,6 @@ class PrepareData:
         :param input_size: Input embedding dimension.
         :param batch_size:
         :param categories_per_set:
-        :param min_match:
         :param samples_per_category:
         :param vectorizer:
         :returns: An iterator over data.
@@ -366,27 +370,39 @@ class PrepareData:
         self.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
         x_supports = []
         y_support_hots = []
+        support_cat_indices = []
         x_targets = []
         y_target_hots = []
+        target_cat_indices = []
+        target_cat_indices_list1 = []
+        target_cat_indices_list2 = []
         for i in range(batch_size):
-            x_support, y_support_hot = self.select_samples(support_cat_ids,
-                                                           samples_per_category=samples_per_category,
-                                                           vectorizer=vectorizer,
-                                                           input_size=input_size)
+            x_support, y_support_hot, support_cat_indices_batch = \
+                self.select_samples(support_cat_ids,
+                                    samples_per_category=samples_per_category,
+                                    vectorizer=vectorizer,
+                                    input_size=input_size)
             sel_cat = sample(support_cat_ids, k=1)
-            x_target, y_target_hot = self.select_samples(sel_cat,
-                                                         samples_per_category=samples_per_category,
-                                                         vectorizer=vectorizer,
-                                                         input_size=input_size)
+            x_target, y_target_hot, target_cat_indices_batch = \
+                self.select_samples(sel_cat,
+                                    samples_per_category=samples_per_category,
+                                    vectorizer=vectorizer,
+                                    input_size=input_size)
             x_supports.append(x_support)
             y_support_hots.append(y_support_hot)
+            support_cat_indices.append(support_cat_indices_batch)
             x_targets.append(x_target)
             y_target_hots.append(y_target_hot)
+            target_cat_indices.append(target_cat_indices_batch)
+            target_cat_indices_list1.append(list(target_cat_indices_batch.tolist()))
         x_supports = np.stack(x_supports)
         y_support_hots = np.stack(y_support_hots)
+        support_cat_indices = np.stack(support_cat_indices)
         x_targets = np.stack(x_targets)
         y_target_hots = np.stack(y_target_hots)
-        return x_supports, y_support_hots, x_targets, y_target_hots
+        target_cat_indices = np.stack(target_cat_indices)
+        target_cat_indices_list2.append(list(target_cat_indices_list1))
+        return x_supports, y_support_hots, support_cat_indices, x_targets, y_target_hots, target_cat_indices, target_cat_indices_list2
 
 
 if __name__ == '__main__':

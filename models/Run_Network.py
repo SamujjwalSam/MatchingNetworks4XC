@@ -24,10 +24,12 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
 from logger.logger import logger
-from metrics.metrics import precision_at_k
+from metrics.metrics import Metrics, precision_at_k
 from models.MatchingNetwork import MatchingNetwork
 
 seed_val = 0
+# random.seed(seed_val)
+np.random.seed(seed_val)
 torch.manual_seed(seed_val)
 torch.cuda.manual_seed_all(seed=seed_val)
 
@@ -117,7 +119,7 @@ class Run_Network:
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch
-                x_supports, y_support_hots, x_hats, y_hats_hots = \
+                x_supports, y_support_hots, support_cat_indices, x_hats, y_hats_hots, target_cat_indices, target_cat_indices_list = \
                     self.data_formatter.get_batches(
                         batch_size=self.batch_size,
                         categories_per_set=self.num_cat,
@@ -129,17 +131,22 @@ class Run_Network:
 
                 x_supports = Variable(torch.from_numpy(x_supports)).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
+                support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                 x_hats = Variable(torch.from_numpy(x_hats)).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
+                target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                 if self.cuda_available and self.use_cuda:
                     cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
                                                          x_hats.cuda(), y_hats_hots.cuda(),
                                                          batch_size=self.batch_size)
                 else:
-                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
-                                                         x_hats, y_hats_hots,
+                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, support_cat_indices,
+                                                         x_hats, y_hats_hots, target_cat_indices,
                                                          batch_size=self.batch_size)
+                logger.debug(("cc_loss: ", cc_loss))
+                logger.debug(("hats_preds: ", hats_preds))
+                logger.debug(("hats_preds.shape: ", hats_preds.shape))
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable weights
@@ -155,7 +162,105 @@ class Run_Network:
                 # update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
 
-                # p_at = [1,3,5,10]
+                test_metrics = Metrics()
+                # test_multi_hot = test_metrics.precision_at_k(multi_hot, proba, k=3)
+                # logger.debug(test_multi_hot)
+                # logger.debug(test_multi_hot.shape)
+                precision_1 = test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
+                precision_3 = test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
+                precision_5 = test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
+
+                logger.info("P 1: {}".format(precision_1))
+                logger.info("P 3: {}".format(precision_3))
+                logger.info("P 5: {}".format(precision_5))
+
+                # precision_dict = OrderedDict()
+                # precision_dict = {1: 0, 3: 0, 5: 0, 10: 0}
+                # precision_mat = np.zeros((hats_preds.size(1), len(precision_dict)))
+                # for j in np.arange(hats_preds.size(1)):
+                #     for l, k in enumerate(
+                #             precision_dict):  # Need to enumerate over prediction.keys as k indexing are not continuous, i.e. 1,3,5.
+                #         p_k = precision_at_k(y_hats_hots[:, j, :], hats_preds[:, j, :], k=k)
+                #         precision_dict[k] += p_k
+                #         precision_mat[j:l] += p_k
+                # precision_mat = np.divide(precision_mat, hats_preds.size(1))
+                # logger.debug(("precision_mat: ", precision_mat))
+
+                iter_out = "tr_loss: {}".format(cc_loss.item())
+                pbar.set_description(iter_out)
+
+                pbar.update(1)
+                total_c_loss += cc_loss.item()
+
+                self.total_train_iter += 1
+                if self.total_train_iter % 2000 == 0:
+                    self.lr /= 2
+                    logger.debug("change learning rate: [{}]".format(self.lr))
+
+        total_c_loss = total_c_loss / num_train_epoch
+        return total_c_loss
+
+    def run_training_epoch_orig(self, num_train_epoch):
+        """
+        Runs one training epoch.
+
+        :param input_size:
+        :param batch_size:
+        :param samples_per_category:
+        :param num_cat:
+        :param num_train_epoch: Number of batches to train.
+        :return: mean_training_multilabel_margin_loss.
+        """
+        total_c_loss = 0.
+        self.data_formatter.prepare_data(load_type='train')
+        # Create the optimizer
+        optimizer = self.__create_optimizer(self.match_net, self.lr)
+        with tqdm.tqdm(total=num_train_epoch) as pbar:
+            for i in range(num_train_epoch):  # 1 train epoch
+                x_supports, y_support_hots, support_cat_indices, x_hats, y_hats_hots, target_cat_indices = \
+                    self.data_formatter.get_batches(
+                        batch_size=self.batch_size,
+                        categories_per_set=self.num_cat,
+                        samples_per_category=self.samples_per_category,
+                        vectorizer=self.vectorizer,
+                        input_size=self.input_size)
+                # logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_hats [{}], y_hats_hots [{}]"
+                #             .format(x_supports.shape, y_support_hots.shape, x_hats.shape, y_hats_hots.shape))
+
+                x_supports = Variable(torch.from_numpy(x_supports)).float()
+                y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
+                support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
+                x_hats = Variable(torch.from_numpy(x_hats)).float()
+                y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
+                target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
+
+                if self.cuda_available and self.use_cuda:
+                    cc_loss, hats_preds = self.match_net.forward2(x_supports.cuda(), y_support_hots.cuda(),
+                                                                  x_hats.cuda(), y_hats_hots.cuda(),
+                                                                  target_cat_indices.cuda(),
+                                                                  batch_size=self.batch_size)
+                else:
+                    cc_loss, hats_preds = self.match_net.forward2(x_supports, y_support_hots,
+                                                                  x_hats, y_hats_hots, target_cat_indices,
+                                                                  batch_size=self.batch_size)
+                logger.debug(("cc_loss: ", cc_loss))
+                logger.debug(("hats_preds: ", hats_preds))
+                logger.debug(("hats_preds.shape: ", hats_preds.shape))
+
+                # Before the backward pass, use the optimizer object to zero all of the
+                # gradients for the variables it will update (which are the learnable weights
+                # of the model)
+                optimizer.zero_grad()
+
+                # Backward pass: compute gradient of the loss with respect to model parameters
+                cc_loss.backward()
+
+                # Calling the step function on an Optimizer makes an update to its parameters
+                optimizer.step()
+
+                # update the optimizer learning rate
+                self.__adjust_learning_rate(optimizer)
+
                 # precision_dict = OrderedDict()
                 precision_dict = {1: 0, 3: 0, 5: 0, 10: 0}
                 precision_mat = np.zeros((hats_preds.size(1), len(precision_dict)))
@@ -196,7 +301,7 @@ class Run_Network:
         with tqdm.tqdm(total=num_val_epoch) as pbar:
             with torch.no_grad():
                 for i in range(num_val_epoch):  # 1 validation epoch
-                    x_supports, y_support_hots, x_targets, y_target_hots = \
+                    x_supports, y_support_hots, support_cat_indices, x_targets, y_target_hots, target_cat_indices = \
                         self.data_formatter.get_batches(
                             batch_size=self.batch_size,
                             categories_per_set=self.num_cat,
@@ -208,16 +313,18 @@ class Run_Network:
 
                     x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
                     y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
+                    support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                     x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
                     y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
+                    target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                     if self.cuda_available and self.use_cuda:
                         cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
                                                              x_targets.cuda(), y_target_hots.cuda(),
                                                              batch_size=self.batch_size)
                     else:
-                        cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
-                                                             x_targets, y_target_hots,
+                        cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, support_cat_indices,
+                                                             x_targets, y_target_hots, target_cat_indices,
                                                              batch_size=self.batch_size)
 
                     iter_out = "val_loss: {}".format(cc_loss.item())
@@ -257,12 +364,12 @@ class Run_Network:
 
                     if self.cuda_available and self.use_cuda:
                         cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
-                                                 x_targets.cuda(), y_target_hots.cuda(),
-                                                 batch_size=self.batch_size)
+                                                             x_targets.cuda(), y_target_hots.cuda(),
+                                                             batch_size=self.batch_size)
                     else:
                         cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
-                                                 x_targets, y_target_hots,
-                                                 batch_size=self.batch_size)
+                                                             x_targets, y_target_hots,
+                                                             batch_size=self.batch_size)
 
                     iter_out = "test_loss: {}".format(cc_loss.item())
                     pbar.set_description(iter_out)

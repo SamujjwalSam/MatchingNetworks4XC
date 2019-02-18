@@ -24,6 +24,12 @@ import torch.nn as nn
 from logger.logger import logger
 from models import PairCosineSim as C
 
+seed_val = 0
+# random.seed(seed_val)
+np.random.seed(seed_val)
+torch.manual_seed(seed_val)
+torch.cuda.manual_seed_all(seed=seed_val)
+
 
 class Attn(nn.Module):
     def __init__(self):
@@ -39,8 +45,10 @@ class Attn(nn.Module):
         :return: Softmax pdf
         """
         softmax = nn.Softmax(dim=dim)
+        # softmax = nn.Softmax()
         softmax_similarities = softmax(similarities)
         # logger.debug(softmax_similarities)
+        # softmax_similarities = softmax_similarities.unsqueeze(1)  # Testing if transpose necessary.
         x_hats_preds = []
         for j in np.arange(softmax_similarities.size(1)):
             softmax_similarities_unsqueeze = softmax_similarities[:,j,:].unsqueeze(1)
@@ -49,6 +57,30 @@ class Attn(nn.Module):
             x_hats_preds.append(x_hat_pred)
         x_hats_preds = torch.stack(x_hats_preds,dim=1)
         return x_hats_preds
+
+    def forward_orig(self, similarities, support_set_y):
+        """
+        Produces pdfs over the support set classes for the target set image.
+        :param similarities: A tensor with cosine similarities of size [sequence_length, batch_size]
+        :param support_set_y: A tensor with the one hot vectors of the targets for each support set image
+                                                                            [sequence_length,  batch_size, num_classes]
+        :return: Softmax pdf
+        """
+        # logger.debug(("similarities.shape: ",similarities.shape))
+        logger.debug(("support_set_y.shape: ",support_set_y.shape))
+        # logger.debug(("support_set_y: ",support_set_y))
+        softmax = nn.Softmax()
+        softmax_similarities = softmax(similarities)
+        logger.debug(("softmax_similarities.shape: ",softmax_similarities.shape))
+        softmax_similarities = softmax_similarities.unsqueeze(1)
+        logger.debug(("softmax_similarities.unsqueeze(1).shape: ",softmax_similarities.shape))
+        # preds = softmax_similarities.unsqueeze(1).bmm(support_set_y).squeeze()
+        preds = softmax_similarities.bmm(support_set_y)
+        logger.debug(("preds.shape: ",preds.shape))
+        preds = preds.squeeze()
+        logger.debug(("preds.squeeze().shape: ",preds.shape))
+        # logger.debug(("preds: ",preds))
+        return preds
 
 
 if __name__ == '__main__':

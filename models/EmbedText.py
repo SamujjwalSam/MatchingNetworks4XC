@@ -47,7 +47,7 @@ class EmbedText(nn.Module):
             self.text_lstm = BiLSTM(input_size, hid_size=hid_size, num_layers=num_layers, dropout=dropout, use_cuda=use_cuda,
                                            bidirectional=True)
             # self.weights_init(self.text_lstm)
-            self.output_size = hid_size * 2  # TODO: final text_lstm size of LSTM.
+            self.output_size = hid_size * 2  # 2 because BiLSTM.
         elif self.model_type == "cnn":  # TODO: Decide on CNN architecture to use.
             self.layer1 = self.CNN_layer(num_channels, num_layers, dropout=dropout)
             self.layer2 = self.CNN_layer(num_layers, num_layers, dropout=dropout)
@@ -56,6 +56,7 @@ class EmbedText(nn.Module):
 
             finalSize = int(math.floor(input_size / (2 * 2 * 2 * 2)))  # (2 * 2 * 2 * 2) for 4 CNN layers.
             self.output_size = finalSize * finalSize * num_layers
+
         if num_categories > 0:  # We want a linear layer as last layer of CNN network.
             self.use_linear_last = True
             self.last_linear_layer = nn.Linear(self.output_size, num_categories)
@@ -89,10 +90,11 @@ class EmbedText(nn.Module):
             output = output.view(output.size(0), -1)
         else:
             raise Exception("Unknown model_type: [{}]. \n"
-                            "Supported types are: ['lstm','cnn'].".format(self.model_type))
+                            "Supported types are: ['lstm', 'cnn'].".format(self.model_type))
 
         if self.use_linear_last:
             output = self.last_linear_layer(output)
+        # logger.debug("EmbedText output: {}".format(output))
         return output
 
     def CNN_layer(self, in_planes, out_planes, kernel_size=1, stride=1, padding=1, bias=True, dropout=0.1):
