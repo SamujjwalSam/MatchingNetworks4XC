@@ -18,9 +18,9 @@ __methods__     :
 """
 
 import random
+from random import sample
 from os.path import join, isfile
 import numpy as np
-from random import sample
 from sklearn.preprocessing import MultiLabelBinarizer
 from collections import OrderedDict
 
@@ -28,12 +28,7 @@ from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
 from utils import util
 
-
-# import warnings
-# from sklearn.exceptions import Warning
-# warnings.filterwarnings(action='ignore', category=UserWarning)
-
-# seed_val = 0
+seed_val = 0
 # random.seed(seed_val)
 # np.random.seed(seed_val)
 # torch.manual_seed(seed_val)
@@ -373,8 +368,8 @@ class PrepareData:
         :param vectorizer:
         :returns: An iterator over data.
         """
-        if val:  # If true, it's a validation run. Return old values.
-            logger.debug("Checking if Validation set is stored at: {}".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
+        if val:  # If true, it's a validation run. Return stored values.
+            logger.debug("Checking if Validation data is stored at: [{}]".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
             if isfile(join(self.dataset_dir,self.dataset_name,"x_supports.npz")):
                 x_supports = util.load_npz("x_supports", file_path=join(self.dataset_dir, self.dataset_name))
                 y_support_hots = util.load_npz("y_support_hots", file_path=join(self.dataset_dir, self.dataset_name))
@@ -382,6 +377,7 @@ class PrepareData:
                 y_target_hots = util.load_npz("y_target_hots", file_path=join(self.dataset_dir, self.dataset_name))
                 target_cat_indices = util.load_npz("target_cat_indices", file_path=join(self.dataset_dir, self.dataset_name))
                 return x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices
+            logger.debug("Validation data not found at: [{}]".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
 
         support_cat_ids = self.get_support_cats(categories_per_set=categories_per_set)
         # support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
@@ -423,6 +419,7 @@ class PrepareData:
         # target_cat_indices_list2.append(list(target_cat_indices_list1))
 
         if val:
+            logger.debug("Storing Validation data at: [{}]".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
             util.save_npz(x_supports, "x_supports", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
             util.save_npz(y_support_hots, "y_support_hots", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
             util.save_npz(x_targets, "x_targets", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)

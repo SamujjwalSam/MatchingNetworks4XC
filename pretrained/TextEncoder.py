@@ -17,7 +17,6 @@ __variables__   :
 __methods__     :
 """
 
-# import os
 import numpy as np
 from os import mkdir
 from os.path import join, exists, split
@@ -32,7 +31,7 @@ from gensim.utils import simple_preprocess
 from logger.logger import logger
 
 seed_val = 0
-np.random.seed(seed_val)  # for reproducibility
+# np.random.seed(seed_val)  # for reproducibility
 
 
 class TextEncoder:

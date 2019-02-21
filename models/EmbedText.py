@@ -29,8 +29,8 @@ from models import BiLSTM
 class EmbedText(nn.Module):
     """Builds context sensitive embeddings for pre-trained sentences using either LSTM or CNN."""
 
-    def __init__(self, num_categories=0, hid_size=2, num_layers=1, model_type="lstm", num_channels=1, dropout=0.2, use_cuda=False,
-                 input_size=28):
+    def __init__(self, num_categories=0, hid_size=2, num_layers=1, model_type="lstm", num_channels=1, dropout=0.2,
+                 use_cuda=False, input_size=28):
         """
         Builds embeddings for pre-trained sentences using either LSTM or CNN.
 
@@ -46,7 +46,6 @@ class EmbedText(nn.Module):
         if self.model_type == "lstm":
             self.text_lstm = BiLSTM(input_size, hid_size=hid_size, num_layers=num_layers, dropout=dropout, use_cuda=use_cuda,
                                            bidirectional=True)
-            # self.weights_init(self.text_lstm)
             self.output_size = hid_size * 2  # 2 because BiLSTM.
         elif self.model_type == "cnn":  # TODO: Decide on CNN architecture to use.
             self.layer1 = self.CNN_layer(num_channels, num_layers, dropout=dropout)
@@ -78,9 +77,7 @@ class EmbedText(nn.Module):
         :param inputs: Image input to produce embeddings for. [batch_size, 28, 28, 1]
         :return: Embeddings of size [batch_size, 64]
         """
-        # logger.debug(inputs.shape)
         if self.model_type == "lstm":
-            # logger.debug(inputs.shape)
             output, hn, cn = self.text_lstm(inputs, batch_size, dropout_external=dropout_external)
         elif self.model_type == "cnn":
             output = self.layer1(inputs)
@@ -94,7 +91,6 @@ class EmbedText(nn.Module):
 
         if self.use_linear_last:
             output = self.last_linear_layer(output)
-        # logger.debug("EmbedText output: {}".format(output))
         return output
 
     def CNN_layer(self, in_planes, out_planes, kernel_size=1, stride=1, padding=1, bias=True, dropout=0.1):

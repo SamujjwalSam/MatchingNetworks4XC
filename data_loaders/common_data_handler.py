@@ -261,8 +261,8 @@ class Common_JSON_Handler:
                 self.load_full_json()
         gc.collect()
 
-        logger.info("Training data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(len(self.sentences_train), len(self.classes_train), len(self.categories_train)))
+        # logger.info("Training data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+        #             .format(len(self.sentences_train), len(self.classes_train), len(self.categories_train)))
         return self.sentences_train, self.classes_train, self.categories_train
 
     def load_val(self):
@@ -286,8 +286,8 @@ class Common_JSON_Handler:
                 self.load_full_json()
         gc.collect()
 
-        logger.info("Validation data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(len(self.sentences_val), len(self.classes_val), len(self.categories_val)))
+        # logger.info("Validation data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+        #             .format(len(self.sentences_val), len(self.classes_val), len(self.categories_val)))
         return self.sentences_val, self.classes_val, self.categories_val
 
     def load_test(self):
@@ -311,8 +311,8 @@ class Common_JSON_Handler:
                 self.load_full_json()
         gc.collect()
 
-        logger.info("Testing data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(len(self.sentences_test), len(self.classes_test), len(self.categories_test)))
+        # logger.info("Testing data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
+        #             .format(len(self.sentences_test), len(self.classes_test), len(self.categories_test)))
         return self.sentences_test, self.classes_test, self.categories_test
 
     def create_oneclass_data(self, save_dir=None):

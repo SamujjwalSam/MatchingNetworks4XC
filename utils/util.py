@@ -21,7 +21,7 @@ import json, unicodedata
 import pickle as pk
 
 from os.path import join, exists, isfile
-from random import sample
+from random import sample, shuffle
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
@@ -31,7 +31,10 @@ from unidecode import unidecode
 from logger.logger import logger
 
 seed_val = 0
-random.seed(seed=seed_val)
+# random.seed(seed=seed_val)
+# np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
         
         
 def print_dict(data, count=5):
@@ -89,6 +92,7 @@ def create_batch_repeat(X: dict, Y: dict, keys):
     """
     batch_x = []
     batch_y = []
+    shuffle(keys)
     for k in keys:
         batch_x.append(X[k])
         batch_y.append(Y[k])
@@ -107,11 +111,7 @@ def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     if len(keys) <= batch_size:
         return None, keys
     selected_keys = sample(keys, k=batch_size)
-    # logger.debug((batch_size,len(selected_keys)))
     if remove_keys:
-        # logger.debug("Removing selected keys.")
-        # for item in selected_keys:
-        #     keys.remove(item)
         keys_after_remove = []
         for item in keys:
             if item not in selected_keys:
@@ -135,9 +135,6 @@ def split_dict(classes: dict, sentences: dict, batch_size=64, remove_keys=True):
     selected_classes = OrderedDict()
     selected_sentences = OrderedDict()
     if remove_keys:
-        # logger.debug("Removing selected items.")
-        # import copy
-        # dic_removed = copy.deepcopy(classes)  # Use copy.deepcopy if original is not to be modified.
         for key in selected_keys:
             selected_classes[key] = classes[key]
             del classes[key]
@@ -279,13 +276,10 @@ def dedup_data(Y: dict, dup_cat_map: dict):
     :param dup_cat_map: {old_cat_id : new_cat_id}
     """
     for k, v in Y.items():
-        # logger.debug(dup_cat_map.keys())
         commons = set(v).intersection(set(dup_cat_map.keys()))
-        # logger.debug(commons)
         if len(commons) > 0:
             for dup_key in commons:
                 dup_idx = v.index(dup_key)
-                # logger.debug((v,dup_key,dup_idx))
                 v[dup_idx] = dup_cat_map[dup_key]
     return Y
 
@@ -299,11 +293,8 @@ def inverse_dict_elm(labels: dict):
     """
     labels_inv = OrderedDict()
     for k, v in labels.items():
-        # logger.debug(type(v))
         if v not in labels_inv:  # check if key does not exist.
-            # logger.debug(type(v))
             labels_inv[int(v)] = k
-    # logger.debug(labels_inv)
     return labels_inv
 
 
@@ -567,7 +558,6 @@ def read_inputs(dataset_path, dataset, read_test=False):
     if exists(join(dataset_path, dataset, "E" + filename + ".pkl")):
         E = load_pickle(pkl_file_name="E" + filename, pkl_file_path=join(dataset_path, dataset))
 
-    # logger.debug(X, Y, V, E)
     if X is False or Y is False or V is False or E is False:
         logger.info('Generating data from train and test files.')
         _, _, _, X, Y, V, E = get_x_y_v_e(join(dataset_path, dataset, dataset, dataset + filename + '.txt'))
