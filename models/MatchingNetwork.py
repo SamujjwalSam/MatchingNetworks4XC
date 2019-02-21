@@ -30,9 +30,9 @@ from models import EmbedText
 
 seed_val = 0
 # random.seed(seed_val)
-np.random.seed(seed_val)
-torch.manual_seed(seed_val)
-torch.cuda.manual_seed_all(seed=seed_val)
+# np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
 
 
 class MatchingNetwork(nn.Module):
@@ -71,7 +71,7 @@ class MatchingNetwork(nn.Module):
                                dropout=dropout,
                                use_cuda=use_cuda)
 
-    def forward(self, supports_x, supports_hots, support_cat_indices, hats_x, hats_hots, target_cat_indices, batch_size=64, print_accuracy=False):
+    def forward(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=64, print_accuracy=False, dropout_external=False):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
@@ -90,38 +90,33 @@ class MatchingNetwork(nn.Module):
             torch.Size([32, 5])
         :return:
         """
-        encoded_supports = self.g(supports_x, batch_size=batch_size)
-        logger.debug("encoded_supports output: {}".format(encoded_supports))
+        encoded_supports = self.g(supports_x, batch_size=batch_size, dropout_external=dropout_external)
+        # logger.debug("encoded_supports output: {}".format(encoded_supports))
 
         # produce embeddings for target samples
-        encoded_x_hat = self.g(hats_x, batch_size=batch_size)
-        logger.debug("encoded_x_hat output: {}".format(encoded_x_hat))
+        encoded_x_hat = self.g(hats_x, batch_size=batch_size, dropout_external=dropout_external)
+        # logger.debug("encoded_x_hat output: {}".format(encoded_x_hat))
 
         if self.fce:
             encoded_supports, hn, cn = self.lstm(encoded_supports, batch_size=batch_size)
             encoded_x_hat, hn, cn = self.lstm(encoded_x_hat, batch_size=batch_size)
-            logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
-            logger.debug("FCE encoded_x_hat output: {}".format(encoded_x_hat))
+            # logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
+            # logger.debug("FCE encoded_x_hat output: {}".format(encoded_x_hat))
 
         # get similarity between support set embeddings and target
         similarities = self.cosine_dis(support_sets=encoded_supports, X_hats=encoded_x_hat, normalize=False)
-        # similarities_t = similarities.t()  # TODO: need to transpose?
-        logger.debug("similarities: {}".format(similarities))
-        logger.debug("similarities shape: {}".format(similarities.shape))
+        # logger.debug("similarities: {}".format(similarities))
+        # logger.debug("similarities shape: {}".format(similarities.shape))
 
         # produce predictions for target probabilities
         hats_preds = self.attn(similarities,support_set_y=supports_hots)  # batch_size x # classes = hats_hots.shape
-        logger.debug("target_cat_indices: {}".format(target_cat_indices))
-        logger.debug("hats_preds output: {}".format(hats_preds))
+        # logger.debug("target_cat_indices: {}".format(target_cat_indices))
+        # logger.debug("hats_preds output: {}".format(hats_preds))
 
         # assert hats_preds.shape == hats_hots.shape, "hats_preds.shape ({}) == ({}) hats_hots.shape" \
         #     .format(hats_preds.shape, hats_hots.shape)
 
         # calculate accuracy and crossentropy loss
-        values, indices = hats_preds.max(2)
-        if print_accuracy:
-            accuracy = torch.mean((indices.squeeze() == target_cat_indices).float())
-            logger.debug("Accuracy: [{}]".format(accuracy))
 
         # Need to calculate loss for each sample but for whole batch.
         loss = 0
@@ -132,6 +127,11 @@ class MatchingNetwork(nn.Module):
             loss += F.cross_entropy(hats_preds[:, j, :], target_cat_indices[:, j].long())
         crossentropy_loss = loss / hats_x.size(1)
 
+        values, indices = hats_preds.max(2)
+        if print_accuracy:
+            accuracy = torch.mean((indices == target_cat_indices.long()).float())
+            logger.debug("Accuracy: [{}]".format(accuracy))
+            return crossentropy_loss, hats_preds, encoded_x_hat
         return crossentropy_loss, hats_preds
 
     def forward_orig(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=64):
@@ -172,7 +172,7 @@ class MatchingNetwork(nn.Module):
 
             # get similarity between support set embeddings and target
             similarities = self.cosine_dis.forward2(support_set=encoded_supports, input_image=encoded_x_hat)
-            similarities = similarities.t()  # TODO: need to transpose?
+            similarities = similarities.t()
             similarities_squeezed = similarities.squeeze(1)
             logger.debug("similarities: {}".format(similarities))
             logger.debug("similarities shape: {}".format(similarities.shape))

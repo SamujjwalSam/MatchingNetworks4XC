@@ -61,7 +61,7 @@ class Common_JSON_Handler:
         self.dataset_type = dataset_type
         self.data_dir = join(data_dir, self.dataset_name)
 
-        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
+        self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = None, None, None, None
 
         self.sentences_train, self.classes_train, self.categories_train = None, None, None
         self.sentences_test, self.classes_test, self.categories_test = None, None, None
@@ -218,6 +218,7 @@ class Common_JSON_Handler:
 
     def get_data(self, load_type="train"):
         """:returns loaded dictionaries based on "load_type" value."""
+        self.categories_all = self.load_categories()
         if load_type == "train":
             self.sentences_selected, self.classes_selected, self.categories_selected = self.load_train()
         elif load_type == "val":
@@ -226,7 +227,17 @@ class Common_JSON_Handler:
             self.sentences_selected, self.classes_selected, self.categories_selected = self.load_test()
         else:
             raise Exception("Unknown 'load_type': [{}]. \n Available options: ['train','val','test']".format(load_type))
-        return self.sentences_selected, self.classes_selected, self.categories_selected
+        return self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all
+
+    def load_categories(self):
+        """Loads and returns the whole categories set."""
+        if self.categories_all is None:
+            logger.debug(join(self.data_dir, self.dataset_name + "_categories.json"))
+            if isfile(join(self.data_dir, self.dataset_name + "_categories.json")):
+                self.categories_all = util.load_json(self.dataset_name + "_categories", file_path=self.data_dir)
+            else:
+                _, _, self.categories_all = self.load_full_json(return_values=True)
+        return self.categories_all
 
     def load_train(self):
         """Loads and returns training set."""

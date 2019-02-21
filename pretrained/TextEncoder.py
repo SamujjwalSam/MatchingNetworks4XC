@@ -119,7 +119,7 @@ class TextEncoder:
         :param workers:
         :param seed:
         """
-        full_model_name = doc2vec_model_file+str(vector_size)+str(window)+str(min_count)+str(negative)
+        full_model_name = doc2vec_model_file+"_"+str(vector_size)+"_"+str(window)+"_"+str(min_count)+"_"+str(negative)
         if exists(join(doc2vec_dir, full_model_name)):
             logger.info("Loading doc2vec model from: [{}]".format(join(doc2vec_dir, full_model_name)))
             doc2vec_model = doc2vec.Doc2Vec.load(join(doc2vec_dir, full_model_name))

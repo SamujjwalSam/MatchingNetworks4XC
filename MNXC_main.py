@@ -89,7 +89,19 @@ Config values for testing:
         "num_train_epoch" : 3,
         "batch_size" : 4,
         "num_cat" : 5,
-        "samples_per_category" : 1
+        "supports_per_category" : 2,
+        "targets_per_category" : 1
+                      
+
+        "hid_size" : 2,
+        "input_size" : 3,
+
+        "num_epochs" : 20,
+        "num_train_epoch" : 30,
+        "batch_size" : 64,
+        "num_cat" : 5,
+        "supports_per_category" : 10,
+        "targets_per_category" : 1
 ==========================================
 
 To solve MKL problem: Adding <conda-env-root>/Library/bin to the path in the run configuration solves the issue, but adding it to the interpreter paths in the project settings doesn't.
@@ -118,7 +130,10 @@ def main(args):
                                  dataset_name=config["data"]["dataset_name"],
                                  dataset_dir=config["paths"]["dataset_dir"][plat])
 
-    match_net = Run_Network(data_formatter, use_cuda=use_cuda)
+    match_net = Run_Network(data_formatter,
+                            use_cuda=use_cuda,
+                            dataset_name=config["data"]["dataset_name"],
+                            dataset_dir=config["paths"]["dataset_dir"][plat])
 
     match_net.prepare_net(fce=False,
                           num_categories=0,
@@ -130,7 +145,8 @@ def main(args):
                           optim=config["model"]["optim"],
                           dropout=config["model"]["dropout"],
                           batch_size=config["model"]["batch_size"],
-                          samples_per_category=config["model"]["samples_per_category"],
+                          supports_per_category=config["model"]["supports_per_category"],
+                          targets_per_category=config["model"]["targets_per_category"],
                           num_cat=config["model"]["num_cat"])
 
     train_epoch_losses = []
@@ -140,7 +156,7 @@ def main(args):
         train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))
-        val_epoch_loss = match_net.run_validation_epoch(num_val_epoch=1)
+        val_epoch_loss = match_net.run_validation_epoch(num_val_epoch=1, epoch_count=epoch)
         val_epoch_losses.append(val_epoch_loss)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
 

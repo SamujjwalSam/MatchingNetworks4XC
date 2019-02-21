@@ -62,14 +62,14 @@ class BiLSTM(nn.Module):
                                 batch_first=True,
                                 bidirectional=bidirectional)
 
-    def forward(self, inputs, batch_size=64, dropout_extrenal=False, dropout=0.2, training=True, requires_grad=False):
+    def forward(self, inputs, batch_size=64, dropout_external=False, dropout=0.2, training=True, requires_grad=False):
         """
         Runs the bidirectional LSTM, produces outputs and saves both forward and backward states as well as gradients.
 
         :param training: Signifies if network is training, during inference dropout is disabled.
         :param requires_grad:
         :param dropout: If non-zero, introduces a dropout layer on the outputs of each RNN layer except the last layer.
-        :param dropout_extrenal: Flag if dropout should be used externally as Pytorch uses dropout only on last layer.
+        :param dropout_external: Flag if dropout should be used externally as Pytorch uses dropout only on last layer.
         :param batch_size: Size of a batch per forward call.
         :param inputs: The inputs should be a list of shape  (seq_len, batch, input_size).
         :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
@@ -95,9 +95,9 @@ class BiLSTM(nn.Module):
         # logger.debug(self.lstm)
         # logger.debug((inputs.shape,h0.shape, c0.shape))
         output, (hn, cn) = self.lstm(inputs, (h0, c0))
-        if dropout_extrenal and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM applies dropout only on
+        if dropout_external and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM applies dropout only on
             # last layer and if there is only one layer, dropout will not be applied.
-            logger.info("Applying dropout externally.")
+            # logger.debug("Applying dropout externally.")
             # logger.debug(output)
             output = F.dropout(output, p=dropout, training=training, inplace=False)
         # logger.debug(output)
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     logger.debug("input: {}".format(input))
     logger.debug("input Shape: {}".format(input.shape))
     result = test_blstm.forward(input, batch_size=3,
-                                dropout_extrenal=True)  # output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
+                                dropout_external=True)  # output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
     # logger.debug("result: {}".format(result))
     logger.debug("result: {}".format(result[0]))
     logger.debug("result: {}".format(result[0].shape))

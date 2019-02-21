@@ -23,9 +23,9 @@ from logger.logger import logger
 
 seed_val = 0
 # random.seed(seed_val)
-np.random.seed(seed_val)
-torch.manual_seed(seed_val)
-torch.cuda.manual_seed_all(seed=seed_val)
+# np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
 
 
 def precision_at_k(actuals, predictions, k=5, pos_label=1):

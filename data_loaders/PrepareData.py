@@ -18,7 +18,7 @@ __methods__     :
 """
 
 import random
-from os.path import join
+from os.path import join, isfile
 import numpy as np
 from random import sample
 from sklearn.preprocessing import MultiLabelBinarizer
@@ -28,13 +28,14 @@ from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
 from utils import util
 
+
 # import warnings
 # from sklearn.exceptions import Warning
 # warnings.filterwarnings(action='ignore', category=UserWarning)
 
-seed_val = 0
-random.seed(seed_val)
-np.random.seed(seed_val)
+# seed_val = 0
+# random.seed(seed_val)
+# np.random.seed(seed_val)
 # torch.manual_seed(seed_val)
 # torch.cuda.manual_seed_all(seed=seed_val)
 
@@ -56,7 +57,7 @@ class PrepareData:
         self.dataset = dataset
 
         self.doc2vec_model = None
-        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
+        self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = None, None, None, None
 
         self.mlb = MultiLabelBinarizer()
 
@@ -81,14 +82,19 @@ class PrepareData:
 
         :param load_type: Which data to load: Options: ['train', 'val', 'test']
         """
-        self.sentences_selected, self.classes_selected, self.categories_selected = self.dataset.get_data(
-            load_type=load_type)
+        self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = \
+            self.dataset.get_data(load_type=load_type)
         self.remain_sample_ids = list(self.sentences_selected.keys())
         self.cat2sample_map = self.cat2samples(self.classes_selected)
         self.remain_cat_ids = list(self.categories_selected.keys())
         logger.info("[{}] data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
                     .format(load_type, len(self.sentences_selected), len(self.classes_selected),
                             len(self.categories_selected)))
+        # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of ints to list of lists.
+        cat_ids = []
+        for cat_id in self.categories_all.values():
+            cat_ids.append([cat_id])
+        self.mlb.fit(cat_ids)
 
     def txt2vec(self, sentences: list, vectorizer="chunked", tfidf_avg=False, embedding_dim=300, max_vec_len=10000,
                 num_chunks=10):
@@ -137,7 +143,7 @@ class PrepareData:
                 self.doc2vec_model = self.text_encoder.load_doc2vec(sentences,
                                                                     vector_size=self.embedding_dim,
                                                                     window=7,
-                                                                    seed=seed_val,
+                                                                    # seed=seed_val,
                                                                     negative=10,
                                                                     doc2vec_dir=join(self.dataset_dir,
                                                                                      self.dataset_name),
@@ -308,7 +314,7 @@ class PrepareData:
         return selected_cat_ids
 
     def select_samples(self, support_cat_ids, cat2sample_map=None, input_size=300, samples_per_category=4,
-                       vectorizer="doc2vec", repeat_mode='append'):
+                       vectorizer="doc2vec", repeat_mode='append', indices=False):
         """
         Returns a batch of feature vectors and multi-hot classes.
 
@@ -328,7 +334,7 @@ class PrepareData:
             if len(cat2sample_map[cat]) == samples_per_category:
                 selected_ids = selected_ids + cat2sample_map[cat]
             elif len(cat2sample_map[
-                         cat]) > samples_per_category:  # More than required, sample [samples_per_category] from the list.
+                         cat]) > samples_per_category:  # More than required, sample [supports_per_category] from the list.
                 selected_ids = selected_ids + sample(cat2sample_map[cat], k=samples_per_category)
             else:  # Less than required, repeat the available classes.
                 selected_ids = selected_ids + cat2sample_map[cat]
@@ -339,7 +345,7 @@ class PrepareData:
                 elif repeat_mode == "sample":
                     empty_count = samples_per_category - length
                     for i in range(
-                            empty_count):  # Sampling [samples_per_category] number of elements from cat2sample_map[cat].
+                            empty_count):  # Sampling [supports_per_category] number of elements from cat2sample_map[cat].
                         selected_ids.append(cat2sample_map[cat][sample(range(length), 1)])
                 else:
                     raise Exception("Unknown [repeat_mode]: [{}]".format(repeat_mode))
@@ -347,62 +353,82 @@ class PrepareData:
                                                                   selected_ids)
         x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, vectorizer=vectorizer)
         y_target_hot = self.mlb.transform(classes_batch)
-        # y_target_list = self.mlb.inverse_transform(y_target_hot)
-        y_target_indices = y_target_hot.argmax(1)
-        return x_target, y_target_hot, y_target_indices
+        if indices:
+            # y_target_list = self.mlb.inverse_transform(y_target_hot)  # Returns label ids.
+            y_target_indices = y_target_hot.argmax(1)  # Returns label indices. Does not work in Multi-Label setting.
+            return x_target, y_target_hot, y_target_indices
+        return x_target, y_target_hot
 
-    def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, samples_per_category=4,
-                    vectorizer="doc2vec"):
+    def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, supports_per_category=4,
+                    targets_per_category=1, vectorizer="doc2vec", val=False):
         """
         Returns an iterator over data.
 
+        :param val: Flag to denote if it is Validation run. If true, it's a validation run. Return old values.
+        :param targets_per_category:
         :param input_size: Input embedding dimension.
         :param batch_size:
         :param categories_per_set:
-        :param samples_per_category:
+        :param supports_per_category:
         :param vectorizer:
         :returns: An iterator over data.
         """
+        if val:  # If true, it's a validation run. Return old values.
+            logger.debug("Checking if Validation set is stored at: {}".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
+            if isfile(join(self.dataset_dir,self.dataset_name,"x_supports.npz")):
+                x_supports = util.load_npz("x_supports", file_path=join(self.dataset_dir, self.dataset_name))
+                y_support_hots = util.load_npz("y_support_hots", file_path=join(self.dataset_dir, self.dataset_name))
+                x_targets = util.load_npz("x_targets", file_path=join(self.dataset_dir, self.dataset_name))
+                y_target_hots = util.load_npz("y_target_hots", file_path=join(self.dataset_dir, self.dataset_name))
+                target_cat_indices = util.load_npz("target_cat_indices", file_path=join(self.dataset_dir, self.dataset_name))
+                return x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices
+
         support_cat_ids = self.get_support_cats(categories_per_set=categories_per_set)
-        support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
-        for ids in support_cat_ids:
-            support_cat_ids_list.append([ids])
-        self.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
+        # support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
+        # for ids in support_cat_ids:
+        #     support_cat_ids_list.append([ids])
+        # self.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
         x_supports = []
         y_support_hots = []
-        support_cat_indices = []
         x_targets = []
         y_target_hots = []
         target_cat_indices = []
-        target_cat_indices_list1 = []
-        target_cat_indices_list2 = []
+        # target_cat_indices_list1 = []
+        # target_cat_indices_list2 = []
         for i in range(batch_size):
-            x_support, y_support_hot, support_cat_indices_batch = \
-                self.select_samples(support_cat_ids,
-                                    samples_per_category=samples_per_category,
-                                    vectorizer=vectorizer,
-                                    input_size=input_size)
-            sel_cat = sample(support_cat_ids, k=1)
+            x_support, y_support_hot = self.select_samples(support_cat_ids,
+                                                           samples_per_category=supports_per_category,
+                                                           vectorizer=vectorizer,
+                                                           input_size=input_size)
+            # sel_cat = sample(support_cat_ids, k=1)
             x_target, y_target_hot, target_cat_indices_batch = \
-                self.select_samples(sel_cat,
-                                    samples_per_category=samples_per_category,
+                self.select_samples(support_cat_ids,
+                                    samples_per_category=targets_per_category,
                                     vectorizer=vectorizer,
-                                    input_size=input_size)
+                                    input_size=input_size,
+                                    indices=True)
             x_supports.append(x_support)
             y_support_hots.append(y_support_hot)
-            support_cat_indices.append(support_cat_indices_batch)
+            # support_cat_indices.append(support_cat_indices_batch)
             x_targets.append(x_target)
             y_target_hots.append(y_target_hot)
             target_cat_indices.append(target_cat_indices_batch)
-            target_cat_indices_list1.append(list(target_cat_indices_batch.tolist()))
+            # target_cat_indices_list1.append(list(target_cat_indices_batch.tolist()))
         x_supports = np.stack(x_supports)
         y_support_hots = np.stack(y_support_hots)
-        support_cat_indices = np.stack(support_cat_indices)
+        # support_cat_indices = np.stack(support_cat_indices)
         x_targets = np.stack(x_targets)
         y_target_hots = np.stack(y_target_hots)
         target_cat_indices = np.stack(target_cat_indices)
-        target_cat_indices_list2.append(list(target_cat_indices_list1))
-        return x_supports, y_support_hots, support_cat_indices, x_targets, y_target_hots, target_cat_indices, target_cat_indices_list2
+        # target_cat_indices_list2.append(list(target_cat_indices_list1))
+
+        if val:
+            util.save_npz(x_supports, "x_supports", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_npz(y_support_hots, "y_support_hots", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_npz(x_targets, "x_targets", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_npz(y_target_hots, "y_target_hots", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_npz(target_cat_indices, "target_cat_indices", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+        return x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices  # , target_cat_indices_list2
 
 
 if __name__ == '__main__':
@@ -422,7 +448,7 @@ if __name__ == '__main__':
 
     x_supports, y_support_hots, x_targets, y_target_hots = data_formatter.get_batches(batch_size=2,
                                                                                       categories_per_set=3,
-                                                                                      samples_per_category=5)
+                                                                                      supports_per_category=5)
     logger.debug(x_supports.shape)
     logger.debug(y_support_hots.shape)
     logger.debug(x_targets.shape)

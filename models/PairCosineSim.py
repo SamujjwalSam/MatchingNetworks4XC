@@ -27,9 +27,9 @@ from logger.logger import logger
 
 seed_val = 0
 # random.seed(seed_val)
-np.random.seed(seed_val)
-torch.manual_seed(seed_val)
-torch.cuda.manual_seed_all(seed=seed_val)
+# np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
 
 
 class PairCosineSim(nn.Module):
@@ -74,7 +74,7 @@ class PairCosineSim(nn.Module):
 
         return cosine_sim
 
-    def forward(self, support_sets, X_hats, normalize=False, dim=0, test=False):
+    def forward(self, support_sets, X_hats, normalize=True, dim=0, test=False):
         """
         Calculates pairwise cosine similarity of support sets with target sample.
 

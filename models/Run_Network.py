@@ -18,20 +18,24 @@ __methods__     :
 """
 
 import numpy as np
+from os.path import join
 import tqdm
 import torch
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
 from logger.logger import logger
+from utils import util
 from metrics.metrics import Metrics, precision_at_k
 from models.MatchingNetwork import MatchingNetwork
 
 seed_val = 0
+
+
 # random.seed(seed_val)
-np.random.seed(seed_val)
-torch.manual_seed(seed_val)
-torch.cuda.manual_seed_all(seed=seed_val)
+# np.random.seed(seed_val)
+# torch.manual_seed(seed_val)
+# torch.cuda.manual_seed_all(seed=seed_val)
 
 
 class Run_Network:
@@ -41,7 +45,7 @@ class Run_Network:
     and evaluation procedures.
     """
 
-    def __init__(self, data_formatter, cuda_available=None, use_cuda=False):
+    def __init__(self, data_formatter, dataset_name, dataset_dir, cuda_available=None, use_cuda=False):
         """
         Initializes an Run_Network object. The Run_Network object takes care of setting up our experiment
         and provides helper functions such as run_training_epoch and run_validation_epoch to simplify out training
@@ -56,16 +60,21 @@ class Run_Network:
 
         self.use_cuda = use_cuda
         self.data_formatter = data_formatter
+        self.test_metrics = Metrics()
+        self.dataset_name = dataset_name
+        self.dataset_dir = dataset_dir
 
     def prepare_net(self, input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6, weight_decay=1e-4, optim="adam",
-                    dropout=0.2, num_categories=0, fce=True, batch_size=32, samples_per_category=20, num_cat=15,
+                    dropout=0.2, num_categories=0, fce=True, batch_size=32, supports_per_category=20,
+                    targets_per_category=5, num_cat=15,
                     vectorizer="doc2vec"):
         """
         Builds the network with all required parameters.
 
+        :param targets_per_category:
         :param vectorizer:
         :param num_cat:
-        :param samples_per_category:
+        :param supports_per_category:
         :param hid_size:
         :param input_size: Size of sample vectors.
         :param num_categories: Number of categories.
@@ -86,7 +95,8 @@ class Run_Network:
         self.input_size = input_size
         self.weight_decay = weight_decay
         self.batch_size = batch_size
-        self.samples_per_category = samples_per_category
+        self.supports_per_category = supports_per_category
+        self.targets_per_category = targets_per_category
         self.num_cat = num_cat
         self.vectorizer = vectorizer
         self.total_train_iter = 0
@@ -102,14 +112,11 @@ class Run_Network:
             torch.cuda.manual_seed_all(seed=seed_val)
             self.match_net.cuda()
 
-    def run_training_epoch(self, num_train_epoch):
+    def run_training_epoch(self, num_train_epoch, print_grads=True):
         """
         Runs one training epoch.
 
-        :param input_size:
-        :param batch_size:
-        :param samples_per_category:
-        :param num_cat:
+        :param print_grads: Flag to denote if gradients are to be printed.
         :param num_train_epoch: Number of batches to train.
         :return: mean_training_multilabel_margin_loss.
         """
@@ -119,19 +126,18 @@ class Run_Network:
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch
-                x_supports, y_support_hots, support_cat_indices, x_hats, y_hats_hots, target_cat_indices, target_cat_indices_list = \
+                x_supports, y_support_hots, x_hats, y_hats_hots, target_cat_indices = \
                     self.data_formatter.get_batches(
                         batch_size=self.batch_size,
                         categories_per_set=self.num_cat,
-                        samples_per_category=self.samples_per_category,
+                        supports_per_category=self.supports_per_category,
+                        targets_per_category=self.targets_per_category,
                         vectorizer=self.vectorizer,
                         input_size=self.input_size)
-                # logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_hats [{}], y_hats_hots [{}]"
-                #             .format(x_supports.shape, y_support_hots.shape, x_hats.shape, y_hats_hots.shape))
 
                 x_supports = Variable(torch.from_numpy(x_supports)).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
-                support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
+                # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                 x_hats = Variable(torch.from_numpy(x_hats)).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
                 target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
@@ -141,20 +147,20 @@ class Run_Network:
                                                          x_hats.cuda(), y_hats_hots.cuda(),
                                                          batch_size=self.batch_size)
                 else:
-                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, support_cat_indices,
-                                                         x_hats, y_hats_hots, target_cat_indices,
-                                                         batch_size=self.batch_size)
-                logger.debug(("cc_loss: ", cc_loss))
-                logger.debug(("hats_preds: ", hats_preds))
-                logger.debug(("hats_preds.shape: ", hats_preds.shape))
+                    cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, x_hats, y_hats_hots,
+                                                         target_cat_indices, batch_size=self.batch_size)
+                    # ,num_categories=self.num_cat)
 
-                # Before the backward pass, use the optimizer object to zero all of the
-                # gradients for the variables it will update (which are the learnable weights
-                # of the model)
+                # Before the backward pass, use the optimizer object to zero all of the gradients for the variables
+                # it will update (which are the learnable weights of the model)
                 optimizer.zero_grad()
 
                 # Backward pass: compute gradient of the loss with respect to model parameters
                 cc_loss.backward()
+
+                # for f in self.match_net.parameters():
+                #     logger.debug(f.data)
+                #     logger.debug(f.grad)
 
                 # Calling the step function on an Optimizer makes an update to its parameters
                 optimizer.step()
@@ -162,33 +168,19 @@ class Run_Network:
                 # update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
 
-                test_metrics = Metrics()
-                # test_multi_hot = test_metrics.precision_at_k(multi_hot, proba, k=3)
-                # logger.debug(test_multi_hot)
-                # logger.debug(test_multi_hot.shape)
-                precision_1 = test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
-                precision_3 = test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
-                precision_5 = test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
+                precision_1 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
+                precision_3 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
+                precision_5 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
 
-                logger.info("P 1: {}".format(precision_1))
-                logger.info("P 3: {}".format(precision_3))
-                logger.info("P 5: {}".format(precision_5))
+                logger.info("TRAIN Precisions:")
+                logger.info("Precision @ 1: {}".format(precision_1))
+                logger.info("Precision @ 3: {}".format(precision_3))
+                logger.info("Precision @ 5: {}".format(precision_5))
 
-                # precision_dict = OrderedDict()
-                # precision_dict = {1: 0, 3: 0, 5: 0, 10: 0}
-                # precision_mat = np.zeros((hats_preds.size(1), len(precision_dict)))
-                # for j in np.arange(hats_preds.size(1)):
-                #     for l, k in enumerate(
-                #             precision_dict):  # Need to enumerate over prediction.keys as k indexing are not continuous, i.e. 1,3,5.
-                #         p_k = precision_at_k(y_hats_hots[:, j, :], hats_preds[:, j, :], k=k)
-                #         precision_dict[k] += p_k
-                #         precision_mat[j:l] += p_k
-                # precision_mat = np.divide(precision_mat, hats_preds.size(1))
-                # logger.debug(("precision_mat: ", precision_mat))
+                iter_out = "TRAIN Loss: {}\n".format(cc_loss.item())
+                logger.debug(iter_out)
 
-                iter_out = "tr_loss: {}".format(cc_loss.item())
                 pbar.set_description(iter_out)
-
                 pbar.update(1)
                 total_c_loss += cc_loss.item()
 
@@ -206,7 +198,7 @@ class Run_Network:
 
         :param input_size:
         :param batch_size:
-        :param samples_per_category:
+        :param supports_per_category:
         :param num_cat:
         :param num_train_epoch: Number of batches to train.
         :return: mean_training_multilabel_margin_loss.
@@ -217,11 +209,12 @@ class Run_Network:
         optimizer = self.__create_optimizer(self.match_net, self.lr)
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch
-                x_supports, y_support_hots, support_cat_indices, x_hats, y_hats_hots, target_cat_indices = \
+                x_supports, y_support_hots, x_hats, y_hats_hots, target_cat_indices = \
                     self.data_formatter.get_batches(
                         batch_size=self.batch_size,
                         categories_per_set=self.num_cat,
-                        samples_per_category=self.samples_per_category,
+                        supports_per_category=self.supports_per_category,
+                        targets_per_category=self.targets_per_category,
                         vectorizer=self.vectorizer,
                         input_size=self.input_size)
                 # logger.info("Shape counts: x_supports [{}], y_support_hots [{}], x_hats [{}], y_hats_hots [{}]"
@@ -229,7 +222,7 @@ class Run_Network:
 
                 x_supports = Variable(torch.from_numpy(x_supports)).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
-                support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
+                # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                 x_hats = Variable(torch.from_numpy(x_hats)).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
                 target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
@@ -243,9 +236,6 @@ class Run_Network:
                     cc_loss, hats_preds = self.match_net.forward2(x_supports, y_support_hots,
                                                                   x_hats, y_hats_hots, target_cat_indices,
                                                                   batch_size=self.batch_size)
-                logger.debug(("cc_loss: ", cc_loss))
-                logger.debug(("hats_preds: ", hats_preds))
-                logger.debug(("hats_preds.shape: ", hats_preds.shape))
 
                 # Before the backward pass, use the optimizer object to zero all of the
                 # gradients for the variables it will update (which are the learnable weights
@@ -261,21 +251,19 @@ class Run_Network:
                 # update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
 
-                # precision_dict = OrderedDict()
-                precision_dict = {1: 0, 3: 0, 5: 0, 10: 0}
-                precision_mat = np.zeros((hats_preds.size(1), len(precision_dict)))
-                for j in np.arange(hats_preds.size(1)):
-                    for l, k in enumerate(
-                            precision_dict):  # Need to enumerate over prediction.keys as k indexing are not continuous, i.e. 1,3,5.
-                        p_k = precision_at_k(y_hats_hots[:, j, :], hats_preds[:, j, :], k=k)
-                        precision_dict[k] += p_k
-                        precision_mat[j:l] += p_k
-                precision_mat = np.divide(precision_mat, hats_preds.size(1))
-                logger.debug(("precision_mat: ", precision_mat))
+                iter_out = "TRAIN Loss: {}\n".format(cc_loss.item())
+                logger.info(iter_out)
 
-                iter_out = "tr_loss: {}".format(cc_loss.item())
+                precision_1 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
+                precision_3 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
+                precision_5 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
+
+                logger.info("TRAIN Precisions:")
+                logger.info("Precision @ 1: {}".format(precision_1))
+                logger.info("Precision @ 3: {}".format(precision_3))
+                logger.info("Precision @ 5: {}".format(precision_5))
+
                 pbar.set_description(iter_out)
-
                 pbar.update(1)
                 total_c_loss += cc_loss.item()
 
@@ -287,7 +275,7 @@ class Run_Network:
         total_c_loss = total_c_loss / num_train_epoch
         return total_c_loss
 
-    def run_validation_epoch(self, num_val_epoch):
+    def run_validation_epoch(self, num_val_epoch, epoch_count):
         """
         Runs one validation epoch.
 
@@ -301,11 +289,12 @@ class Run_Network:
         with tqdm.tqdm(total=num_val_epoch) as pbar:
             with torch.no_grad():
                 for i in range(num_val_epoch):  # 1 validation epoch
-                    x_supports, y_support_hots, support_cat_indices, x_targets, y_target_hots, target_cat_indices = \
+                    x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices = \
                         self.data_formatter.get_batches(
                             batch_size=self.batch_size,
                             categories_per_set=self.num_cat,
-                            samples_per_category=self.samples_per_category,
+                            supports_per_category=self.supports_per_category,
+                            targets_per_category=self.targets_per_category,
                             vectorizer=self.vectorizer,
                             input_size=self.input_size)
                     logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
@@ -313,21 +302,38 @@ class Run_Network:
 
                     x_supports = Variable(torch.from_numpy(x_supports), volatile=True).float()
                     y_support_hots = Variable(torch.from_numpy(y_support_hots), volatile=True).float()
-                    support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
+                    # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                     x_targets = Variable(torch.from_numpy(x_targets), volatile=True).float()
                     y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
                     target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                     if self.cuda_available and self.use_cuda:
-                        cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
-                                                             x_targets.cuda(), y_target_hots.cuda(),
-                                                             batch_size=self.batch_size)
+                        cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                                                                            x_targets.cuda(), y_target_hots.cuda(),
+                                                                            batch_size=self.batch_size,
+                                                                            print_accuracy=True)
                     else:
-                        cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, support_cat_indices,
-                                                             x_targets, y_target_hots, target_cat_indices,
-                                                             batch_size=self.batch_size)
+                        cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports, y_support_hots, x_targets,
+                                                                            y_target_hots, target_cat_indices,
+                                                                            batch_size=self.batch_size,
+                                                                            print_accuracy=True)
 
-                    iter_out = "val_loss: {}".format(cc_loss.item())
+                    util.save_npz(encoded_x_hat, self.dataset_name + "_val_encoded_x_hat_" + str(epoch_count),
+                                  file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+                    logger.debug("VALIDATION epoch_count: [{}]. \nencoded_x_hats: {}".format(epoch_count, encoded_x_hat))
+
+                    iter_out = "VALIDATION Loss: {}\n".format(cc_loss.item())
+                    logger.info(iter_out)
+
+                    precision_1 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=1)
+                    precision_3 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=3)
+                    precision_5 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=5)
+
+                    logger.info("VALIDATION Precisions:")
+                    logger.info("Precision @ 1: {}".format(precision_1))
+                    logger.info("Precision @ 3: {}".format(precision_3))
+                    logger.info("Precision @ 5: {}".format(precision_5))
+
                     pbar.set_description(iter_out)
                     pbar.update(1)
                     total_val_c_loss += cc_loss.item()
@@ -335,7 +341,7 @@ class Run_Network:
 
         return total_val_c_loss
 
-    def run_testing_epoch(self, total_test_batches):
+    def run_testing_epoch(self, total_test_batches, epoch_count):
         """
         Runs one testing epoch.
 
@@ -353,7 +359,7 @@ class Run_Network:
                         self.data_formatter.get_batches(
                             batch_size=self.batch_size,
                             categories_per_set=self.num_cat,
-                            samples_per_category=self.samples_per_category,
+                            supports_per_category=self.supports_per_category,
                             vectorizer=self.vectorizer,
                             input_size=self.input_size)
 
@@ -363,15 +369,31 @@ class Run_Network:
                     y_target_hots = Variable(torch.from_numpy(y_target_hots), volatile=True).float()
 
                     if self.cuda_available and self.use_cuda:
-                        cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
+                        cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
                                                              x_targets.cuda(), y_target_hots.cuda(),
-                                                             batch_size=self.batch_size)
+                                                             batch_size=self.batch_size,
+                                                             print_accuracy=True)
                     else:
-                        cc_loss, hats_preds = self.match_net(x_supports, y_support_hots,
+                        cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports, y_support_hots,
                                                              x_targets, y_target_hots,
-                                                             batch_size=self.batch_size)
+                                                             batch_size=self.batch_size,
+                                                             print_accuracy=True)
 
-                    iter_out = "test_loss: {}".format(cc_loss.item())
+                    util.save_npz(encoded_x_hat, self.dataset_name + "_test_encoded_x_hat_" + str(epoch_count),
+                                  file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+                    logger.debug("TEST epoch_count: [{}]. \nencoded_x_hats: {}".format(epoch_count, encoded_x_hat))
+
+                    iter_out = "TEST Loss: {}\n".format(cc_loss.item())
+                    logger.info(iter_out)
+
+                    logger.info("TEST Precisions:")
+                    precision_1 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=1)
+                    precision_3 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=3)
+                    precision_5 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=5)
+                    logger.info("Precision @ 1: {}".format(precision_1))
+                    logger.info("Precision @ 3: {}".format(precision_3))
+                    logger.info("Precision @ 5: {}".format(precision_5))
+
                     pbar.set_description(iter_out)
                     pbar.update(1)
 
@@ -429,5 +451,5 @@ class Run_Network:
 if __name__ == '__main__':
     logger.debug("Building Model...")
     cls = Run_Network()
-    cls.prepare_net(input_size=300, hid_size=100, fce=True, batch_size=32, samples_per_category=15, num_cat=25)
+    cls.prepare_net(input_size=300, hid_size=100, fce=True, batch_size=32, supports_per_category=15, num_cat=25)
     cls.run_training_epoch(num_train_epoch=10)

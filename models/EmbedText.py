@@ -69,11 +69,11 @@ class EmbedText(nn.Module):
             # self.weights_init(self.layer3)
             # self.weights_init(self.layer4)
 
-    def forward(self, inputs, batch_size=64, dropout_extrenal=False):
+    def forward(self, inputs, batch_size=64, dropout_external=False):
         """
         Runs the CNNText producing the embeddings and the gradients.
 
-        :param dropout_extrenal:
+        :param dropout_external:
         :param batch_size:
         :param inputs: Image input to produce embeddings for. [batch_size, 28, 28, 1]
         :return: Embeddings of size [batch_size, 64]
@@ -81,7 +81,7 @@ class EmbedText(nn.Module):
         # logger.debug(inputs.shape)
         if self.model_type == "lstm":
             # logger.debug(inputs.shape)
-            output, hn, cn = self.text_lstm(inputs, batch_size, dropout_extrenal=dropout_extrenal)
+            output, hn, cn = self.text_lstm(inputs, batch_size, dropout_external=dropout_external)
         elif self.model_type == "cnn":
             output = self.layer1(inputs)
             output = self.layer2(output)
@@ -137,6 +137,6 @@ if __name__ == '__main__':
     a = torch.ones(1, 2, 4)  # batch_size, <don't matter>, input_size
     logger.debug(a)
     cls = EmbedText(input_size=4, num_layers=1, num_categories=2, model_type="lstm")
-    sim = cls.forward(a, batch_size=1, dropout_extrenal=True)
+    sim = cls.forward(a, batch_size=1, dropout_external=True)
     logger.debug(sim)
     logger.debug(sim.shape)
