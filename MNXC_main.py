@@ -126,7 +126,7 @@ def main(args):
                                       dataset_name=config["data"]["dataset_name"],
                                       data_dir=config["paths"]["dataset_dir"][plat])
 
-    data_formatter = PrepareData(dataset=data_loader,
+    data_formatter = PrepareData(dataset_loader=data_loader,
                                  dataset_name=config["data"]["dataset_name"],
                                  dataset_dir=config["paths"]["dataset_dir"][plat])
 
@@ -150,17 +150,21 @@ def main(args):
 
     train_epoch_losses = []
     val_epoch_losses = []
+    separator_length = 92
     for epoch in range(config["model"]["num_epochs"]):
         train_epoch_loss = match_net.run_training_epoch(num_train_epoch=config["model"]["num_train_epoch"], )
         train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))
+        logger.info("-" * separator_length)
         val_epoch_loss = match_net.run_validation_epoch(num_val_epoch=1, epoch_count=epoch)
         val_epoch_losses.append(val_epoch_loss)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
+        logger.info("=" * separator_length)
 
     logger.info("Train losses: [{}]".format(train_epoch_losses))
     logger.info("Validation losses: [{}]".format(val_epoch_losses))
+    logger.info("#" * separator_length)
 
 
 if __name__ == '__main__':

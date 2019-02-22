@@ -109,7 +109,7 @@ def get_batch_keys(keys: list, batch_size=64, remove_keys=True):
     :return:
     """
     if len(keys) <= batch_size:
-        return None, keys
+        return keys, keys
     selected_keys = sample(keys, k=batch_size)
     if remove_keys:
         keys_after_remove = []
@@ -381,7 +381,7 @@ def save_json(data, filename, file_path='', overwrite=False, indent=2, date_time
         return False
 
 
-def load_json(filename, file_path='', date_time_tag='', ext=True):
+def load_json(filename, file_path='', date_time_tag='', ext=True, show_path=False):
     """
     Loads json file as python OrderedDict.
 
@@ -391,11 +391,14 @@ def load_json(filename, file_path='', date_time_tag='', ext=True):
     :param date_time_tag:
     :return: OrderedDict
     """
-    # logger.debug("Reading JSON file: ",join(file_path,date_time_tag+filename+".json"))
+    if show_path:
+        logger.info("Reading JSON file: [{}]".format(join(file_path, date_time_tag + filename + ".json")))
     if ext:
         if exists(join(file_path, date_time_tag + filename + ".json")):
             with sopen(join(file_path, date_time_tag + filename + ".json"), encoding="utf-8") as file:
-                json_dict = OrderedDict(json.load(file))
+                json_f = json.load(file)
+                json_dict = OrderedDict(json_f)
+                # json_dict = OrderedDict(json.load(file))
             file.close()
             return json_dict
         else:

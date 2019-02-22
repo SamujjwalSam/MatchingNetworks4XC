@@ -61,13 +61,13 @@ class Common_JSON_Handler:
         self.dataset_type = dataset_type
         self.data_dir = join(data_dir, self.dataset_name)
 
-        self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = None, None, None, None
-
+        self.categories_all = None
+        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
         self.sentences_train, self.classes_train, self.categories_train = None, None, None
         self.sentences_test, self.classes_test, self.categories_test = None, None, None
         self.sentences_val, self.classes_val, self.categories_val = None, None, None
 
-    def gen_data_stats(self, sentences, classes, categories):
+    def gen_data_stats(self, sentences: dict = None, classes: dict = None, categories: dict = None):
         """ Generates statistics about the data.
 
         Like:
@@ -77,9 +77,23 @@ class Common_JSON_Handler:
          category specific word dist: Words which are dominant in a particular categories.
          words per sample dist: Distribution of word count in a sample.
          words per category dist: Distribution of words per category.
-         most co-occurring categories: Categories which has most common sample.
+         most co-occurring categories: Categories which has highest common sample.
          """
-        pass
+        # dict(sorted(words.items(), key=lambda x: x[1]))  # Sorting a dict by value.
+        # sorted_d = sorted((value, key) for (key,value) in d.items())  # Sorting a dict by value.
+        # dd = OrderedDict(sorted(d.items(), key=lambda x: x[1]))  # Sorting a dict by value.
+        if classes is None: sentences, classes, categories = self.load_full_json(return_values=True)
+
+        cat_freq = OrderedDict()
+        for k, v in classes.items():
+            for cat in v:
+                if cat not in cat_freq:
+                    cat_freq[cat] = 1
+                else:
+                    cat_freq[cat] += 1
+        cat_freq_sorted = OrderedDict(sorted(cat_freq.items(), key=lambda x: x[1]))  # Sorting a dict by value.
+        logger.info("Category Length: {}".format(len(cat_freq_sorted)))
+        logger.info("Category frequencies: {}".format(cat_freq_sorted))
 
     def load_full_json(self, return_values=False):
         """
@@ -89,14 +103,16 @@ class Common_JSON_Handler:
                 and isfile(join(self.data_dir, self.dataset_name + "_classes.json")) \
                 and isfile(join(self.data_dir, self.dataset_name + "_categories.json")):
             logger.info("Loading pre-processed json files from: [{}]".format(
-                join(self.data_dir, self.dataset_name)))
-            sentences = util.load_json(self.dataset_name + "_sentences", file_path=self.data_dir)
-            classes = util.load_json(self.dataset_name + "_classes", file_path=self.data_dir)
-            categories = util.load_json(self.dataset_name + "_categories", file_path=self.data_dir)
+                join(self.data_dir, self.dataset_name + "_sentences.json")))
+            sentences = util.load_json(self.dataset_name + "_sentences", file_path=self.data_dir, show_path=True)
+            classes = util.load_json(self.dataset_name + "_classes", file_path=self.data_dir, show_path=True)
+            categories = util.load_json(self.dataset_name + "_categories", file_path=self.data_dir, show_path=True)
             assert len(sentences) == len(classes), \
                 "Count of sentences [{0}] and classes [{1}] should match.".format(len(sentences),
                                                                                   len(classes))
         else:
+            logger.warn("Pre-processed json files not found at: [{}]".format(
+                join(self.data_dir, self.dataset_name + "_sentences.json")))
             logger.debug(
                 "Loading raw data and creating 3 separate dicts of sentences [id->texts], classes [id->class_ids]"
                 " and categories [class_name : class_id].")
@@ -118,27 +134,28 @@ class Common_JSON_Handler:
                 join(self.data_dir + "_sentences.json"),
                 join(self.data_dir + "_classes.json"),
                 join(self.data_dir + "_categories.json")))
-        # Splitting data into train, validation and test sets.
-        self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val, \
-        self.categories_val, self.sentences_test, self.classes_test, self.categories_test, cat_id2text_map = \
-            self.split_data(sentences=sentences, classes=classes, categories=categories)
-        util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.data_dir)
-        util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.data_dir)
-        util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.data_dir)
-        util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.data_dir)
-        util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
-        util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
-        util.save_json(self.categories_train, self.dataset_name + "_categories_train", file_path=self.data_dir)
-        util.save_json(self.categories_val, self.dataset_name + "_categories_val", file_path=self.data_dir)
-        util.save_json(self.categories_test, self.dataset_name + "_categories_test", file_path=self.data_dir)
-        util.save_json(cat_id2text_map, self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
         if return_values:
             return sentences, classes, categories
         else:
+            # Splitting data into train, validation and test sets.
+            self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val, \
+            self.categories_val, self.sentences_test, self.classes_test, self.categories_test, cat_id2text_map = \
+                self.split_data(sentences=sentences, classes=classes, categories=categories)
             sentences, classes, categories = None, None, None  # Remove large dicts and free up memory.
             gc.collect()
-        # return self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val,\
-        #        self.categories_val, self.sentences_test, self.classes_test, self.categories_test
+
+            util.save_json(self.sentences_test, self.dataset_name + "_sentences_test", file_path=self.data_dir)
+            util.save_json(self.classes_test, self.dataset_name + "_classes_test", file_path=self.data_dir)
+            util.save_json(self.sentences_val, self.dataset_name + "_sentences_val", file_path=self.data_dir)
+            util.save_json(self.classes_val, self.dataset_name + "_classes_val", file_path=self.data_dir)
+            util.save_json(self.sentences_train, self.dataset_name + "_sentences_train", file_path=self.data_dir)
+            util.save_json(self.classes_train, self.dataset_name + "_classes_train", file_path=self.data_dir)
+            util.save_json(self.categories_train, self.dataset_name + "_categories_train", file_path=self.data_dir)
+            util.save_json(self.categories_val, self.dataset_name + "_categories_val", file_path=self.data_dir)
+            util.save_json(self.categories_test, self.dataset_name + "_categories_test", file_path=self.data_dir)
+            util.save_json(cat_id2text_map, self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
+            return self.sentences_train, self.classes_train, self.categories_train, self.sentences_val, self.classes_val, \
+                   self.categories_val, self.sentences_test, self.classes_test, self.categories_test
 
     def load_raw_data(self, dataset_type=None):
         """
@@ -241,6 +258,7 @@ class Common_JSON_Handler:
             self.sentences_selected, self.classes_selected, self.categories_selected = self.load_test()
         else:
             raise Exception("Unknown 'load_type': [{}]. \n Available options: ['train','val','test']".format(load_type))
+        self.gen_data_stats(self.sentences_selected, self.classes_selected, self.categories_selected)
         return self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all
 
     def load_categories(self):
@@ -329,21 +347,24 @@ class Common_JSON_Handler:
         #             .format(len(self.sentences_test), len(self.classes_test), len(self.categories_test)))
         return self.sentences_test, self.classes_test, self.categories_test
 
-    def create_oneclass_data(self, save_dir=None):
-        """Creates a dataset of samples which belongs to single class only.
+    def create_oneclass_data(self, new_data_name="_onehot", save_files=True, save_dir=None, cat_id2text_map=None):
+        """Creates a dataset which belongs to single class only.
 
         NOTE: This method is used only for sanity testing using multi-class scenario.
         """
         if save_dir is None: save_dir = join(self.data_dir, self.dataset_name + "_onehot")
-        if isfile(join(save_dir, self.dataset_name + "_classes.json")) and isfile(join(save_dir, self.dataset_name + "_sentences.json")) and isfile(join(save_dir, self.dataset_name + "_categories.json")):
+        if isfile(join(save_dir, self.dataset_name + new_data_name + "_classes.json")) and isfile(
+                join(save_dir, self.dataset_name + new_data_name + "_sentences.json")) and isfile(
+            join(save_dir, self.dataset_name + new_data_name + "_categories.json")):
             logger.debug("Loading files from: [{}]".format(save_dir))
-            sentences_one = util.load_json(self.dataset_name + "_sentences", file_path=save_dir)
-            classes_one = util.load_json(self.dataset_name + "_classes", file_path=save_dir)
-            categories_one = util.load_json(self.dataset_name + "_categories", file_path=save_dir)
+            sentences_one = util.load_json(self.dataset_name + new_data_name + "_sentences", file_path=save_dir)
+            classes_one = util.load_json(self.dataset_name + new_data_name + "_classes", file_path=save_dir)
+            categories_one = util.load_json(self.dataset_name + new_data_name + "_categories", file_path=save_dir)
         else:
-            logger.debug("Existing files not found at [{}]. Generating oneclass files.".format(save_dir))
+            logger.debug("No existing files found at [{}]. Generating [{}] files.".format(save_dir, new_data_name))
             sentences, classes, _ = self.load_full_json(return_values=True)
-            cat_id2text_map = util.load_json(self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
+            if cat_id2text_map is None: cat_id2text_map = \
+                util.load_json(self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
             sentences_one = OrderedDict()
             classes_one = OrderedDict()
             categories_one = OrderedDict()
@@ -355,11 +376,98 @@ class Common_JSON_Handler:
                         if lbl not in categories_one:
                             categories_one[cat_id2text_map[str(lbl)]] = lbl
 
-            # Storing one-class classes
-            makedirs(save_dir, exist_ok=True)
-            util.save_json(sentences_one, self.dataset_name + "_sentences",file_path=save_dir)
-            util.save_json(classes_one,self.dataset_name+"_classes",file_path=save_dir)
-            util.save_json(categories_one, self.dataset_name + "_categories",file_path=save_dir)
+            if save_files:
+                # Storing one-class data
+                logger.info("New dataset will be stored inside original dataset directory at: [{}]".format(save_dir))
+                makedirs(save_dir, exist_ok=True)
+                util.save_json(sentences_one, self.dataset_name + new_data_name + "_sentences", file_path=save_dir)
+                util.save_json(classes_one, self.dataset_name + new_data_name + "_classes", file_path=save_dir)
+                util.save_json(categories_one, self.dataset_name + new_data_name + "_categories", file_path=save_dir)
+
+        return sentences_one, classes_one, categories_one
+
+    def create_new_data(self, new_data_name="_fixed5", save_files=True, save_dir=None, cat_id2text_map=None):
+        """Creates new dataset based on new_data_name value, currently supports: "_fixed5" and "_onehot".
+
+        _fixed5: Creates a dataset of samples which belongs to any of the below 5 classes only.
+        _onehot: Creates a dataset which belongs to single class only.
+
+        NOTE: This method is used only for sanity testing using fixed multi-class scenario.
+        """
+        if save_dir is None: save_dir = join(self.data_dir, self.dataset_name + new_data_name)
+        if isfile(join(save_dir, self.dataset_name + new_data_name + "_classes.json")) and isfile(
+                join(save_dir, self.dataset_name + new_data_name + "_sentences.json")) and isfile(
+                join(save_dir, self.dataset_name + new_data_name + "_categories.json")):
+            logger.debug("Loading files from: [{}]".format(save_dir))
+            sentences_new = util.load_json(self.dataset_name + new_data_name + "_sentences", file_path=save_dir)
+            classes_new = util.load_json(self.dataset_name + new_data_name + "_classes", file_path=save_dir)
+            categories_new = util.load_json(self.dataset_name + new_data_name + "_categories", file_path=save_dir)
+        else:
+            logger.debug("No existing files found at [{}]. Generating {} files.".format(save_dir, new_data_name))
+            if cat_id2text_map is None: cat_id2text_map = \
+                util.load_json(self.dataset_name + "_cat_id2text_map", file_path=self.data_dir)
+
+            sentences, classes, _ = self.load_full_json(return_values=True)
+            if new_data_name is "_fixed5":
+                sentences_one, classes_one, _ = self._create_oneclass_data(sentences, classes,
+                                                                           cat_id2text_map=cat_id2text_map)
+                sentences_new, classes_new, categories_new = \
+                    self._create_fixed_cat_data(sentences_one, classes_one, cat_id2text_map=cat_id2text_map)
+            elif new_data_name is "_onehot":
+                sentences_new, classes_new, categories_new = \
+                    self._create_oneclass_data(sentences, classes, cat_id2text_map=cat_id2text_map)
+            else:
+                raise Exception("Unknown 'new_data_name': [{}]. \n Available options: ['_fixed5','_onehot']"
+                                .format(new_data_name))
+            if save_files:
+                # Storing new data
+                logger.info("New dataset will be stored inside original dataset directory at: [{}]".format(save_dir))
+                makedirs(save_dir, exist_ok=True)
+                util.save_json(sentences_new, self.dataset_name + new_data_name + "_sentences", file_path=save_dir)
+                util.save_json(classes_new, self.dataset_name + new_data_name + "_classes", file_path=save_dir)
+                util.save_json(categories_new, self.dataset_name + new_data_name + "_categories", file_path=save_dir)
+
+        return sentences_new, classes_new, categories_new
+
+    def _create_fixed_cat_data(self, sentences, classes, fixed5_cats=None, cat_id2text_map=None):
+        """Creates a dataset of samples which belongs to any of the below 5 classes only.
+
+        Selected classes: [114, 3178, 3488, 1922, 517], these classes has max number of samples associated with them.
+        NOTE: This method is used only for sanity testing using fixed multi-class scenario.
+        """
+        if fixed5_cats is None: fixed5_cats = [114, 3178, 3488, 1922, 3142]
+        if cat_id2text_map is None: cat_id2text_map = util.load_json(self.dataset_name +
+                                                                     "_cat_id2text_map", file_path=self.data_dir)
+        sentences_one_fixed5 = OrderedDict()
+        classes_one_fixed5 = OrderedDict()
+        categories_one_fixed5 = OrderedDict()
+        for k, v in classes.items():
+            if v[0] in fixed5_cats:  # v[0]
+                classes_one_fixed5[k] = v
+                sentences_one_fixed5[k] = sentences[k]
+                for lbl in classes_one_fixed5[k]:
+                    if lbl not in categories_one_fixed5:
+                        categories_one_fixed5[cat_id2text_map[str(lbl)]] = lbl
+
+        return sentences_one_fixed5, classes_one_fixed5, categories_one_fixed5
+
+    def _create_oneclass_data(self, sentences, classes, cat_id2text_map=None):
+        """Creates a dataset which belongs to single class only.
+
+        NOTE: This method is used only for sanity testing using multi-class scenario.
+        """
+        if cat_id2text_map is None: cat_id2text_map = util.load_json(self.dataset_name +
+                                                                     "_cat_id2text_map", file_path=self.data_dir)
+        sentences_one = OrderedDict()
+        classes_one = OrderedDict()
+        categories_one = OrderedDict()
+        for k, v in classes.items():
+            if len(v) == 1:
+                classes_one[k] = v
+                sentences_one[k] = sentences[k]
+                for lbl in classes_one[k]:
+                    if lbl not in categories_one:
+                        categories_one[cat_id2text_map[str(lbl)]] = lbl
 
         return sentences_one, classes_one, categories_one
 
@@ -368,32 +476,46 @@ def main():
     config = util.load_json('../MNXC.config', ext=False)
     plat = util.get_platform()
 
-    save_dir = join(config["paths"]["dataset_dir"][plat], config["data"]["dataset_name"], config["data"]["dataset_name"] + "_onehot")
+    # save_dir = join(config["paths"]["dataset_dir"][plat], config["data"]["dataset_name"],
+    #                 config["data"]["dataset_name"] + "_onehot")
 
     common_handler = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
                                          dataset_name=config["data"]["dataset_name"],
                                          data_dir=config["paths"]["dataset_dir"][plat])
-    sentences_one, classes_one, categories_one = common_handler.create_oneclass_data(save_dir)
-    logger.debug(len(classes_one))
-    logger.debug(len(sentences_one))
-    logger.debug(len(categories_one))
-    sentences_train, classes_train, categories_train, _, _, _, sentences_test, classes_test, categories_test, cat_id2text_map = common_handler.split_data(sentences_one, classes_one, categories_one, val_split=0.0)
+    # sentences_one, classes_one, categories_one = common_handler.create_oneclass_data(save_dir)
+    cat_id2text_map = util.load_json("Wiki10-31K_cat_id2text_map",
+                                     file_path=join(config["paths"]["dataset_dir"][plat], "Wiki10-31K"),
+                                     show_path=True)
+    sentences_one_fixed5, classes_one_fixed5, categories_one_fixed5 = \
+        common_handler.create_new_data(new_data_name="_fixed5", save_files=True, save_dir=None,
+                                       cat_id2text_map=cat_id2text_map)
+    logger.debug(len(sentences_one_fixed5))
+    logger.debug(len(classes_one_fixed5))
+    logger.debug(len(categories_one_fixed5))
+    # sentences_one_fixed5, classes_one_fixed5, categories_one_fixed5 = \
+    #     common_handler.create_new_data(new_data_name="_onehot", save_files=True, save_dir=None,
+    #                                    cat_id2text_map=cat_id2text_map)
+    # logger.debug(len(sentences_one_fixed5))
+    # logger.debug(len(classes_one_fixed5))
+    # logger.debug(len(categories_one_fixed5))
+    # sentences_train, classes_train, categories_train, _, _, _, sentences_test, classes_test, categories_test, cat_id2text_map = common_handler.split_data(
+    #     sentences_one, classes_one, categories_one, val_split=0.0)
     # logger.debug(len(sentences_train))
     # logger.debug(len(classes_train))
     # logger.debug(len(categories_train))
     # logger.debug(len(sentences_test))
     # logger.debug(len(classes_test))
     # logger.debug(len(categories_test))
-    util.save_json(sentences_train, config["data"]["dataset_name"] + "_sentences_train", file_path=save_dir)
-    util.save_json(classes_train, config["data"]["dataset_name"] + "_classes_train", file_path=save_dir)
-    util.save_json(categories_train, config["data"]["dataset_name"] + "_categories_train", file_path=save_dir)
-    util.save_json(sentences_test, config["data"]["dataset_name"] + "_sentences_test", file_path=save_dir)
-    util.save_json(classes_test, config["data"]["dataset_name"] + "_classes_test", file_path=save_dir)
-    util.save_json(categories_test, config["data"]["dataset_name"] + "_categories_test", file_path=save_dir)
-    # Using Test set as test set also.
-    util.save_json(sentences_test, config["data"]["dataset_name"] + "_sentences_val", file_path=save_dir)
-    util.save_json(classes_test, config["data"]["dataset_name"] + "_classes_val", file_path=save_dir)
-    util.save_json(categories_test, config["data"]["dataset_name"] + "_categories_val", file_path=save_dir)
+    # util.save_json(sentences_train, config["data"]["dataset_name"] + "_sentences_train", file_path=save_dir)
+    # util.save_json(classes_train, config["data"]["dataset_name"] + "_classes_train", file_path=save_dir)
+    # util.save_json(categories_train, config["data"]["dataset_name"] + "_categories_train", file_path=save_dir)
+    # util.save_json(sentences_test, config["data"]["dataset_name"] + "_sentences_test", file_path=save_dir)
+    # util.save_json(classes_test, config["data"]["dataset_name"] + "_classes_test", file_path=save_dir)
+    # util.save_json(categories_test, config["data"]["dataset_name"] + "_categories_test", file_path=save_dir)
+    # Using Val set as Test set also.
+    # util.save_json(sentences_test, config["data"]["dataset_name"] + "_sentences_val", file_path=save_dir)
+    # util.save_json(classes_test, config["data"]["dataset_name"] + "_classes_val", file_path=save_dir)
+    # util.save_json(categories_test, config["data"]["dataset_name"] + "_categories_val", file_path=save_dir)
 
     # util.print_dict(classes_one, count=5)
     # util.print_dict(sentences_one, count=5)

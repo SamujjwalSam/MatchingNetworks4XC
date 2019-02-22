@@ -40,7 +40,8 @@ class Neighborhood:
     Supported models: glove, word2vec, fasttext, googlenews, bert, lex, etc.
     """
 
-    def __init__(self, dataset_name: str, graph_dir: str = "D:\Datasets\Extreme Classification", graph_format: str = "graphml",k:int=10):
+    def __init__(self, dataset_name: str, graph_dir: str = "D:\Datasets\Extreme Classification",
+                 graph_format: str = "graphml", k: int = 10):
         """
         Initializes the Neighborhood class which stores the neighborhood graph.
 
@@ -55,8 +56,10 @@ class Neighborhood:
         self.dataset_name = dataset_name
         self.graph_format = graph_format
         self.k = k
-        self.classes = util.load_json(join(graph_dir,dataset_name,dataset_name+"_text_json",dataset_name+"_classes"))
-        self.categories = util.load_json(join(graph_dir,dataset_name,dataset_name+"_text_json",dataset_name+"_categories"))
+        self.classes = util.load_json(
+            join(graph_dir, dataset_name, dataset_name + "_text_json", dataset_name + "_classes"))
+        self.categories = util.load_json(
+            join(graph_dir, dataset_name, dataset_name + "_text_json", dataset_name + "_categories"))
         self.id2cat_map = util.inverse_dict_elm(self.categories)
 
     def create_V(self):
@@ -66,50 +69,47 @@ class Neighborhood:
         :param :
         :return:
         """
-        V = list(self.categories.keys())
+        return list(self.categories.keys())
 
-        return V
-
-    def test_cosine(self,k=2):
+    def test_cosine(self, k=2):
         """
 
         :param k:
         """
-        a = [[0,1,1,0,0],
-             [0,1,1,0,0],
-             [0,0,1,1,0],
-             [1,0,0,1,0]]
+        a = [[0, 1, 1, 0, 0],
+             [0, 1, 1, 0, 0],
+             [0, 0, 1, 1, 0],
+             [1, 0, 0, 1, 0]]
         a = np.ones((2, 2))
         b = np.ones((2, 2))
         pair_cosine = cosine_similarity(a, b)
         logger.debug(pair_cosine)
         logger.debug(pair_cosine.shape)
         exit(0)
-        np.fill_diagonal(pair_cosine,0)
+        np.fill_diagonal(pair_cosine, 0)
         logger.debug(pair_cosine)
-        pair_top_cosine_idx = np.argpartition(pair_cosine,-k)
+        pair_top_cosine_idx = np.argpartition(pair_cosine, -k)
         logger.debug(pair_top_cosine_idx)
-        logger.debug(pair_top_cosine_idx[:,k:])
+        logger.debug(pair_top_cosine_idx[:, k:])
         logger.debug(type(pair_top_cosine_idx))
         # pair_top_cosine = pair_cosine[[pair_top_cosine_idx]]
         # logger.debug(pair_top_cosine)
 
-    def convert_multihot(self, data_dict:dict=None):
+    def dict2multihot(self, data_dict: dict = None):
         """
         Converts classes dict (id:[label_ids]) to multi-hot vectors.
 
         :param data_dict: (id:[label_ids])
         :return:
         """
-        if data_dict is None:
-            data_dict = self.classes
+        if data_dict is None: data_dict = self.classes
         mlb = MultiLabelBinarizer()
         classes_multihot = mlb.fit_transform(data_dict.values())
         logger.debug(classes_multihot.shape)
         logger.debug(type(classes_multihot))
         return classes_multihot
 
-    def topk_sim_idx(self, multihot_data, k:int):
+    def topk_sim_idx(self, multihot_data, k: int):
         """
         Finds the top k neighrest neighbors for each sample using cosine similarity.
 
@@ -119,9 +119,9 @@ class Neighborhood:
         :return:
         """
         pair_cosine = cosine_similarity(multihot_data)
-        np.fill_diagonal(pair_cosine,0)  # Remove self-similarity.
-        neighbor_idx = np.argpartition(pair_cosine,-k)  # use (-) to partition by largest values.
-        neighbor_idx = neighbor_idx[:,-k:]  # last [k] columns are the largest (most similar).
+        np.fill_diagonal(pair_cosine, 0)  # Remove self-similarity.
+        neighbor_idx = np.argpartition(pair_cosine, -k)  # use (-) to partition by largest values.
+        neighbor_idx = neighbor_idx[:, -k:]  # last [k] columns are the largest (most similar).
         self.k = k  # Storing to use when saving files.
         assert neighbor_idx.shape[0] == len(multihot_data)
         assert neighbor_idx.shape[1] == k
@@ -135,17 +135,17 @@ class Neighborhood:
         """
         sample_ids = list(self.classes.keys())  # Get sample indices.
         G = nx.Graph()
-        for i,nb_ids in enumerate(neighbor_idx):
+        for i, nb_ids in enumerate(neighbor_idx):
             for nb_id in nb_ids:  # Add edge for each neighbor.
                 # logger.debug("[{0}] is connnected to [{1}]".format(sample_ids[i], sample_ids[nb_id]))
                 if sample_ids[i] != sample_ids[nb_id]:
                     G.add_edge(sample_ids[i], sample_ids[nb_id], label='e' + str(i))
                 else:
                     logger.debug("Both same: [{0}] and [{1}]".format(sample_ids[i], sample_ids[nb_id]))
-        print("Neighborhood graph: ",G)
+        print("Neighborhood graph: ", G)
         return G
 
-    def load_neighborhood_graph(self,k:int=None):
+    def load_neighborhood_graph(self, k: int = None):
         """
         Loads the graph file if found else creates neighborhood graph.
 
@@ -154,24 +154,29 @@ class Neighborhood:
         """
         if k is None:
             k = self.k
-        if exists(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")):
-            G = nx.read_graphml(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml"))
-            logger.debug("Loaded neighborhood graph from [{0}]".format(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")))
+        if exists(join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")):
+            G = nx.read_graphml(
+                join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml"))
+            logger.debug("Loaded neighborhood graph from [{0}]".format(
+                join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")))
             # stats = util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name+"_stats_"+str(self.k)))
             stats = self.graph_stats(G)
             # util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.k),file_path=join(self.graph_dir,self.dataset_name),overwrite=True)
         else:
-            data_dict = self.convert_multihot()
+            data_dict = self.dict2multihot()
             neighbor_idx = self.topk_sim_idx(data_dict, k)
             G = self.create_neighborhood_graph(neighbor_idx)
             stats = self.graph_stats(G)
-        logger.debug("Saving neighborhood graph at [{0}]".format(join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml")))
-        nx.write_graphml(G, join(self.graph_dir,self.dataset_name,self.dataset_name+"_G_"+str(self.k)+".graphml"))
-        util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.k),file_path=join(self.graph_dir,self.dataset_name),overwrite=True)
+        logger.debug("Saving neighborhood graph at [{0}]".format(
+            join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")))
+        nx.write_graphml(G,
+                         join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml"))
+        util.save_json(stats, filename=self.dataset_name + "_stats_" + str(self.k),
+                       file_path=join(self.graph_dir, self.dataset_name), overwrite=True)
         logger.debug("Graph stats: [{0}]".format(stats))
         return G, stats
 
-    def graph_stats(self,G):
+    def graph_stats(self, G):
         """
         Generates and returns graph related statistics.
 
@@ -250,11 +255,11 @@ class Neighborhood:
             if len(t) == 1:
                 single_labels.append(i)
         if single_labels:
-            logger.debug(len(single_labels),
-                        'samples has only single category. These categories will not occur in the co-occurrence graph.')
+            logger.debug(len(single_labels), 'samples has only single category. These categories will not occur in the'
+                                             'co-occurrence graph.')
         return len(single_labels)
 
-    def plot_occurance(E, plot_name='sample_co-occurance.jpg', clear=True, log=False):
+    def plot_occurance(self, E, plot_name='sample_co-occurance.jpg', clear=True, log=False):
         from matplotlib import pyplot as plt
         plt.plot(E)
         plt.xlabel("Edges")

@@ -44,21 +44,23 @@ class PrepareData:
     """
 
     def __init__(self,
-                 dataset,
+                 dataset_loader,
                  dataset_name="Wiki10-31K",
                  dataset_dir="D:\\Datasets\\Extreme Classification"):
         self.dataset_name = dataset_name
         self.dataset_dir = dataset_dir
-        self.dataset = dataset
+        self.dataset_loader = dataset_loader
 
         self.doc2vec_model = None
-        self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = None, None, None, None
+        self.categories_all = None
+        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
 
         self.mlb = MultiLabelBinarizer()
+        dataset_loader.gen_data_stats()
 
     def cat2samples(self, classes_dict: dict = None):
         """
-        Converts sample : categories to  categories : samples
+        Converts sample : categories to categories : samples
 
         :returns: A dictionary of categories to sample mapping.
         """
@@ -78,7 +80,7 @@ class PrepareData:
         :param load_type: Which data to load: Options: ['train', 'val', 'test']
         """
         self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = \
-            self.dataset.get_data(load_type=load_type)
+            self.dataset_loader.get_data(load_type=load_type)
         self.remain_sample_ids = list(self.sentences_selected.keys())
         self.cat2sample_map = self.cat2samples(self.classes_selected)
         self.remain_cat_ids = list(self.categories_selected.keys())
@@ -439,7 +441,7 @@ if __name__ == '__main__':
                                       dataset_name=config["data"]["dataset_name"],
                                       data_dir=config["paths"]["dataset_dir"][plat])
 
-    data_formatter = PrepareData(dataset=data_loader,
+    data_formatter = PrepareData(dataset_loader=data_loader,
                                  dataset_name=config["data"]["dataset_name"],
                                  dataset_dir=config["paths"]["dataset_dir"][plat])
 
