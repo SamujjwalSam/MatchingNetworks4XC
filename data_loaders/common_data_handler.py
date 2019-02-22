@@ -67,6 +67,20 @@ class Common_JSON_Handler:
         self.sentences_test, self.classes_test, self.categories_test = None, None, None
         self.sentences_val, self.classes_val, self.categories_val = None, None, None
 
+    def gen_data_stats(self, sentences, classes, categories):
+        """ Generates statistics about the data.
+
+        Like:
+         freq category id distribution: Category frequency distribution (sorted).
+         sample ids with max number of categories:
+         Top words: Most common words.
+         category specific word dist: Words which are dominant in a particular categories.
+         words per sample dist: Distribution of word count in a sample.
+         words per category dist: Distribution of words per category.
+         most co-occurring categories: Categories which has most common sample.
+         """
+        pass
+
     def load_full_json(self, return_values=False):
         """
         Loads full dataset and splits the data into train, val and test.

@@ -88,7 +88,7 @@ Config values for testing:
         "num_epochs" : 2,
         "num_train_epoch" : 3,
         "batch_size" : 4,
-        "num_cat" : 5,
+        "categories_per_batch" : 5,
         "supports_per_category" : 2,
         "targets_per_category" : 1
                       
@@ -99,7 +99,7 @@ Config values for testing:
         "num_epochs" : 20,
         "num_train_epoch" : 30,
         "batch_size" : 64,
-        "num_cat" : 5,
+        "categories_per_batch" : 5,
         "supports_per_category" : 10,
         "targets_per_category" : 1
 ==========================================
@@ -133,21 +133,20 @@ def main(args):
     match_net = Run_Network(data_formatter,
                             use_cuda=use_cuda,
                             dataset_name=config["data"]["dataset_name"],
-                            dataset_dir=config["paths"]["dataset_dir"][plat])
-
-    match_net.prepare_net(fce=False,
-                          num_categories=0,
-                          input_size=config["model"]["input_size"],
-                          hid_size=config["model"]["hid_size"],
-                          lr=config["model"]["learning_rate"],
-                          lr_decay=config["model"]["lr_decay"],
-                          weight_decay=config["model"]["weight_decay"],
-                          optim=config["model"]["optim"],
-                          dropout=config["model"]["dropout"],
-                          batch_size=config["model"]["batch_size"],
-                          supports_per_category=config["model"]["supports_per_category"],
-                          targets_per_category=config["model"]["targets_per_category"],
-                          num_cat=config["model"]["num_cat"])
+                            dataset_dir=config["paths"]["dataset_dir"][plat],
+                            fce=False,
+                            num_categories=0,
+                            input_size=config["model"]["input_size"],
+                            hid_size=config["model"]["hid_size"],
+                            lr=config["model"]["learning_rate"],
+                            lr_decay=config["model"]["lr_decay"],
+                            weight_decay=config["model"]["weight_decay"],
+                            optim=config["model"]["optim"],
+                            dropout=config["model"]["dropout"],
+                            batch_size=config["model"]["batch_size"],
+                            supports_per_category=config["model"]["supports_per_category"],
+                            targets_per_category=config["model"]["targets_per_category"],
+                            categories_per_batch=config["model"]["num_cat"])
 
     train_epoch_losses = []
     val_epoch_losses = []

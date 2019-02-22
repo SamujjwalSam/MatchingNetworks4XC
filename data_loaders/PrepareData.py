@@ -293,27 +293,27 @@ class PrepareData:
         classes_multihot = self.mlb.fit_transform(batch_classes_dict.values())
         return classes_multihot
 
-    def get_support_cats(self, categories_per_set=5):
+    def get_support_cats(self, categories_per_batch=5):
         """
-        Randomly selects [num_cat] number of classes from which support set will be created.
+        Randomly selects [categories_per_batch] number of classes from which support set will be created.
 
         Will remove the selected classes from self.remain_cat_ids.
-        :param categories_per_set: Number of samples to draw.
+        :param categories_per_batch: Number of samples to draw.
         :return:
         """
         self.remain_cat_ids, selected_cat_ids = util.get_batch_keys(self.remain_cat_ids,
-                                                                    batch_size=categories_per_set,
+                                                                    batch_size=categories_per_batch,
                                                                     remove_keys=False)
         selected_cat_ids = [int(cat) for cat in selected_cat_ids]  # Integer keys are converted to string when
         # saving as JSON. Converting back to integer.
         return selected_cat_ids
 
     def select_samples(self, support_cat_ids, cat2sample_map=None, input_size=300, samples_per_category=4,
-                       vectorizer="doc2vec", repeat_mode='append', indices=False):
+                       vectorizer="doc2vec", repeat_mode='append', return_cat_indices=False):
         """
         Returns a batch of feature vectors and multi-hot classes.
 
-        :param cat_indices: If true category indices are returned instead of multi-hot vectors. (Used only for cross entropy loss function.)
+        :param return_cat_indices: If true category indices are returned instead of multi-hot vectors. (Used for cross entropy loss)
         :param input_size:
         :param repeat_mode: How to repeat sample if available data is less than samples_per_class. ["append (default)", "sample"].
         :param cat2sample_map: A dictionary of categories to samples mapping.
@@ -348,14 +348,14 @@ class PrepareData:
                                                                   selected_ids)
         x_target = self.txt2vec(sentences_batch, embedding_dim=input_size, vectorizer=vectorizer)
         y_target_hot = self.mlb.transform(classes_batch)
-        if indices:
+        if return_cat_indices:
             # y_target_list = self.mlb.inverse_transform(y_target_hot)  # Returns label ids.
             y_target_indices = y_target_hot.argmax(1)  # Returns label indices. Does not work in Multi-Label setting.
             return x_target, y_target_hot, y_target_indices
         return x_target, y_target_hot
 
-    def get_batches(self, batch_size=32, input_size=300, categories_per_set=5, supports_per_category=4,
-                    targets_per_category=1, vectorizer="doc2vec", val=False):
+    def get_batches(self, batch_size=32, input_size=300, categories_per_batch=5, supports_per_category=4, val=False,
+                    targets_per_category=1, vectorizer="doc2vec"):
         """
         Returns an iterator over data.
 
@@ -363,7 +363,7 @@ class PrepareData:
         :param targets_per_category:
         :param input_size: Input embedding dimension.
         :param batch_size:
-        :param categories_per_set:
+        :param categories_per_batch:
         :param supports_per_category:
         :param vectorizer:
         :returns: An iterator over data.
@@ -379,7 +379,7 @@ class PrepareData:
                 return x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices
             logger.debug("Validation data not found at: [{}]".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
 
-        support_cat_ids = self.get_support_cats(categories_per_set=categories_per_set)
+        support_cat_ids = self.get_support_cats(categories_per_batch=categories_per_batch)
         # support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
         # for ids in support_cat_ids:
         #     support_cat_ids_list.append([ids])
@@ -402,7 +402,7 @@ class PrepareData:
                                     samples_per_category=targets_per_category,
                                     vectorizer=vectorizer,
                                     input_size=input_size,
-                                    indices=True)
+                                    return_cat_indices=True)
             x_supports.append(x_support)
             y_support_hots.append(y_support_hot)
             # support_cat_indices.append(support_cat_indices_batch)
@@ -444,7 +444,7 @@ if __name__ == '__main__':
                                  dataset_dir=config["paths"]["dataset_dir"][plat])
 
     x_supports, y_support_hots, x_targets, y_target_hots = data_formatter.get_batches(batch_size=2,
-                                                                                      categories_per_set=3,
+                                                                                      categories_per_batch=3,
                                                                                       supports_per_category=5)
     logger.debug(x_supports.shape)
     logger.debug(y_support_hots.shape)
