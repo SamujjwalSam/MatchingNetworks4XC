@@ -146,7 +146,7 @@ def main(args):
                             batch_size=config["model"]["batch_size"],
                             supports_per_category=config["model"]["supports_per_category"],
                             targets_per_category=config["model"]["targets_per_category"],
-                            categories_per_batch=config["model"]["num_cat"])
+                            categories_per_batch=config["model"]["categories_per_batch"])
 
     train_epoch_losses = []
     val_epoch_losses = []
