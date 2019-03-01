@@ -4,6 +4,7 @@ from .BiLSTM import BiLSTM
 from .EmbedText import EmbedText
 from .MatchingNetwork import MatchingNetwork
 from .PairCosineSim import PairCosineSim
+from .Weight_Init import weight_init
 
 # These are not required
 del Attn

@@ -258,7 +258,7 @@ class Common_JSON_Handler:
             self.sentences_selected, self.classes_selected, self.categories_selected = self.load_test()
         else:
             raise Exception("Unknown 'load_type': [{}]. \n Available options: ['train','val','test']".format(load_type))
-        self.gen_data_stats(self.sentences_selected, self.classes_selected, self.categories_selected)
+        # self.gen_data_stats(self.sentences_selected, self.classes_selected, self.categories_selected)
         return self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all
 
     def load_categories(self):

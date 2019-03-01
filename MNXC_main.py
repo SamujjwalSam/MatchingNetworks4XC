@@ -152,12 +152,12 @@ def main(args):
     val_epoch_losses = []
     separator_length = 92
     for epoch in range(config["model"]["num_epochs"]):
-        train_epoch_loss = match_net.run_training_epoch(num_train_epoch=config["model"]["num_train_epoch"], )
+        train_epoch_loss = match_net.training(num_train_epoch=config["model"]["num_train_epoch"], )
         train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))
         logger.info("-" * separator_length)
-        val_epoch_loss = match_net.run_validation_epoch(num_val_epoch=1, epoch_count=epoch)
+        val_epoch_loss = match_net.validating(num_val_epoch=1, epoch_count=epoch)
         val_epoch_losses.append(val_epoch_loss)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
         logger.info("=" * separator_length)

@@ -457,9 +457,9 @@ def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=util.ge
                     Y_val.append(Y_tr.pop(i))
                     break
     util.save_npz(X_tr, "X_tr", file_path=save_path, overwrite=False)
-    util.save_pickle(Y_tr, pkl_file_name="Y_tr", pkl_file_path=save_path)
+    util.save_pickle(Y_tr, pkl_file_name="Y_tr", file_path=save_path)
     util.save_npz(X_val, "X_val", file_path=save_path, overwrite=False)
-    util.save_pickle(Y_val, pkl_file_name="Y_val", pkl_file_path=save_path)
+    util.save_pickle(Y_val, pkl_file_name="Y_val", file_path=save_path)
     return X_tr, Y_tr, X_val, Y_val
 
 

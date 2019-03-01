@@ -67,18 +67,18 @@ class Attn(nn.Module):
         :return: Softmax pdf
         """
         # logger.debug(("similarities.shape: ",similarities.shape))
-        logger.debug(("support_set_y.shape: ",support_set_y.shape))
+        # logger.debug(("support_set_y.shape: ",support_set_y.shape))
         # logger.debug(("support_set_y: ",support_set_y))
         softmax = nn.Softmax()
         softmax_similarities = softmax(similarities)
-        logger.debug(("softmax_similarities.shape: ",softmax_similarities.shape))
+        # logger.debug(("softmax_similarities.shape: ",softmax_similarities.shape))
         softmax_similarities = softmax_similarities.unsqueeze(1)
-        logger.debug(("softmax_similarities.unsqueeze(1).shape: ",softmax_similarities.shape))
+        # logger.debug(("softmax_similarities.unsqueeze(1).shape: ",softmax_similarities.shape))
         # preds = softmax_similarities.unsqueeze(1).bmm(support_set_y).squeeze()
         preds = softmax_similarities.bmm(support_set_y)
-        logger.debug(("preds.shape: ",preds.shape))
+        # logger.debug(("preds.shape: ",preds.shape))
         preds = preds.squeeze()
-        logger.debug(("preds.squeeze().shape: ",preds.shape))
+        # logger.debug(("preds.squeeze().shape: ",preds.shape))
         # logger.debug(("preds: ",preds))
         return preds
 
