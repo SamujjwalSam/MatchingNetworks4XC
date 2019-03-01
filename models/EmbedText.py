@@ -24,19 +24,20 @@ import torch.nn.init as init
 
 from logger.logger import logger
 from models import BiLSTM
+from models.Weight_Init import weight_init
 
 
 class EmbedText(nn.Module):
     """Builds context sensitive embeddings for pre-trained sentences using either LSTM or CNN."""
 
-    def __init__(self, num_categories=0, hid_size=2, num_layers=1, model_type="lstm", num_channels=1, dropout=0.2,
-                 use_cuda=False, input_size=28):
+    def __init__(self, batch_size, classify_count=0, hid_size=2, layer_size=32, model_type="lstm", num_channels=25,
+                 dropout=0.2, use_cuda=False, input_size=300):
         """
         Builds embeddings for pre-trained sentences using either LSTM or CNN.
 
-        :param num_layers: Number of layers in the LSTM.
+        :param layer_size: Number of layers in the LSTM.
         :param model_type: Wheather to use LSTM or CNN to encode the inputs.
-        :param num_categories: Number of categories. If num_categories>0, we want a FC layer at the end with num_categories size.
+        :param classify_count: Number of categories. If num_categories>0, we want a FC layer at the end with num_categories size.
         :param num_channels: Number of channels of samples
         :param useDroput: use Dropout with p=0.1 in each Conv block
         """
@@ -44,31 +45,40 @@ class EmbedText(nn.Module):
         self.model_type = model_type
 
         if self.model_type == "lstm":
-            self.text_lstm = BiLSTM(input_size, hid_size=hid_size, num_layers=num_layers, dropout=dropout, use_cuda=use_cuda,
-                                           bidirectional=True)
+            self.text_lstm = BiLSTM(input_size, hid_size=hid_size, batch_size=batch_size, num_layers=layer_size,
+                                    dropout=dropout, use_cuda=use_cuda, bidirectional=True)
             self.output_size = hid_size * 2  # 2 because BiLSTM.
         elif self.model_type == "cnn":  # TODO: Decide on CNN architecture to use.
-            self.layer1 = self.CNN_layer(num_channels, num_layers, dropout=dropout)
-            self.layer2 = self.CNN_layer(num_layers, num_layers, dropout=dropout)
-            self.layer3 = self.CNN_layer(num_layers, num_layers, dropout=dropout)
-            self.layer4 = self.CNN_layer(num_layers, num_layers, dropout=dropout)
+            self.conv1 = self.CNN_layer(num_channels, layer_size, dropout=dropout)
+            self.conv2 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
+            # self.conv3 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
+            # self.conv4 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
 
             finalSize = int(math.floor(input_size / (2 * 2 * 2 * 2)))  # (2 * 2 * 2 * 2) for 4 CNN layers.
-            self.output_size = finalSize * finalSize * num_layers
+            self.output_size = finalSize * finalSize * layer_size
+        else:
+            raise Exception("Unknown model_type: [{}]. \n"
+                            "Supported types are: ['lstm', 'cnn'].".format(self.model_type))
 
-        if num_categories > 0:  # We want a linear layer as last layer of CNN network.
+        if classify_count > 0:  # We want a linear layer as last layer of CNN network.
             self.use_linear_last = True
-            self.last_linear_layer = nn.Linear(self.output_size, num_categories)
-            self.output_size = num_categories
+            self.last_linear_layer = nn.Linear(self.output_size, classify_count)
+            self.output_size = classify_count
         else:
             self.use_linear_last = False
 
-            # self.weights_init(self.layer1)
-            # self.weights_init(self.layer2)
-            # self.weights_init(self.layer3)
-            # self.weights_init(self.layer4)
+            if self.model_type == "cnn":
+                weight_init(self.conv1)
+                weight_init(self.conv2)
+                # weight_init(self.conv3)
+                # weight_init(self.conv4)
 
-    def forward(self, inputs, batch_size=64, dropout_external=False):
+                # self.weights_init(self.conv1)
+                # self.weights_init(self.conv2)
+                # self.weights_init(self.conv3)
+                # self.weights_init(self.conv4)
+
+    def forward(self, inputs, batch_size=64, dropout_external=False, requires_grad=True):
         """
         Runs the CNNText producing the embeddings and the gradients.
 
@@ -78,13 +88,13 @@ class EmbedText(nn.Module):
         :return: Embeddings of size [batch_size, 64]
         """
         if self.model_type == "lstm":
-            output, hn, cn = self.text_lstm(inputs, batch_size, dropout_external=dropout_external)
+            _, output = self.text_lstm(inputs, dropout_external=dropout_external, requires_grad=requires_grad)
         elif self.model_type == "cnn":
-            output = self.layer1(inputs)
-            output = self.layer2(output)
-            output = self.layer3(output)
-            output = self.layer4(output)
-            output = output.view(output.size(0), -1)
+            output = self.conv1(inputs)
+            output = self.conv2(output)
+            # output = self.conv3(output)
+            # output = self.conv4(output)
+            # output = output.view(output.size(0), -1)
         else:
             raise Exception("Unknown model_type: [{}]. \n"
                             "Supported types are: ['lstm', 'cnn'].".format(self.model_type))
@@ -93,16 +103,22 @@ class EmbedText(nn.Module):
             output = self.last_linear_layer(output)
         return output
 
+    # def lstm_layer(self):
+    #     fw_lstm_cells_encoder = [nn.LSTMCell(num_units=self.layer_sizes[i], activation=tf.nn.tanh)
+    #                              for i in range(len(self.layer_sizes))]
+    #     bw_lstm_cells_encoder = [nn.LSTMCell(num_units=self.layer_sizes[i], activation=tf.nn.tanh)
+    #                              for i in range(len(self.layer_sizes))]
+
     def CNN_layer(self, in_planes, out_planes, kernel_size=1, stride=1, padding=1, bias=True, dropout=0.1):
         """Convolution with padding to get embeddings for input pre-trained sentences.
 
         Default: Convolution = 3 x 3.
         """
         seq = nn.Sequential(
-            nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias),
-            nn.BatchNorm2d(out_planes),
+            nn.Conv1d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, bias=bias, padding=padding),
+            nn.BatchNorm1d(out_planes),
             nn.ReLU(True),
-            nn.MaxPool2d(kernel_size=2, stride=2)
+            nn.MaxPool1d(kernel_size=kernel_size, stride=stride+1)
         )
         if dropout > 0.0:  # Add dropout module
             list_seq = list(seq.modules())[1:]
@@ -123,8 +139,12 @@ class EmbedText(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
-            else:
-                raise Exception("Unknown module instance: [{}]. Weight initialization failed.".format(m))
+            elif isinstance(m, nn.Conv1d):
+                init.xavier_uniform_(m.weight, gain=np.sqrt(2))
+                init.constant(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm1d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
 
 
 if __name__ == '__main__':
@@ -132,7 +152,7 @@ if __name__ == '__main__':
 
     a = torch.ones(1, 2, 4)  # batch_size, <don't matter>, input_size
     logger.debug(a)
-    cls = EmbedText(input_size=4, num_layers=1, num_categories=2, model_type="lstm")
+    cls = EmbedText(input_size=4, layer_size=1, classify_count=2, model_type="lstm")
     sim = cls.forward(a, batch_size=1, dropout_external=True)
     logger.debug(sim)
     logger.debug(sim.shape)

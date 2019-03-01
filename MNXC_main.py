@@ -120,7 +120,7 @@ def main(args):
     plat = util.get_platform()
 
     use_cuda = False
-    if plat == "Linux": use_cuda = True
+    # if plat == "Linux": use_cuda = True
 
     data_loader = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
                                       dataset_name=config["data"]["dataset_name"],
@@ -135,7 +135,7 @@ def main(args):
                             dataset_name=config["data"]["dataset_name"],
                             dataset_dir=config["paths"]["dataset_dir"][plat],
                             fce=False,
-                            num_categories=0,
+                            classify_count=0,
                             input_size=config["model"]["input_size"],
                             hid_size=config["model"]["hid_size"],
                             lr=config["model"]["learning_rate"],

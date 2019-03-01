@@ -20,8 +20,12 @@ __methods__     :
 from os.path import join
 import tqdm
 import torch
+# import torch.onnx
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
+
+# import hiddenlayer as hl
+# from torchviz import make_dot
 
 from logger.logger import logger
 from utils import util
@@ -40,16 +44,16 @@ seed_val = 0
 class Run_Network:
     """
     Initializes an Run_Network object. The Run_Network object takes care of setting up our experiment
-    and provides helper functions such as run_training_epoch and run_validation_epoch to simplify out training
+    and provides helper functions such as training and validating to simplify out training
     and evaluation procedures.
     """
 
-    def __init__(self, data_formatter, dataset_name, dataset_dir, use_cuda=False, categories_per_batch=15, vectorizer="doc2vec",
-                 input_size=300, hid_size=100, lr=1e-03, lr_decay=1e-6, weight_decay=1e-4, optim="adam", dropout=0.2,
-                 num_categories=0, fce=True, batch_size=32, supports_per_category=20, targets_per_category=5):
+    def __init__(self, data_formatter, dataset_name, dataset_dir, use_cuda=False, categories_per_batch=15, optim="adam",
+                 vectorizer="doc2vec", input_size=300, hid_size=100, lr_decay=1e-6, weight_decay=1e-4, batch_size=32,
+                 dropout=0.2, classify_count=0, fce=True, lr=1e-03, supports_per_category=20, targets_per_category=5):
         """Builds the Matching Network with all required parameters.
 
-        Provides helper functions such as run_training_epoch() and run_validation_epoch() to simplify out training
+        Provides helper functions such as training() and validating() to simplify out training
         and evaluation procedures.
 
         :param data_formatter: A data_loader provider class
@@ -59,7 +63,7 @@ class Run_Network:
         :param supports_per_category:
         :param hid_size: Size of the output of BiLSTM.
         :param input_size: Size of sample vectors.
-        :param num_categories: Number of categories. Not Required. Always 0.
+        :param classify_count: Number of categories. Not Required. Always 0.
         :param weight_decay:Weight decay.
         :param dropout: Value for dropout, range: [0,1]. Default: 0.2
         :param optim: Optimiser to use.
@@ -75,21 +79,22 @@ class Run_Network:
         self.dataset_name = dataset_name
         self.dataset_dir = dataset_dir
 
+        self.batch_size = batch_size
         self.optimizer = optim
         self.lr = lr
         self.lr_decay = lr_decay
         self.input_size = input_size
         self.weight_decay = weight_decay
-        self.batch_size = batch_size
         self.supports_per_category = supports_per_category
         self.targets_per_category = targets_per_category
         self.categories_per_batch = categories_per_batch
         self.vectorizer = vectorizer
         self.total_train_iter = 0
         self.test_metrics = Metrics()
-        self.match_net = MatchingNetwork(dropout=dropout,
+        self.match_net = MatchingNetwork(batch_size=self.batch_size,
+                                         dropout=dropout,
                                          fce=fce,
-                                         num_categories=num_categories,
+                                         classify_count=classify_count,
                                          input_size=input_size,
                                          hid_size=hid_size,
                                          use_cuda=self.use_cuda)
@@ -101,7 +106,7 @@ class Run_Network:
             torch.cuda.manual_seed_all(seed=seed_val)
             self.match_net.cuda()
 
-    def run_training_epoch(self, num_train_epoch, print_grads=False):
+    def training(self, num_train_epoch, print_grads=False):
         """
         Runs one training epoch.
 
@@ -124,21 +129,23 @@ class Run_Network:
                         vectorizer=self.vectorizer,
                         input_size=self.input_size)
 
-                x_supports = Variable(torch.from_numpy(x_supports)).float()
+                x_supports = Variable(torch.from_numpy(x_supports), requires_grad=True).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
                 # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
-                x_hats = Variable(torch.from_numpy(x_hats)).float()
+                x_hats = Variable(torch.from_numpy(x_hats), requires_grad=True).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
                 target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                 if self.cuda_available and self.use_cuda:
-                    cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
-                                                         x_hats.cuda(), y_hats_hots.cuda(),
-                                                         batch_size=self.batch_size)
+                    cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(), x_hats.cuda(),
+                                                         y_hats_hots.cuda(), target_cat_indices, batch_size=self.batch_size)
                 else:
                     cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, x_hats, y_hats_hots,
                                                          target_cat_indices, batch_size=self.batch_size)
-                    # ,num_categories=self.categories_per_batch)
+
+                ## Print Model Summary:
+                # make_dot(cc_loss, self.match_net)
+                # hl.build_graph(self.match_net, args=(x_supports, y_support_hots, x_hats, y_hats_hots, target_cat_indices))
 
                 # Before the backward pass, use the optimizer object to zero all of the gradients for the variables
                 # it will update (which are the learnable weights of the model)
@@ -147,10 +154,12 @@ class Run_Network:
                 # Backward pass: compute gradient of the loss with respect to model parameters
                 cc_loss.backward()
 
+                # Print Weights and Gradients:
+                # logger.debug(self.match_net.state_dict())
+                # logger.debug(self.match_net.named_modules())
                 if print_grads:
-                    for f in self.match_net.parameters():
-                        logger.debug(f.data)
-                        logger.debug(f.grad)
+                    for name, param in self.match_net.named_parameters():
+                        logger.debug((name, param.data.shape, param.grad.shape))
 
                 # Calling the step function on an Optimizer makes an update to its parameters
                 optimizer.step()
@@ -158,14 +167,14 @@ class Run_Network:
                 # update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
 
-                precision_1 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
-                precision_3 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
-                precision_5 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
-
-                logger.info("TRAIN Precisions:")
-                logger.info("Precision @ 1: {}".format(precision_1))
-                logger.info("Precision @ 3: {}".format(precision_3))
-                logger.info("Precision @ 5: {}".format(precision_5))
+                # precision_1 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
+                # precision_3 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
+                # precision_5 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
+                #
+                # logger.info("TRAIN Precisions:")
+                # logger.info("Precision @ 1: {}".format(precision_1))
+                # logger.info("Precision @ 3: {}".format(precision_3))
+                # logger.info("Precision @ 5: {}".format(precision_5))
 
                 iter_out = "TRAIN Loss: {}".format(cc_loss.item())
                 logger.debug(iter_out)
@@ -183,7 +192,7 @@ class Run_Network:
         total_c_loss = total_c_loss / num_train_epoch
         return total_c_loss
 
-    def run_validation_epoch(self, num_val_epoch, epoch_count):
+    def validating(self, num_val_epoch, epoch_count):
         """
         Runs one validation epoch.
 
@@ -220,15 +229,16 @@ class Run_Network:
                         cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
                                                                             x_targets.cuda(), y_target_hots.cuda(),
                                                                             batch_size=self.batch_size,
-                                                                            print_accuracy=True)
+                                                                            requires_grad=False, print_accuracy=True)
                     else:
                         cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports, y_support_hots, x_targets,
                                                                             y_target_hots, target_cat_indices,
                                                                             batch_size=self.batch_size,
-                                                                            print_accuracy=True)
+                                                                            requires_grad=False, print_accuracy=True)
 
                     logger.debug("Saving encoded_x_hat named: [{}] at: [{}]".format(self.dataset_name
-                                + "_val_encoded_x_hat_" +str(epoch_count),join(self.dataset_dir, self.dataset_name)))
+                                                                                    + "_val_encoded_x_hat_" + str(
+                        epoch_count), join(self.dataset_dir, self.dataset_name)))
                     # util.save_npz(encoded_x_hat, self.dataset_name + "_val_encoded_x_hat_" + str(epoch_count),
                     #               file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
                     # torch.save(encoded_x_hat, join(self.dataset_dir, self.dataset_name,
@@ -236,20 +246,19 @@ class Run_Network:
                     #                                    epoch_count) + ".tensor"))
                     util.save_json(encoded_x_hat.tolist(), self.dataset_name + "_val_encoded_x_hat_" + str(epoch_count)
                                    + ".tensor", join(self.dataset_dir, self.dataset_name))
-                    logger.debug(
-                        "VALIDATION epoch_count: [{}]. \nencoded_x_hats: {}".format(epoch_count, encoded_x_hat))
+                    logger.debug("VALIDATION epoch_count: [{}]".format(epoch_count))
 
                     iter_out = "VALIDATION Loss: {}".format(cc_loss.item())
                     logger.info(iter_out)
 
-                    precision_1 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=1)
-                    precision_3 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=3)
-                    precision_5 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=5)
-
-                    logger.info("VALIDATION Precisions:")
-                    logger.info("Precision @ 1: {}".format(precision_1))
-                    logger.info("Precision @ 3: {}".format(precision_3))
-                    logger.info("Precision @ 5: {}".format(precision_5))
+                    # precision_1 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=1)
+                    # precision_3 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=3)
+                    # precision_5 = self.test_metrics.precision_k_hot(y_target_hots, hats_preds, k=5)
+                    #
+                    # logger.info("VALIDATION Precisions:")
+                    # logger.info("Precision @ 1: {}".format(precision_1))
+                    # logger.info("Precision @ 3: {}".format(precision_3))
+                    # logger.info("Precision @ 5: {}".format(precision_5))
 
                     pbar.set_description(iter_out)
                     print('\n')
@@ -260,7 +269,7 @@ class Run_Network:
 
         return total_val_c_loss
 
-    def run_testing_epoch(self, total_test_batches, epoch_count):
+    def testing(self, total_test_batches, epoch_count):
         """
         Runs one testing epoch.
 
@@ -452,5 +461,6 @@ class Run_Network:
 
 if __name__ == '__main__':
     logger.debug("Building Model...")
-    cls = Run_Network(input_size=300, hid_size=100, fce=True, batch_size=32, supports_per_category=15, categories_per_batch=25)
-    cls.run_training_epoch(num_train_epoch=10)
+    cls = Run_Network(input_size=300, hid_size=100, fce=True, batch_size=32, supports_per_category=15,
+                      categories_per_batch=25)
+    cls.training(num_train_epoch=10)

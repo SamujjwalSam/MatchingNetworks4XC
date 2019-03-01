@@ -481,55 +481,59 @@ def save_npz(data, filename, file_path='', overwrite=False):
         return False
 
 
-def save_pickle(data, pkl_file_name, pkl_file_path, overwrite=False):
+def save_pickle(data, filename, file_path, overwrite=False):
     """
     Saves python object as pickle file.
 
     :param data:
-    :param pkl_file_name:
-    :param pkl_file_path:
+    :param filename:
+    :param file_path:
     :param overwrite:
     :return:
     """
-    logger.debug("Method: save_pickle(data, pkl_file_name, pkl_file_path, overwrite=False)")
-    logger.debug("Writing to pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
-    if not overwrite and exists(join(pkl_file_path, pkl_file_name + ".pkl")):
+    logger.debug("Method: save_pickle(data, filename, file_path, overwrite=False)")
+    logger.debug("Writing to pickle file: [{0}]".format(join(file_path, filename + ".pkl")))
+    if not overwrite and exists(join(file_path, filename + ".pkl")):
         logger.warning("File [{0}] already exists and Overwrite == False.".format(
-            join(pkl_file_path, pkl_file_name + ".pkl")))
+            join(file_path, filename + ".pkl")))
         return True
     try:
-        if isfile(join(pkl_file_path, pkl_file_name + ".pkl")):
+        if isfile(join(file_path, filename + ".pkl")):
             logger.info(
-                "Overwriting on pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
-        with sopen(join(pkl_file_path, pkl_file_name + ".pkl"), 'wb') as pkl_file:
+                "Overwriting on pickle file: [{0}]".format(join(file_path, filename + ".pkl")))
+        with sopen(join(file_path, filename + ".pkl"), 'wb') as pkl_file:
             pk.dump(data, pkl_file)
         pkl_file.close()
         return True
     except Exception as e:
         logger.warning(
-            "Could not write to pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
+            "Could not write to pickle file: [{0}]".format(join(file_path, filename + ".pkl")))
         logger.warning("Failure reason: [{0}]".format(e))
         return False
 
 
-def load_pickle(pkl_file_name, pkl_file_path):
+def load_pickle(filename, file_path):
     """
     Loads pickle file from files.
 
-    :param pkl_file_name:
-    :param pkl_file_path:
+    :param filename:
+    :param file_path:
     :return:
     """
     logger.debug("Method: load_pickle(pkl_file)")
-    if exists(join(pkl_file_path, pkl_file_name + ".pkl")):
-        logger.debug("Reading pickle file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
-        with sopen(join(pkl_file_path, pkl_file_name + ".pkl"), 'rb') as pkl_file:
-            loaded = pk.load(pkl_file)
-        return loaded
+    if exists(join(file_path, filename + ".pkl")):
+        try:
+            logger.debug("Reading pickle file: [{0}]".format(join(file_path, filename + ".pkl")))
+            with sopen(join(file_path, filename + ".pkl"), 'rb') as pkl_file:
+                loaded = pk.load(pkl_file)
+            return loaded
+        except Exception as e:
+            logger.warning(
+                "Warning: Could not open file: [{0}]".format(join(file_path, filename + ".pkl")))
+            logger.warning("Failure reason: [{0}]".format(e))
+            return False
     else:
-        logger.warning(
-            "Warning: Could not open file: [{0}]".format(join(pkl_file_path, pkl_file_name + ".pkl")))
-        return False
+        logger.warning("File not found at: [{}]".format(join(file_path, filename + ".pkl")))
 
 
 def read_inputs(dataset_path, dataset, read_test=False):
@@ -553,13 +557,13 @@ def read_inputs(dataset_path, dataset, read_test=False):
         X = load_npz("X" + filename, file_path=join(dataset_path, dataset))
 
     if exists(join(dataset_path, dataset, "Y_ints" + filename + ".pkl")):
-        Y = load_pickle(pkl_file_name="Y_ints" + filename, pkl_file_path=join(dataset_path, dataset))
+        Y = load_pickle(filename="Y_ints" + filename, file_path=join(dataset_path, dataset))
 
     if exists(join(dataset_path, dataset, "V_ints" + filename + ".pkl")):
-        V = load_pickle(pkl_file_name="V_ints" + filename, pkl_file_path=join(dataset_path, dataset))
+        V = load_pickle(filename="V_ints" + filename, file_path=join(dataset_path, dataset))
 
     if exists(join(dataset_path, dataset, "E" + filename + ".pkl")):
-        E = load_pickle(pkl_file_name="E" + filename, pkl_file_path=join(dataset_path, dataset))
+        E = load_pickle(filename="E" + filename, file_path=join(dataset_path, dataset))
 
     if X is False or Y is False or V is False or E is False:
         logger.info('Generating data from train and test files.')
@@ -569,20 +573,20 @@ def read_inputs(dataset_path, dataset, read_test=False):
         Y_ints = []
         for y_list in Y:
             Y_ints.append([int(i) for i in y_list])
-        save_pickle(Y_ints, pkl_file_name="Y_ints" + filename, pkl_file_path=join(dataset_path, dataset))
-        save_pickle(Y, pkl_file_name="Y" + filename, pkl_file_path=join(dataset_path, dataset))
+        save_pickle(Y_ints, filename="Y_ints" + filename, file_path=join(dataset_path, dataset))
+        save_pickle(Y, filename="Y" + filename, file_path=join(dataset_path, dataset))
 
         V_ints = []
         for y_list in V:
             V_ints.append(int(y_list))
-        save_pickle(V_ints, pkl_file_name="V_ints" + filename, pkl_file_path=join(dataset_path, dataset))
-        save_pickle(V, pkl_file_name="V" + filename, pkl_file_path=join(dataset_path, dataset))
+        save_pickle(V_ints, filename="V_ints" + filename, file_path=join(dataset_path, dataset))
+        save_pickle(V, filename="V" + filename, file_path=join(dataset_path, dataset))
 
         ## Converting [E] to default dict as returned [E] is not pickle serializable
         E_tr_2 = OrderedDict()
         for i, j in E.items():
             E_tr_2[i] = j
-        save_pickle(E_tr_2, pkl_file_name="E" + filename, pkl_file_path=join(dataset_path, dataset))
+        save_pickle(E_tr_2, filename="E" + filename, file_path=join(dataset_path, dataset))
     return X, Y, V, E
 
 
@@ -635,9 +639,9 @@ def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_p
                     Y_val.append(Y_tr.pop(i))
                     break
     save_npz(X_tr, "X_tr", file_path=save_path, overwrite=False)
-    save_pickle(Y_tr, pkl_file_name="Y_tr", pkl_file_path=save_path)
+    save_pickle(Y_tr, filename="Y_tr", file_path=save_path)
     save_npz(X_val, "X_val", file_path=save_path, overwrite=False)
-    save_pickle(Y_val, pkl_file_name="Y_val", pkl_file_path=save_path)
+    save_pickle(Y_val, filename="Y_val", file_path=save_path)
     return X_tr, Y_tr, X_val, Y_val
 
 

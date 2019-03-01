@@ -38,7 +38,7 @@ seed_val = 0
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
 
-    def __init__(self, input_size=28, hid_size=1, fce=True, use_cuda=True, num_categories=0, dropout=0.2):
+    def __init__(self, batch_size, input_size=28, hid_size=1, fce=True, use_cuda=True, classify_count=0, dropout=0.2):
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 
@@ -50,7 +50,7 @@ class MatchingNetwork(nn.Module):
         :param fce: Flag indicating whether to use full context embeddings (i.e. apply an LSTM on the CNNText embeddings)
         # :param num_classes_per_set: Integer indicating the number of classes per set
         # :param num_samples_per_class: Integer indicating the number of samples per class
-        :param num_categories: total number of classes. It changes the text_lstm size of the classifier g with a final FC layer.
+        :param classify_count: total number of classes. It changes the text_lstm size of the classifier g with a final FC layer.
         :param sample_input: size of the input sample. It is needed in case we want to create the last FC classification.
         """
         super(MatchingNetwork, self).__init__()
@@ -58,23 +58,30 @@ class MatchingNetwork(nn.Module):
 
         self.attn = Attn()
         self.cosine_dis = PairCosineSim.PairCosineSim()
-        self.g = EmbedText(num_layers=1,
-                           model_type="lstm",
-                           num_categories=num_categories,
+        self.g = EmbedText(batch_size=batch_size,
+                           layer_size=25,
+                           model_type="cnn",
+                           classify_count=classify_count,
                            input_size=input_size,
                            hid_size=hid_size,
                            dropout=dropout,
                            use_cuda=use_cuda)
         if self.fce:
-            self.lstm = BiLSTM(hid_size=hid_size,
-                               input_size=self.g.output_size,
+            self.lstm = BiLSTM(input_size=self.g.output_size,
+                               hid_size=hid_size,
+                               batch_size=batch_size,
                                dropout=dropout,
                                use_cuda=use_cuda)
 
-    def forward(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=64, print_accuracy=False, dropout_external=False):
+    def forward(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=64,
+                print_accuracy=False, dropout_external=False, requires_grad=True):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
+        :param target_cat_indices:
+        :param requires_grad:
+        :param dropout_external:
+        :param print_accuracy:
         :param batch_size:
         :param supports_x: A tensor containing the support set samples.
             [batch_size, sequence_size, n_channels, 28]
@@ -90,16 +97,16 @@ class MatchingNetwork(nn.Module):
             torch.Size([32, 5])
         :return:
         """
-        encoded_supports = self.g(supports_x, batch_size=batch_size, dropout_external=dropout_external)
+        encoded_supports = self.g(supports_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
         # logger.debug("encoded_supports output: {}".format(encoded_supports))
 
         # produce embeddings for target samples
-        encoded_x_hat = self.g(hats_x, batch_size=batch_size, dropout_external=dropout_external)
+        encoded_x_hat = self.g(hats_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
         # logger.debug("encoded_x_hat output: {}".format(encoded_x_hat))
 
         if self.fce:
-            encoded_supports, hn, cn = self.lstm(encoded_supports, batch_size=batch_size)
-            encoded_x_hat, hn, cn = self.lstm(encoded_x_hat, batch_size=batch_size)
+            _, encoded_supports = self.lstm(encoded_supports, requires_grad=requires_grad)
+            _, encoded_x_hat = self.lstm(encoded_x_hat, requires_grad=requires_grad)
             # logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
             # logger.debug("FCE encoded_x_hat output: {}".format(encoded_x_hat))
 
@@ -162,40 +169,38 @@ class MatchingNetwork(nn.Module):
         # produce embeddings for target samples
         for i in np.arange(hats_x.size(1)):
             encoded_x_hat = self.g(hats_x[:, i, :].unsqueeze(1), batch_size=batch_size)
-            logger.debug("encoded_x_hat output: {}".format(encoded_x_hat))
+            # logger.debug("encoded_x_hat output: {}".format(encoded_x_hat))
 
             if self.fce:
                 encoded_supports, _, _ = self.lstm(encoded_supports, batch_size=batch_size)
                 encoded_x_hat, _, _ = self.lstm(encoded_x_hat, batch_size=batch_size)
-                logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
-                logger.debug("FCE encoded_x_hat output: {}".format(encoded_x_hat))
+                # logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
+                # logger.debug("FCE encoded_x_hat output: {}".format(encoded_x_hat))
 
             # get similarity between support set embeddings and target
-            similarities = self.cosine_dis.forward2(support_set=encoded_supports, input_image=encoded_x_hat)
+            similarities = self.cosine_dis.forward_orig(support_set=encoded_supports, input_image=encoded_x_hat)
             similarities = similarities.t()
             similarities_squeezed = similarities.squeeze(1)
-            logger.debug("similarities: {}".format(similarities))
-            logger.debug("similarities shape: {}".format(similarities.shape))
+            # logger.debug("similarities: {}".format(similarities))
+            # logger.debug("similarities shape: {}".format(similarities.shape))
 
             # produce predictions for target probabilities
-            hats_pred = self.attn.forward2(similarities_squeezed,support_set_y=supports_hots)  # batch_size x # classes = hats_hots.shape
-            logger.debug("target_cat_indices: {}".format(target_cat_indices))
-            logger.debug("hats_pred output: {}".format(hats_pred))
+            hats_pred = self.attn.forward_orig(similarities_squeezed,support_set_y=supports_hots)  # batch_size x # classes = hats_hots.shape
+            # logger.debug("target_cat_indices: {}".format(target_cat_indices))
+            # logger.debug("hats_pred output: {}".format(hats_pred))
 
             # calculate accuracy and crossentropy loss
             values, indices = hats_pred.max(1)
             if i == 0:
-                accuracy = torch.mean((indices.unsqueeze(1) == hats_hots.long()).float())
-                # accuracy = torch.mean((indices.squeeze() == hats_hots[:, i]).float())
-                logger.debug(hats_pred.shape)
-                logger.debug(hats_hots[:, i].shape)
-                crossentropy_loss = F.cross_entropy(hats_pred, target_cat_indices.squeeze().long())
+                accuracy = torch.mean((indices.unsqueeze(1) == hats_hots[:, i].long()).float())
+                crossentropy_loss = F.cross_entropy(hats_pred, target_cat_indices[:, i].squeeze().long())
             else:
-                accuracy = accuracy + torch.mean((indices.squeeze() == hats_hots[:, i]).float())
-                crossentropy_loss = crossentropy_loss + F.cross_entropy(hats_pred, hats_hots[:, i].long())
+                accuracy = accuracy + torch.mean((indices.unsqueeze(1) == hats_hots[:, i].long()).float())
+                crossentropy_loss = crossentropy_loss + F.cross_entropy(hats_pred, target_cat_indices[:, i].long())
             crossentropy_loss = crossentropy_loss / hats_x.size(1)
             hats_preds.append(hats_pred)
         hats_preds = torch.stack(hats_preds,dim=1)
+        logger.info("Accuracy: [{}]".format(accuracy / hats_hots.size(1)))
         return crossentropy_loss, hats_preds
 
 
@@ -250,7 +255,7 @@ if __name__ == '__main__':
     logger.debug(x_hat.shape)
     logger.debug(x_hat_hot.shape)
 
-    cls = MatchingNetwork(input_size=4, hid_size=4, num_categories=5, use_cuda=False)
+    cls = MatchingNetwork(input_size=4, hid_size=4, classify_count=5, use_cuda=False)
     logger.debug(cls)
     sim = cls.forward(support_set, support_set_hot, x_hat, x_hat_hot, batch_size=4)
     logger.debug(sim)

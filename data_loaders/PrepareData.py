@@ -29,6 +29,8 @@ from logger.logger import logger
 from utils import util
 
 seed_val = 0
+
+
 # random.seed(seed_val)
 # np.random.seed(seed_val)
 # torch.manual_seed(seed_val)
@@ -371,25 +373,34 @@ class PrepareData:
         :returns: An iterator over data.
         """
         if val:  # If true, it's a validation run. Return stored values.
-            logger.debug("Checking if Validation data is stored at: [{}]".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
-            if isfile(join(self.dataset_dir,self.dataset_name,"x_supports.npz")):
-                x_supports = util.load_npz("x_supports", file_path=join(self.dataset_dir, self.dataset_name))
-                y_support_hots = util.load_npz("y_support_hots", file_path=join(self.dataset_dir, self.dataset_name))
-                x_targets = util.load_npz("x_targets", file_path=join(self.dataset_dir, self.dataset_name))
-                y_target_hots = util.load_npz("y_target_hots", file_path=join(self.dataset_dir, self.dataset_name))
-                target_cat_indices = util.load_npz("target_cat_indices", file_path=join(self.dataset_dir, self.dataset_name))
-                return x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices
-            logger.debug("Validation data not found at: [{}]".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
+            logger.debug("Checking if Validation data is stored at: [{}]".format(
+                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
+            if isfile(join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")):
+                logger.info("Found Validation data at: [{}]".format(
+                    join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
+                supports_x = util.load_pickle(self.dataset_name + "_supports_x",
+                                              file_path=join(self.dataset_dir, self.dataset_name))
+                supports_y_hots = util.load_pickle(self.dataset_name + "_supports_y_hots",
+                                                   file_path=join(self.dataset_dir, self.dataset_name))
+                targets_x = util.load_pickle(self.dataset_name + "_targets_x",
+                                             file_path=join(self.dataset_dir, self.dataset_name))
+                targets_y_hots = util.load_pickle(self.dataset_name + "_targets_y_hots",
+                                                  file_path=join(self.dataset_dir, self.dataset_name))
+                target_cat_indices = util.load_pickle(self.dataset_name + "_target_cat_indices",
+                                                      file_path=join(self.dataset_dir, self.dataset_name))
+                return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices
+            logger.debug("Validation data not found at: [{}]".format(
+                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
 
         support_cat_ids = self.get_support_cats(categories_per_batch=categories_per_batch)
         # support_cat_ids_list = []  # MultiLabelBinarizer only takes list of lists as input. Need to convert our list of int to list of lists.
         # for ids in support_cat_ids:
         #     support_cat_ids_list.append([ids])
         # self.mlb.fit_transform(support_cat_ids_list)  # Fitting the selected classes. Outputs not required.
-        x_supports = []
-        y_support_hots = []
-        x_targets = []
-        y_target_hots = []
+        supports_x = []
+        supports_y_hots = []
+        targets_x = []
+        targets_y_hots = []
         target_cat_indices = []
         # target_cat_indices_list1 = []
         # target_cat_indices_list2 = []
@@ -405,29 +416,37 @@ class PrepareData:
                                     vectorizer=vectorizer,
                                     input_size=input_size,
                                     return_cat_indices=True)
-            x_supports.append(x_support)
-            y_support_hots.append(y_support_hot)
+            supports_x.append(x_support)
+            supports_y_hots.append(y_support_hot)
             # support_cat_indices.append(support_cat_indices_batch)
-            x_targets.append(x_target)
-            y_target_hots.append(y_target_hot)
+            targets_x.append(x_target)
+            targets_y_hots.append(y_target_hot)
             target_cat_indices.append(target_cat_indices_batch)
             # target_cat_indices_list1.append(list(target_cat_indices_batch.tolist()))
-        x_supports = np.stack(x_supports)
-        y_support_hots = np.stack(y_support_hots)
+        supports_x = np.stack(supports_x)
+        supports_y_hots = np.stack(supports_y_hots)
         # support_cat_indices = np.stack(support_cat_indices)
-        x_targets = np.stack(x_targets)
-        y_target_hots = np.stack(y_target_hots)
+        targets_x = np.stack(targets_x)
+        targets_y_hots = np.stack(targets_y_hots)
         target_cat_indices = np.stack(target_cat_indices)
         # target_cat_indices_list2.append(list(target_cat_indices_list1))
 
         if val:
-            logger.debug("Storing Validation data at: [{}]".format(join(self.dataset_dir,self.dataset_name,"x_supports.npz")))
-            util.save_npz(x_supports, "x_supports", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_npz(y_support_hots, "y_support_hots", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_npz(x_targets, "x_targets", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_npz(y_target_hots, "y_target_hots", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_npz(target_cat_indices, "target_cat_indices", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-        return x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices  # , target_cat_indices_list2
+            logger.info("Storing Validation data at: [{}]".format(
+                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
+            # util.save_npz(supports_x, self.dataset_name+"supports_x", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_pickle(supports_x, filename=self.dataset_name + "_supports_x",
+                             file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            # util.save_json(supports_x.tolist(), self.dataset_name+"supports_x", file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_pickle(supports_y_hots, self.dataset_name + "_supports_y_hots",
+                             file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_pickle(targets_x, self.dataset_name + "_targets_x",
+                             file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_pickle(targets_y_hots, self.dataset_name + "_targets_y_hots",
+                             file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+            util.save_pickle(target_cat_indices, self.dataset_name + "_target_cat_indices",
+                             file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
+        return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices  # , target_cat_indices_list2
 
 
 if __name__ == '__main__':
@@ -445,10 +464,10 @@ if __name__ == '__main__':
                                  dataset_name=config["data"]["dataset_name"],
                                  dataset_dir=config["paths"]["dataset_dir"][plat])
 
-    x_supports, y_support_hots, x_targets, y_target_hots = data_formatter.get_batches(batch_size=2,
-                                                                                      categories_per_batch=3,
-                                                                                      supports_per_category=5)
-    logger.debug(x_supports.shape)
+    supports_x, y_support_hots, targets_x, targets_y_hots = data_formatter.get_batches(batch_size=2,
+                                                                                       categories_per_batch=3,
+                                                                                       supports_per_category=5)
+    logger.debug(supports_x.shape)
     logger.debug(y_support_hots.shape)
-    logger.debug(x_targets.shape)
-    logger.debug(y_target_hots.shape)
+    logger.debug(targets_x.shape)
+    logger.debug(targets_y_hots.shape)

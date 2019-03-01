@@ -22,6 +22,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from models.Weight_Init import weight_init
 from logger.logger import logger
 
 
@@ -29,7 +30,7 @@ class BiLSTM(nn.Module):
     """
         Class for Bidirectional LSTM operations.
     """
-    def __init__(self, input_size, hid_size, num_layers=1, dropout=0.2, bidirectional=True, bias=True, use_cuda=True):
+    def __init__(self, input_size, hid_size, batch_size, num_layers=1, dropout=0.2, bidirectional=True, bias=True, use_cuda=True):
         """
         Initializes a multi layer bidirectional LSTM based on parameter values.
 
@@ -44,6 +45,7 @@ class BiLSTM(nn.Module):
         super(BiLSTM, self).__init__()
         self.use_cuda = use_cuda
         self.bidirectional = bidirectional
+        self.batch_size = batch_size
         if self.use_cuda and torch.cuda.is_available():
             self.lstm = nn.LSTM(input_size=input_size,
                                 num_layers=num_layers,
@@ -61,53 +63,76 @@ class BiLSTM(nn.Module):
                                 dropout=dropout,
                                 batch_first=True,
                                 bidirectional=bidirectional)
+        # The linear layer that maps from hidden state space to tag space
+        # self.hidden2tag = nn.Linear(hid_size, tagset_size)
+        # self.hidden = self.init_hid(self.batch_size)
+        # logger.debug(self.lstm.weight_ih_l0)
+        # logger.debug(self.lstm.weight_hh_l0)
+        # logger.debug(self.lstm.bias_ih_l0)
+        # logger.debug(self.lstm.bias_hh_l0)
+        # # logger.debug(self.lstm.weight_ih_l0_reverse)
+        # logger.debug(self.lstm._all_weights)
+        weight_init(self.lstm)
+        # logger.debug(self.lstm.weight_ih_l0)
+        # logger.debug(self.lstm.weight_hh_l0)
+        # logger.debug(self.lstm.bias_ih_l0)
+        # logger.debug(self.lstm.bias_hh_l0)
+        # logger.debug(self.lstm.weight_ih_l0_reverse)
+        # logger.debug(self.lstm._all_weights)
 
-    def forward(self, inputs, batch_size=64, dropout_external=False, dropout=0.2, training=True, requires_grad=False):
-        """
-        Runs the bidirectional LSTM, produces outputs and saves both forward and backward states as well as gradients.
-
-        :param training: Signifies if network is training, during inference dropout is disabled.
-        :param requires_grad:
-        :param dropout: If non-zero, introduces a dropout layer on the outputs of each RNN layer except the last layer.
-        :param dropout_external: Flag if dropout should be used externally as Pytorch uses dropout only on last layer.
-        :param batch_size: Size of a batch per forward call.
-        :param inputs: The inputs should be a list of shape  (seq_len, batch, input_size).
-        :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
-        """
-        self.batch_size = batch_size
+    def init_hid(self, batch_size, requires_grad=True):
         num_directions = 2  # For bidirectional, num_layers should be multiplied by 2.
         if not self.bidirectional:
             num_directions = 1
-
+        r1, r2 = -1, 1  # Will generate numbers in range(-1,1)
         if self.use_cuda and torch.cuda.is_available():
-            c0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
-                          requires_grad=requires_grad).cuda()
-            h0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
-                          requires_grad=requires_grad).cuda()
+            cell_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                      self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
+            hid_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                     self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
         else:
-            c0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
-                          requires_grad=requires_grad)
-            h0 = Variable(torch.rand(self.lstm.num_layers * num_directions, self.batch_size, self.lstm.hidden_size),
-                          requires_grad=requires_grad)
-        output, (hn, cn) = self.lstm(inputs, (h0, c0))
+            cell_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                      self.lstm.hidden_size) - r2, requires_grad=requires_grad)
+            hid_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                     self.lstm.hidden_size) - r2, requires_grad=requires_grad)
+        return hid_init, cell_init
+
+    def forward(self, inputs, dropout_external=False, dropout=0.2, training=True, requires_grad=True):
+        """
+        Runs the bidirectional LSTM, produces outputs and hidden states.
+
+        :param training: Signifies if network is training, during inference dropout is disabled.
+        :param dropout: If non-zero, introduces a dropout layer on the outputs of each RNN layer except the last layer.
+        :param dropout_external: Flag if dropout should be used externally as Pytorch uses dropout only on last layer.
+        :param inputs: The inputs should be a list of shape  (seq_len, batch, input_size).
+        :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
+        """
+        hidden = self.init_hid(self.batch_size, requires_grad=requires_grad)
+        # logger.debug("self.hidden 1: {}".format(self.hidden))
+        outputs, hidden = self.lstm(inputs, hidden)
+        # logger.debug("self.hidden 2: {}".format(self.hidden))
+        # outputs, (hn, cn) = self.lstm(inputs, (h0, c0))
+
         if dropout_external and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM applies dropout only on
             # last layer and if there is only one layer, dropout will not be applied.
             logger.debug("Applying dropout externally.")
-            output = F.dropout(output, p=dropout, training=training, inplace=False)
+            outputs = F.dropout(outputs, p=dropout, training=training, inplace=False)
         # assert input.shape == text_lstm.shape, "Input {} and Output {} shape should match.".format(input.shape, text_lstm.shape)
-        return output, hn, cn
+        return outputs, hidden
 
 
 if __name__ == '__main__':
-    test_blstm = BiLSTM(input_size=5, hid_size=2, num_layers=1, dropout=0.2, bidirectional=False)
+    test_blstm = BiLSTM(input_size=5, hid_size=2, batch_size=3, num_layers=1, dropout=0.2, use_cuda=False, bidirectional=True)
     print(test_blstm)
     input = torch.rand(3, 1, 5)  # (batch_size, seq_size, input_size)
     logger.debug("input: {}".format(input))
     logger.debug("input Shape: {}".format(input.shape))
-    result = test_blstm.forward(input, batch_size=3,
-                                dropout_external=True)  # output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
+    result = test_blstm.forward(input, dropout_external=True)  # output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
     # logger.debug("result: {}".format(result))
     logger.debug("result: {}".format(result[0]))
     logger.debug("result: {}".format(result[0].shape))
-    logger.debug("result: {}".format(result[1].shape))
-    logger.debug("result: {}".format(result[2].shape))
+    logger.debug("result: {}".format(result[1][0].shape))
+    logger.debug("result: {}".format(result[1][1].shape))
+    result = test_blstm.forward(input, dropout_external=True)
+    logger.debug("result: {}".format(result[0]))
+    logger.debug("result: {}".format(result[0].shape))
