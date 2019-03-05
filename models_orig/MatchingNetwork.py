@@ -23,9 +23,9 @@ import torch.nn.functional as F
 import numpy as np
 
 from logger.logger import logger
-from models import Attn
+from models_orig import Attn
+from models_orig import PairCosineSim
 from models import BiLSTM
-from models import PairCosineSim
 from models import EmbedText
 
 seed_val = 0
@@ -74,15 +74,11 @@ class MatchingNetwork(nn.Module):
                                dropout=dropout,
                                use_cuda=use_cuda)
 
-    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, batch_size=64,
-                print_accuracy=False, dropout_external=False, requires_grad=True):
+    def forward(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=64):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
         :param target_cat_indices:
-        :param requires_grad:
-        :param dropout_external:
-        :param print_accuracy:
         :param batch_size:
         :param supports_x: A tensor containing the support set samples.
             [batch_size, sequence_size, n_channels, 28]
@@ -90,58 +86,60 @@ class MatchingNetwork(nn.Module):
         :param supports_hots: A tensor containing the support set labels.
             [batch_size, sequence_size, n_classes]
             torch.Size([32, 25, 5])
-        :param targets_x: A tensor containing the target sample (sample to produce label for).
+        :param hats_x: A tensor containing the target sample (sample to produce label for).
             [batch_size, n_channels, 28]
             torch.Size([32, 5, 1, 28])
-        :param targets_hots: A tensor containing the target label.
+        :param hats_hots: A tensor containing the target label.
             [batch_size, 1]
             torch.Size([32, 5])
         :return:
         """
-        encoded_supports = self.g(supports_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
-        # for i in np.arange(supports_x.size(1)):
-        #     gen_encode = self.g(supports_x[:, i, :])
-        #     encoded_supports.append(gen_encode)
-        # logger.debug("encoded_supports output: {}".format(encoded_supports))
+        # encoded_supports = self.g(supports_x, batch_size=batch_size)
+        encoded_supports = []
+        for i in np.arange(supports_x.size(1)):
+            encoded_support = self.g(supports_x[:, i, :].unsqueeze(1))
+            encoded_supports.append(encoded_support.squeeze())
+        encoded_supports = torch.stack(encoded_supports)
+        # logger.debug("encoded_supports: {}".format(encoded_supports))
 
+        accuracy = 0
+        crossentropy_loss = 0
+        hats_preds = []
         ## Produce embeddings for target samples
-        encoded_targets = self.g(targets_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
-        # logger.debug("encoded_targets output: {}".format(encoded_targets))
+        for i in np.arange(hats_x.size(1)):
+            encoded_x_hat = self.g(hats_x[:, i, :].unsqueeze(1), batch_size=batch_size)
+            # logger.debug("encoded_x_hat output: {}".format(encoded_x_hat))
 
-        if self.fce:
-            _, encoded_supports = self.lstm(encoded_supports, requires_grad=requires_grad)
-            _, encoded_targets = self.lstm(encoded_targets, requires_grad=requires_grad)
-            # logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
-            # logger.debug("FCE encoded_targets output: {}".format(encoded_targets))
+            if self.fce:
+                encoded_supports, _ = self.lstm(encoded_supports, batch_size=batch_size)
+                encoded_x_hat, _ = self.lstm(encoded_x_hat, batch_size=batch_size)
+                # logger.debug("FCE encoded_supports: {}".format(encoded_supports))
+                # logger.debug("FCE encoded_x_hat: {}".format(encoded_x_hat))
 
-        ## Get similarity between support set embeddings and target
-        similarities = self.cosine_dis(support_sets=encoded_supports, X_hats=encoded_targets, normalize=False)
-        # logger.debug("similarities: {}".format(similarities))
-        # logger.debug("similarities shape: {}".format(similarities.shape))
+            ## Get similarity between support set embeddings and target
+            similarities = self.cosine_dis.forward_orig(supports=encoded_supports, target=encoded_x_hat.squeeze())
+            similarities = similarities.t()
+            similarities_squeezed = similarities.squeeze(1)
+            # logger.debug("similarities: {}".format(similarities))
+            # logger.debug("similarities shape: {}".format(similarities.shape))
 
-        ## Produce predictions for target probabilities
-        hats_preds = self.attn(similarities,support_set_y=supports_hots)  ## batch_size x # classes = hats_hots.shape
-        # logger.debug("target_cat_indices: {}".format(target_cat_indices))
-        # logger.debug("hats_preds output: {}".format(hats_preds))
+            ## Produce predictions for target probabilities
+            hats_pred = self.attn.forward_orig(similarities_squeezed,support_set_y=supports_hots)  # batch_size x # classes = hats_hots.shape
+            # logger.debug("target_cat_indices: {}".format(target_cat_indices))
+            # logger.debug("hats_pred output: {}".format(hats_pred))
 
-        # assert hats_preds.shape == hats_hots.shape, "hats_preds.shape ({}) == ({}) hats_hots.shape" \
-        #     .format(hats_preds.shape, hats_hots.shape)
-
-        loss = 0
-        ## Calculate accuracy and crossentropy loss. (Need to calculate loss for each sample but for whole batch.)
-        for j in np.arange(hats_preds.size(1)):
-            # logger.debug((hats_preds[:, j, :].shape, targets_hots.long()[:, j, :].shape))
-            loss += F.binary_cross_entropy_with_logits(hats_preds[:, j, :], targets_hots[:, j, :])
-            # loss += F.multilabel_margin_loss(hats_preds[:, j, :], targets_hots.long()[:, j, :])
-            # loss += F.smooth_l1_loss(hats_preds[:, j, :], targets_hots[:, j, :])
-            # loss += F.cross_entropy(hats_preds[:, j, :], target_cat_indices[:, j].long())
-        crossentropy_loss = loss / targets_x.size(1)
-
-        values, indices = hats_preds.max(2)
-        if print_accuracy:
-            accuracy = torch.mean((indices == target_cat_indices.long()).float())
-            logger.debug("Accuracy: [{}]".format(accuracy))
-            return crossentropy_loss, hats_preds, encoded_targets
+            ## Calculate accuracy and crossentropy loss
+            values, indices = hats_pred.max(1)
+            if i == 0:
+                accuracy = torch.mean((indices.unsqueeze(1) == hats_hots[:, i].long()).float())
+                crossentropy_loss = F.cross_entropy(hats_pred, target_cat_indices[:, i].squeeze().long())
+            else:
+                accuracy = accuracy + torch.mean((indices.unsqueeze(1) == hats_hots[:, i].long()).float())
+                crossentropy_loss = crossentropy_loss + F.cross_entropy(hats_pred, target_cat_indices[:, i].long())
+            crossentropy_loss = crossentropy_loss / hats_x.size(1)
+            hats_preds.append(hats_pred)
+        hats_preds = torch.stack(hats_preds,dim=1)
+        logger.info("Accuracy: [{}]".format(accuracy / hats_hots.size(1)))
         return crossentropy_loss, hats_preds
 
 

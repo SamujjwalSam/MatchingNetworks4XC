@@ -30,7 +30,7 @@ from models.Weight_Init import weight_init
 class EmbedText(nn.Module):
     """Builds context sensitive embeddings for pre-trained sentences using either LSTM or CNN."""
 
-    def __init__(self, batch_size, classify_count=0, hid_size=2, layer_size=32, model_type="lstm", num_channels=25,
+    def __init__(self, batch_size, classify_count=0, hid_size=2, layer_size=25, model_type="cnn", num_channels=1,
                  dropout=0.2, use_cuda=False, input_size=300):
         """
         Builds embeddings for pre-trained sentences using either LSTM or CNN.
@@ -49,10 +49,10 @@ class EmbedText(nn.Module):
                                     dropout=dropout, use_cuda=use_cuda, bidirectional=True)
             self.output_size = hid_size * 2  # 2 because BiLSTM.
         elif self.model_type == "cnn":  # TODO: Decide on CNN architecture to use.
-            self.conv1 = self.CNN_layer(num_channels, layer_size, dropout=dropout)
-            self.conv2 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
-            # self.conv3 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
-            # self.conv4 = self.CNN_layer(layer_size, layer_size, dropout=dropout)
+            self.conv1 = self.CNN_layer(num_channels, layer_size, kernel_size=1, stride=1, padding=1, bias=True, dropout=dropout)
+            self.conv2 = self.CNN_layer(layer_size, layer_size, kernel_size=1, stride=1, padding=1, bias=True, dropout=dropout)
+            self.conv3 = self.CNN_layer(layer_size, layer_size, kernel_size=1, stride=1, padding=1, bias=True, dropout=dropout)
+            # self.conv4 = self.CNN_layer(layer_size, layer_size, kernel_size=1, stride=1, padding=1, bias=True, dropout=dropout)
 
             finalSize = int(math.floor(input_size / (2 * 2 * 2 * 2)))  # (2 * 2 * 2 * 2) for 4 CNN layers.
             self.output_size = finalSize * finalSize * layer_size
@@ -70,7 +70,7 @@ class EmbedText(nn.Module):
             if self.model_type == "cnn":
                 weight_init(self.conv1)
                 weight_init(self.conv2)
-                # weight_init(self.conv3)
+                weight_init(self.conv3)
                 # weight_init(self.conv4)
 
                 # self.weights_init(self.conv1)
@@ -90,9 +90,10 @@ class EmbedText(nn.Module):
         if self.model_type == "lstm":
             _, output = self.text_lstm(inputs, dropout_external=dropout_external, requires_grad=requires_grad)
         elif self.model_type == "cnn":
+            # if inputs.shape[1] != 1: logger.warning("input shape: {}".format(inputs.shape))
             output = self.conv1(inputs)
             output = self.conv2(output)
-            # output = self.conv3(output)
+            output = self.conv3(output)
             # output = self.conv4(output)
             # output = output.view(output.size(0), -1)
         else:
@@ -120,7 +121,7 @@ class EmbedText(nn.Module):
             nn.ReLU(True),
             nn.MaxPool1d(kernel_size=kernel_size, stride=stride+1)
         )
-        if dropout > 0.0:  # Add dropout module
+        if dropout > 0.0:  ## Add dropout module
             list_seq = list(seq.modules())[1:]
             list_seq.append(nn.Dropout(dropout))
             seq = nn.Sequential(*list_seq)
@@ -150,7 +151,7 @@ class EmbedText(nn.Module):
 if __name__ == '__main__':
     import torch
 
-    a = torch.ones(1, 2, 4)  # batch_size, <don't matter>, input_size
+    a = torch.ones(1, 2, 4)  ## batch_size, <don't matter>, input_size
     logger.debug(a)
     cls = EmbedText(input_size=4, layer_size=1, classify_count=2, model_type="lstm")
     sim = cls.forward(a, batch_size=1, dropout_external=True)

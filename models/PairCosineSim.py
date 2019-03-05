@@ -100,7 +100,7 @@ class PairCosineSim(nn.Module):
 
             if test:
                 logger.debug("Computed sim: {}".format(batch_x_hat_similarities))
-                X_hats_2 = X_hats.clone().detach()  # Creating clone() and detaching from graph.
+                X_hats_2 = X_hats.clone().detach()  ## Creating clone() and detaching from graph.
                 support_sets_2 = support_sets.clone().detach()
                 sim = cosine_similarity(X_hats_2[i,:,:].numpy(), support_sets_2[i,:,:].numpy())
                 logger.debug("sklearn sim: {}".format(sim))
@@ -115,38 +115,6 @@ class PairCosineSim(nn.Module):
         # logger.debug(batch_x_hats_similarities)
         # logger.debug(batch_x_hats_similarities.shape)
         return batch_x_hats_similarities
-
-    def forward_orig(self, support_set, input_image):
-        """
-        Produces pdfs over the support set classes for the target set image.
-        :param support_set: The embeddings of the support set images, tensor of shape [sequence_length, batch_size, 64]
-        :param input_image: The embedding of the target image, tensor of shape [batch_size, 64]
-        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
-        """
-        # logger.debug(("support_set.shape,input_image.shape: ",support_set.shape,input_image.shape))
-        # ('support_set.shape,input_image.shape: ', torch.Size([20, 32, 64]), torch.Size([32, 64]))
-        eps = 1e-10
-        similarities = []
-        for i in np.arange(support_set.size(1)):
-            support_image = support_set[:,i,:]
-        # for support_image in support_set:
-            # logger.debug((input_image, support_set))
-            sum_support = torch.sum(torch.pow(support_image, 2), 1)
-            support_magnitude = sum_support.clamp(eps, float("inf")).rsqrt()
-
-            support_image_unsqueeze = support_image.unsqueeze(2)
-            # input_image = input_image.squeeze(1)
-            dot_product = input_image.bmm(support_image_unsqueeze)
-            dot_product = dot_product.squeeze()
-            cosine_similarity = dot_product * support_magnitude
-            # logger.debug(("cosine_similarity.shape: ",cosine_similarity.shape))
-            # ('cosine_similarity.shape: ', torch.Size([32]))
-            similarities.append(cosine_similarity)
-        similarities = torch.stack(similarities)
-        # logger.debug(("similarities.shape: ",similarities.shape))
-        # ('similarities.shape: ', torch.Size([32, 20]))
-        # logger.debug(("similarities: ",similarities))
-        return similarities
 
 
 if __name__ == '__main__':

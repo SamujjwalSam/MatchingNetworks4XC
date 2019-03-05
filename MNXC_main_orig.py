@@ -22,10 +22,9 @@ from matplotlib import pyplot as plt
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # TIME_STAMP = datetime.utcnow().isoformat()
 
-from config import Config
 from logger.logger import logger
 from utils import util
-from models.Run_Network import Run_Network
+from models_orig.Run_Network import Run_Network
 from data_loaders.PrepareData import PrepareData
 from data_loaders.common_data_handler import Common_JSON_Handler
 
@@ -112,7 +111,7 @@ https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-e
 """
 
 
-def plot_occurance(losses:list, plot_name='val_loss.jpg', clear=True, log=False):
+def plot_list(losses:list, plot_name='val_loss.jpg', clear=True, log=False):
     """
     Plots the validation loss against epochs.
 
@@ -140,12 +139,8 @@ def main(args):
 
     :param args: Dict of all the arguments.
     """
-    # config = util.load_json(args.config, ext="")
-    # util.print_json(config, "Config")
-    config_cls = Config()
-    config_cls.print_config()
-    config = config_cls.get_config()
-
+    config = util.load_json(args.config, ext=False)
+    util.print_json(config, "Config")
     plat = util.get_platform()
 
     data_loader = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
@@ -206,10 +201,10 @@ def main(args):
     logger.info("Train losses: [{}]".format(train_epoch_losses))
     logger.info("Validation losses: [{}]".format(val_epoch_losses))
     logger.info("#" * separator_length)
-    plot_occurance(val_epoch_losses)
-    plot_occurance(total_p1s)
-    plot_occurance(total_p3s)
-    plot_occurance(total_p5s)
+    plot_list(val_epoch_losses)
+    plot_list(total_p1s)
+    plot_list(total_p3s)
+    plot_list(total_p5s)
 
 
 if __name__ == '__main__':
@@ -264,5 +259,5 @@ if __name__ == '__main__':
                         help='Options to save the model partially or completely.')
 
     args = parser.parse_args()
-    # logger.debug("Arguments: {}".format(args))
+    logger.debug("Arguments: {}".format(args))
     main(args)

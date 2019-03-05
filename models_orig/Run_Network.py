@@ -30,7 +30,7 @@ from torch.autograd import Variable
 from logger.logger import logger
 from utils import util
 from metrics.metrics import Metrics
-from models.MatchingNetwork import MatchingNetwork
+from models_orig.MatchingNetwork import MatchingNetwork
 
 seed_val = 0
 
@@ -93,8 +93,8 @@ class Run_Network:
         self.total_train_iter = 0
         self.test_metrics = Metrics()
         self.match_net = MatchingNetwork(batch_size=self.batch_size,
-                                         layer_size=self.categories_per_batch * self.supports_per_category,
-                                         num_channels=self.categories_per_batch * self.supports_per_category,
+                                         layer_size=1,
+                                         num_channels=1,
                                          dropout=dropout,
                                          g_encoder=g_encoder,
                                          fce=fce,

@@ -29,9 +29,6 @@ from utils import util
 from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
 
-# Globals----
-RANDOM_INIT = 0
-
 
 class Neighborhood:
     """
@@ -40,16 +37,14 @@ class Neighborhood:
     Supported models: glove, word2vec, fasttext, googlenews, bert, lex, etc.
     """
 
-    def __init__(self, dataset_name: str, graph_dir: str = "D:\Datasets\Extreme Classification",
+    def __init__(self, dataset_name: str, graph_dir: str = "D:\\Datasets\\Extreme Classification",
                  graph_format: str = "graphml", k: int = 10):
         """
-        Initializes the Neighborhood class which stores the neighborhood graph.
 
-        Args:
-            graph_dir : Path to the directory containing the graph.
-            Supported graph_format:
-                graphml
-                dict_dicts
+        :param dataset_name:
+        :param graph_dir:
+        :param graph_format:
+        :param k:
         """
         super(Neighborhood, self).__init__()
         self.graph_dir = graph_dir
@@ -406,7 +401,7 @@ def get_subgraph(V, E, label_filepath, dataset_name, level=1, subgraph_count=5, 
     return subgraph_lists
 
 
-def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=util.get_dataset_path(), seed=RANDOM_INIT):
+def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=util.get_dataset_path(), seed=0):
     """
     Splits the data into 2 parts.
 
