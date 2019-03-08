@@ -24,10 +24,12 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from config import Config
 from logger.logger import logger
-from utils import util
 from models.Run_Network import Run_Network
 from data_loaders.PrepareData import PrepareData
 from data_loaders.common_data_handler import Common_JSON_Handler
+
+## Turn interactive plotting off
+plt.ioff()
 
 seed_val = 0
 # random.seed(seed_val)
@@ -39,8 +41,6 @@ seed_val = 0
 TODOs:
 -----------------------------------------
     Prepare Delicious-T140.
-    Investigate loss and whole code -> Use Categorical Cross Entropy.
-    Vectorize code whenever possible.
     Implement TF-IDF weighted vectors.
 =========================================
 
@@ -123,6 +123,7 @@ def plot_occurance(losses:list, plot_name='val_loss.jpg', clear=True, log=False)
     """
 
     logger.info("Plotting losses...")
+    fig = plt.figure()
     plt.plot(losses)
     plt.xlabel("Epoch no")
     if log:
@@ -132,6 +133,7 @@ def plot_occurance(losses:list, plot_name='val_loss.jpg', clear=True, log=False)
     plt.savefig(plot_name)
     if clear:
         plt.cla()
+    plt.close(fig)  # Closing the figure so it won't get displayed in console.
 
 
 def main(args):
@@ -140,47 +142,14 @@ def main(args):
 
     :param args: Dict of all the arguments.
     """
-    # config = util.load_json(args.config, ext="")
-    # util.print_json(config, "Config")
     config_cls = Config()
-    config_cls.print_config()
     config = config_cls.get_config()
 
-    plat = util.get_platform()
+    data_loader = Common_JSON_Handler()
 
-    data_loader = Common_JSON_Handler(dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
-                                      dataset_name=config["data"]["dataset_name"],
-                                      data_dir=config["paths"]["dataset_dir"][plat])
+    data_formatter = PrepareData(dataset_loader=data_loader)
 
-    data_formatter = PrepareData(dataset_loader=data_loader,
-                                 dataset_name=config["data"]["dataset_name"],
-                                 dataset_dir=config["paths"]["dataset_dir"][plat])
-
-    match_net = Run_Network(data_formatter,
-                            classify_count=0,
-                            dataset_name=config["data"]["dataset_name"],
-                            dataset_dir=config["paths"]["dataset_dir"][plat],
-                            use_cuda=config["model"]["use_cuda"],
-                            input_size=config["model"]["input_size"],
-                            hid_size=config["model"]["hid_size"],
-                            lr=config["model"]["learning_rate"],
-                            lr_decay=config["model"]["lr_decay"],
-                            weight_decay=config["model"]["weight_decay"],
-                            optim=config["model"]["optim"],
-                            dropout=config["model"]["dropout"],
-                            g_encoder=config["model"]["g_encoder"],
-                            vectorizer=config["model"]["vectorizer"],
-                            fce=config["model"]["fce"],
-                            batch_size=config["model"]["batch_size"],
-                            supports_per_category=config["model"]["supports_per_category"],
-                            targets_per_category=config["model"]["targets_per_category"],
-                            categories_per_batch=config["model"]["categories_per_batch"],
-                            
-                            # sents_chunk_mode=config["model"]["sents_chunk_mode"],
-                            # normalize_inputs=config["model"]["normalize_inputs"],
-                            # sample_repeat_mode=config["model"]["sample_repeat_mode"],
-                            # tfidf_avg=config["model"]["tfidf_avg"]
-                            )
+    match_net = Run_Network(data_formatter=data_formatter)
 
     train_epoch_losses = []
     val_epoch_losses = []
@@ -188,8 +157,8 @@ def main(args):
     total_p3s = []
     total_p5s = []
     separator_length = 92
-    for epoch in range(config["model"]["num_epochs"]):
-        train_epoch_loss = match_net.training(num_train_epoch=config["model"]["num_train_epoch"], )
+    for epoch in range(config["sampling"]["num_epochs"]):
+        train_epoch_loss = match_net.training(num_train_epoch=config["sampling"]["num_train_epoch"])
         train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))

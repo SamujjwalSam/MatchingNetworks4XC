@@ -27,6 +27,8 @@ from data_loaders import json_loader as json
 from data_loaders import txt_loader as txt
 from utils import util
 from logger.logger import logger
+from config import configuration as config
+from config import platform as plat
 
 seed_val = 0
 
@@ -46,9 +48,9 @@ class Common_JSON_Handler:
     """
 
     def __init__(self,
-                 dataset_name: str,
-                 dataset_type="html",
-                 data_dir: str = "D:\\Datasets\\Extreme Classification", ):
+                 dataset_name: str = config["data"]["dataset_name"],
+                 dataset_type=config["xc_datasets"][config["data"]["dataset_name"]],
+                 data_dir: str = config["paths"]["dataset_dir"][plat]):
         """
         Loads train val or test data based on run_mode.
 
@@ -176,7 +178,8 @@ class Common_JSON_Handler:
         sentences, classes, categories = self.dataset.get_data()
         return sentences, classes, categories
 
-    def split_data(self, sentences, classes, categories, test_split=0.3, val_split=0.2):
+    def split_data(self, sentences, classes, categories, test_split=config["data"]["test_split"],
+                   val_split=config["data"]["val_split"]):
         """
         Splits input data into train, val and test.
 
@@ -397,7 +400,7 @@ class Common_JSON_Handler:
         if save_dir is None: save_dir = join(self.data_dir, self.dataset_name + new_data_name)
         if isfile(join(save_dir, self.dataset_name + new_data_name + "_classes.json")) and isfile(
                 join(save_dir, self.dataset_name + new_data_name + "_sentences.json")) and isfile(
-                join(save_dir, self.dataset_name + new_data_name + "_categories.json")):
+            join(save_dir, self.dataset_name + new_data_name + "_categories.json")):
             logger.debug("Loading files from: [{}]".format(save_dir))
             sentences_new = util.load_json(self.dataset_name + new_data_name + "_sentences", file_path=save_dir)
             classes_new = util.load_json(self.dataset_name + new_data_name + "_classes", file_path=save_dir)
@@ -473,9 +476,6 @@ class Common_JSON_Handler:
 
 
 def main():
-    config = util.load_json('../MNXC.config', ext=False)
-    plat = util.get_platform()
-
     # save_dir = join(config["paths"]["dataset_dir"][plat], config["data"]["dataset_name"],
     #                 config["data"]["dataset_name"] + "_onehot")
 

@@ -24,6 +24,8 @@ from smart_open import smart_open as sopen  # Better alternative to Python open(
 
 from utils import util
 from logger.logger import logger
+from config import configuration as config
+from config import platform as plat
 
 seed_val = 0
 
@@ -49,9 +51,7 @@ class JSONLoader(torch.utils.data.Dataset):
         }
     """
 
-    def __init__(self,
-                 dataset_name="AmazonCat-14K",
-                 data_dir: str = "D:\\Datasets\\Extreme Classification"):
+    def __init__(self, dataset_name=config["data"]["dataset_name"], data_dir: str = config["paths"]["dataset_dir"][plat]):
         """
         Initializes the JSON loader.
 
@@ -67,7 +67,7 @@ class JSONLoader(torch.utils.data.Dataset):
         logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
         self.sentences, self.classes, self.categories = self.gen_dicts(json_path=join(self.raw_json_dir,self.raw_json_file), encoding="UTF-8")
 
-    def gen_dicts(self,json_path=None, encoding='latin-1',specials="""_-@*#'"/\\""", replace=' '):
+    def gen_dicts(self,json_path=None, encoding=config["text_process"]["encoding"],specials="""_-@*#'"/\\""", replace=' '):
         """
         Generates the data dictionaries from original json file.
 

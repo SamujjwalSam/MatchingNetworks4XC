@@ -24,6 +24,8 @@ from collections import OrderedDict
 
 from utils import util
 from logger.logger import logger
+from config import configuration as config
+from config import platform as plat
 
 seed_val = 0
 WIKI_CATEGORIES = ["Categories:", "Category:", "Hidden categories:"]
@@ -50,9 +52,7 @@ class HTMLLoader(torch.utils.data.Dataset):
         }
     """
 
-    def __init__(self,
-                 dataset_name="Wiki10-31K",
-                 data_dir: str = "D:\\Datasets\\Extreme Classification"):
+    def __init__(self, dataset_name=config["data"]["dataset_name"], data_dir: str = config["paths"]["dataset_dir"][plat]):
         """
         Initializes the html loader.
 

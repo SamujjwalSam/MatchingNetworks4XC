@@ -29,9 +29,8 @@ from gensim.test.utils import get_tmpfile
 from gensim.utils import simple_preprocess
 
 from logger.logger import logger
-
-seed_val = 0
-# np.random.seed(seed_val)  # for reproducibility
+from config import configuration as config
+from config import platform as plat
 
 
 class TextEncoder:
@@ -40,7 +39,9 @@ class TextEncoder:
 
     Supported models: glove, word2vec, fasttext, googlenews, bert, lex, etc.
     """
-    def __init__(self, model_type: str = "googlenews", model_dir: str = "D:\Datasets\pretrain", embedding_dim:int =300):
+
+    def __init__(self, model_type: str = "googlenews", model_dir: str = config["paths"]["pretrain_dir"][plat],
+                 embedding_dim: int = config["prep_vecs"]["input_size"]):
         """
         Initializes the pretrain class and checks for paths validity.
 
@@ -100,8 +101,10 @@ class TextEncoder:
         self.binary = binary_file
         # self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name, model_type=model_type)
 
-    def load_doc2vec(self, documents, vector_size=100, window=2, min_count=1, workers=4, seed=seed_val, negative=10,
-                     doc2vec_dir="", doc2vec_model_file="doc2vec_model_file", clean_tmp=False, save_model=True):
+    def load_doc2vec(self, documents, vector_size=config["prep_vecs"]["input_size"], window=config["prep_vecs"]["window"],
+                     min_count=config["prep_vecs"]["min_count"], workers=config["text_process"]["workers"], seed=0,
+                     negative=config["prep_vecs"]["negative"], doc2vec_dir=join(config["paths"]["dataset_dir"][plat],config["data"]["dataset_name"]), doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
+                     clean_tmp=False, save_model=True):
         """
         Generates vectors from documents.
         https://radimrehurek.com/gensim/models/doc2vec.html
@@ -118,7 +121,8 @@ class TextEncoder:
         :param workers:
         :param seed:
         """
-        full_model_name = doc2vec_model_file+"_"+str(vector_size)+"_"+str(window)+"_"+str(min_count)+"_"+str(negative)
+        full_model_name = doc2vec_model_file + "_" + str(vector_size) + "_" + str(window) + "_" + str(
+            min_count) + "_" + str(negative)
         if exists(join(doc2vec_dir, full_model_name)):
             logger.info("Loading doc2vec model from: [{}]".format(join(doc2vec_dir, full_model_name)))
             doc2vec_model = doc2vec.Doc2Vec.load(join(doc2vec_dir, full_model_name))
@@ -129,7 +133,7 @@ class TextEncoder:
             # doc2vec_model.build_vocab(train_corpus)
             doc2vec_model.train(train_corpus, total_examples=doc2vec_model.corpus_count, epochs=doc2vec_model.epochs)
             if save_model:
-                save_path = get_tmpfile(join(doc2vec_dir,full_model_name))
+                save_path = get_tmpfile(join(doc2vec_dir, full_model_name))
                 doc2vec_model.save(save_path)
                 logger.info("Saved doc2vec model to: [{}]".format(save_path))
             if clean_tmp:  # Do this when finished training a model (no more updates, only querying, reduce memory usage)
@@ -149,7 +153,7 @@ class TextEncoder:
             else:  # For training data, add tags, tags are simply zero-based line number.
                 yield doc2vec.TaggedDocument(simple_preprocess(line), [i])
 
-    def get_doc2vecs(self, documents:list, doc2vec_model=None):
+    def get_doc2vecs(self, documents: list, doc2vec_model=None):
         """
         Generates vectors for documents.
 
@@ -165,7 +169,8 @@ class TextEncoder:
         doc2vectors = np.asarray(list(doc2vectors))  # Converting Dict values to Numpy array.
         return doc2vectors
 
-    def load_word2vec(self, model_dir="D:\Datasets\pretrain", model_file_name="GoogleNews-vectors-negative300.bin", model_type='googlenews', encoding='utf-8', newline='\n', errors='ignore'):
+    def load_word2vec(self, model_dir=config["paths"]["pretrain_dir"][plat], model_type='googlenews', encoding='utf-8',
+                      model_file_name="GoogleNews-vectors-negative300.bin", newline='\n', errors='ignore'):
         """
         Loads Word2Vec model
         Returns initial weights for embedding layer.
@@ -177,11 +182,13 @@ class TextEncoder:
         logger.debug("Using [{0}] model from [{1}]".format(model_type, join(model_dir, model_file_name)))
         if model_type == 'googlenews' or model_type == "fasttext_wiki":
             assert (exists(join(model_dir, model_file_name)))
-            if exists(join(model_dir, model_file_name+'.bin')):
+            if exists(join(model_dir, model_file_name + '.bin')):
                 try:
-                    pretrain_model = FastText.load_fasttext_format(join(model_dir, model_file_name+'.bin'))  # For original fasttext *.bin format.
+                    pretrain_model = FastText.load_fasttext_format(
+                        join(model_dir, model_file_name + '.bin'))  # For original fasttext *.bin format.
                 except Exception as e:
-                    pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name+'.bin'), binary=True)
+                    pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name + '.bin'),
+                                                                       binary=True)
             else:
                 try:
                     pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name),
@@ -189,7 +196,8 @@ class TextEncoder:
                 except Exception as e:  # On exception, trying a different format.
                     logger.debug('Loading original word2vec format failed. Trying Gensim format.')
                     pretrain_model = KeyedVectors.load(join(model_dir, model_file_name))
-                pretrain_model.save_word2vec_format(join(model_dir, model_file_name + ".bin"), binary=True)  # Save model in binary format for faster loading in future.
+                pretrain_model.save_word2vec_format(join(model_dir, model_file_name + ".bin"),
+                                                    binary=True)  # Save model in binary format for faster loading in future.
                 logger.debug("Saved binary model at: [{0}]".format(join(model_dir, model_file_name + ".bin")))
                 logger.info(type(pretrain_model))
         elif model_type == 'glove':
@@ -225,7 +233,8 @@ class TextEncoder:
         # logger.debug(pretrain_model["hello"].shape)
         return pretrain_model
 
-    def train_w2v(self,sentence_matrix, vocabulary_inv, embedding_dim=300, min_word_count=1, context=10):
+    def train_w2v(self, sentence_matrix, vocabulary_inv, embedding_dim=config["prep_vecs"]["input_size"],
+                  min_word_count=config["prep_vecs"]["min_count"], context=config["prep_vecs"]["window"]):
         """
         Trains, saves, loads Word2Vec model
         Returns initial weights for embedding layer.
@@ -238,7 +247,7 @@ class TextEncoder:
         context         # Context window size
         """
         model_dir = 'word2vec_models'
-        model_name = "{:d}features_{:d}minwords_{:d}context".format(embedding_dim,min_word_count,context)
+        model_name = "{:d}features_{:d}minwords_{:d}context".format(embedding_dim, min_word_count, context)
         model_name = join(model_dir, model_name)
         if exists(model_name):
             pretrain_model = word2vec.Word2Vec.load(model_name)
@@ -252,10 +261,10 @@ class TextEncoder:
             logger.debug("Training Word2Vec model...")
             sentences = [[vocabulary_inv[w] for w in s] for s in sentence_matrix]
             pretrain_model = word2vec.Word2Vec(sentences, workers=num_workers,
-                                                size=embedding_dim,
-                                                min_count=min_word_count,
-                                                window=context,
-                                                sample=downsampling)
+                                               size=embedding_dim,
+                                               min_count=min_word_count,
+                                               window=context,
+                                               sample=downsampling)
 
             # If we don't plan to train the model any further, calling init_sims will make the model much more memory-efficient.
             pretrain_model.init_sims(replace=True)
@@ -268,10 +277,11 @@ class TextEncoder:
 
         #  add unknown words
         embedding_weights = [np.array([pretrain_model[w] if w in pretrain_model else np.random.uniform(-0.25, 0.25,
-                                                              pretrain_model.vector_size) for w in vocabulary_inv])]
+                                                                                                       pretrain_model.vector_size)
+                                       for w in vocabulary_inv])]
         return embedding_weights
 
-    def get_embedding_matrix(self,vocabulary_inv:dict):
+    def get_embedding_matrix(self, vocabulary_inv: dict):
         """
         Generates the embedding matrix.
         :param vocabulary_inv:
@@ -292,7 +302,7 @@ if __name__ == '__main__':
     sentence_obama = 'Obama speaks to the media in Illinois'
     sentence_president = 'The president greets the press in Chicago'
 
-    docs = [sentence_obama,sentence_president]
+    docs = [sentence_obama, sentence_president]
     doc2vec_model = cls.load_doc2vec(docs, vector_size=10, window=2, negative=2, save_model=False)
-    vectors = cls.get_doc2vectors(docs,doc2vec_model)
+    vectors = cls.get_doc2vectors(docs, doc2vec_model)
     logger.debug(vectors)

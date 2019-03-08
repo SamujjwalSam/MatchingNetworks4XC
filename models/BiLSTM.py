@@ -24,13 +24,22 @@ from torch.autograd import Variable
 
 from models.Weight_Init import weight_init
 from logger.logger import logger
+from config import configuration as config
 
 
 class BiLSTM(nn.Module):
     """
         Class for Bidirectional LSTM operations.
     """
-    def __init__(self, input_size, hid_size, batch_size, num_layers=1, dropout=0.2, bidirectional=True, bias=True, use_cuda=True):
+    def __init__(self, batch_size=config["sampling"]["batch_size"],
+                 use_cuda=config["model"]["use_cuda"],
+                 bidirectional=config["lstm_params"]["bidirectional"],
+                 input_size=config["prep_vecs"]["input_size"],
+                 hid_size=config["prep_vecs"]["hid_size"],
+                 dropout=config["model"]["dropout"],
+                 bias=config["lstm_params"]["bias"],
+                 num_layers=config["lstm_params"]["num_layers"],
+                 batch_first=config["lstm_params"]["batch_first"]):
         """
         Initializes a multi layer bidirectional LSTM based on parameter values.
 
@@ -48,20 +57,21 @@ class BiLSTM(nn.Module):
         self.batch_size = batch_size
         if self.use_cuda and torch.cuda.is_available():
             self.lstm = nn.LSTM(input_size=input_size,
-                                num_layers=num_layers,
                                 hidden_size=hid_size,
-                                bias=bias,
                                 dropout=dropout,
-                                batch_first=True,  # If True, then the input and lstm tensors are provided as (batch,
-                                # seq, feature) rather than (seq, batch, feature)
+                                bias=bias,
+                                num_layers=num_layers,
+                                batch_first=batch_first,  ## If True, then the input and lstm
+                                ## tensors are provided as (batch, # seq, feature) rather than (seq, batch, feature)
                                 bidirectional=bidirectional).cuda()
         else:
             self.lstm = nn.LSTM(input_size=input_size,
-                                num_layers=num_layers,
                                 hidden_size=hid_size,
-                                bias=bias,
                                 dropout=dropout,
-                                batch_first=True,
+                                bias=bias,
+                                num_layers=num_layers,
+                                batch_first=batch_first,  ## If True, then the input and lstm tensors are provided as
+                                ## (batch, # seq, feature) rather than (seq, batch, feature)
                                 bidirectional=bidirectional)
         # The linear layer that maps from hidden state space to tag space
         # self.hidden2tag = nn.Linear(hid_size, tagset_size)
@@ -80,11 +90,11 @@ class BiLSTM(nn.Module):
         # logger.debug(self.lstm.weight_ih_l0_reverse)
         # logger.debug(self.lstm._all_weights)
 
-    def init_hid(self, batch_size, requires_grad=True):
-        num_directions = 2  # For bidirectional, num_layers should be multiplied by 2.
+    def init_hid(self, batch_size=config["sampling"]["batch_size"], requires_grad=True):
+        num_directions = 2  ## For bidirectional, num_layers should be multiplied by 2.
         if not self.bidirectional:
             num_directions = 1
-        r1, r2 = -1, 1  # Will generate numbers in range(-1,1)
+        r1, r2 = -1, 1  ## To generate numbers in range(-1,1)
         if self.use_cuda and torch.cuda.is_available():
             cell_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
                                                       self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
@@ -97,7 +107,8 @@ class BiLSTM(nn.Module):
                                                      self.lstm.hidden_size) - r2, requires_grad=requires_grad)
         return hid_init, cell_init
 
-    def forward(self, inputs, dropout_external=False, dropout=0.2, training=True, requires_grad=True):
+    def forward(self, inputs, training=True, requires_grad=True, dropout=config["model"]["dropout"],
+                dropout_external=config["model"]["dropout_external"]):
         """
         Runs the bidirectional LSTM, produces outputs and hidden states.
 
@@ -113,8 +124,8 @@ class BiLSTM(nn.Module):
         # logger.debug("self.hidden 2: {}".format(self.hidden))
         # outputs, (hn, cn) = self.lstm(inputs, (h0, c0))
 
-        if dropout_external and dropout > 0.0:  # Need to use dropout externally as Pytorch LSTM applies dropout only on
-            # last layer and if there is only one layer, dropout will not be applied.
+        if dropout_external and dropout > 0.0:  ## Need to use dropout externally as Pytorch LSTM applies dropout only on
+            ## last layer and if there is only one layer, dropout will not be applied.
             logger.debug("Applying dropout externally.")
             outputs = F.dropout(outputs, p=dropout, training=training, inplace=False)
         # assert input.shape == text_lstm.shape, "Input {} and Output {} shape should match.".format(input.shape, text_lstm.shape)
@@ -124,10 +135,10 @@ class BiLSTM(nn.Module):
 if __name__ == '__main__':
     test_blstm = BiLSTM(input_size=5, hid_size=2, batch_size=3, num_layers=1, dropout=0.2, use_cuda=False, bidirectional=True)
     print(test_blstm)
-    input = torch.rand(3, 1, 5)  # (batch_size, seq_size, input_size)
+    input = torch.rand(3, 1, 5)  ## (batch_size, seq_size, input_size)
     logger.debug("input: {}".format(input))
     logger.debug("input Shape: {}".format(input.shape))
-    result = test_blstm.forward(input, dropout_external=True)  # output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
+    result = test_blstm.forward(input, dropout_external=True)  ## output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
     # logger.debug("result: {}".format(result))
     logger.debug("result: {}".format(result[0]))
     logger.debug("result: {}".format(result[0].shape))

@@ -22,23 +22,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from logger.logger import logger
 from models_orig import Attn
 from models_orig import PairCosineSim
+from logger.logger import logger
 from models import BiLSTM
 from models import EmbedText
-
-seed_val = 0
-# random.seed(seed_val)
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
+from config import configuration as config
 
 
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
-    def __init__(self, batch_size, layer_size, num_channels, input_size=28, hid_size=1, fce=True, use_cuda=True,
-                 classify_count=0, dropout=0.2, g_encoder="cnn"):
+    def __init__(self, num_channels, layer_size, fce=config["model"]["fce"]):
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 
@@ -58,23 +52,11 @@ class MatchingNetwork(nn.Module):
 
         self.attn = Attn()
         self.cosine_dis = PairCosineSim.PairCosineSim()
-        self.g = EmbedText(batch_size=batch_size,
-                           layer_size=layer_size,
-                           num_channels=num_channels,
-                           model_type=g_encoder,
-                           classify_count=classify_count,
-                           input_size=input_size,
-                           hid_size=hid_size,
-                           dropout=dropout,
-                           use_cuda=use_cuda)
+        self.g = EmbedText(num_channels, layer_size)
         if self.fce:
-            self.lstm = BiLSTM(input_size=self.g.output_size,
-                               hid_size=hid_size,
-                               batch_size=batch_size,
-                               dropout=dropout,
-                               use_cuda=use_cuda)
+            self.lstm = BiLSTM(input_size=self.g.output_size)
 
-    def forward(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=64):
+    def forward(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=config["sampling"]["batch_size"]):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 

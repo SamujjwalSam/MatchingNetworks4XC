@@ -31,14 +31,7 @@ from logger.logger import logger
 from utils import util
 from metrics.metrics import Metrics
 from models.MatchingNetwork import MatchingNetwork
-
-seed_val = 0
-
-
-# random.seed(seed_val)
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
+from config import configuration as config
 
 
 class Run_Network:
@@ -48,10 +41,8 @@ class Run_Network:
     and evaluation procedures.
     """
 
-    def __init__(self, data_formatter, dataset_name, dataset_dir, use_cuda=False, categories_per_batch=15, optim="adam",
-                 vectorizer="doc2vec", input_size=300, hid_size=100, lr_decay=1e-6, weight_decay=1e-4, batch_size=32,
-                 dropout=0.2, classify_count=0, fce=True, lr=1e-03, supports_per_category=20, targets_per_category=5,
-                 g_encoder="cnn"):
+    def __init__(self, data_formatter, use_cuda=config["model"]["use_cuda"], batch_size=config["sampling"]["batch_size"],
+                 lr_decay=config["model"]["optimizer"]["lr_decay"], lr=config["model"]["optimizer"]["learning_rate"]):
         """Builds the Matching Network with all required parameters.
 
         Provides helper functions such as training() and validating() to simplify out training
@@ -77,43 +68,31 @@ class Run_Network:
         """
         self.use_cuda = use_cuda
         self.data_formatter = data_formatter
-        self.dataset_name = dataset_name
-        self.dataset_dir = dataset_dir
+        self.dataset_name = self.data_formatter.dataset_name
+        self.dataset_dir = self.data_formatter.dataset_dir
 
         self.batch_size = batch_size
-        self.optimizer = optim
         self.lr = lr
         self.lr_decay = lr_decay
-        self.input_size = input_size
-        self.weight_decay = weight_decay
-        self.supports_per_category = supports_per_category
-        self.targets_per_category = targets_per_category
-        self.categories_per_batch = categories_per_batch
-        self.vectorizer = vectorizer
         self.total_train_iter = 0
         self.test_metrics = Metrics()
-        self.match_net = MatchingNetwork(batch_size=self.batch_size,
-                                         layer_size=self.categories_per_batch * self.supports_per_category,
-                                         num_channels=self.categories_per_batch * self.supports_per_category,
-                                         dropout=dropout,
-                                         g_encoder=g_encoder,
-                                         fce=fce,
-                                         classify_count=classify_count,
-                                         input_size=input_size,
-                                         hid_size=hid_size,
-                                         use_cuda=self.use_cuda)
+        layer_size = config["sampling"]["categories_per_batch"] * config["sampling"]["supports_per_category"]
+        num_channels = layer_size
+        self.match_net = MatchingNetwork(layer_size=layer_size,
+                                         num_channels=num_channels)
         logger.info("Matching Network Summary: \n{}".format(self.match_net))
 
         self.cuda_available = torch.cuda.is_available()
         if self.cuda_available and self.use_cuda:
             cudnn.benchmark = True
-            torch.cuda.manual_seed_all(seed=seed_val)
+            torch.cuda.manual_seed_all(seed=0)
             self.match_net.cuda()
 
-    def training(self, num_train_epoch, print_grads=False):
+    def training(self, num_train_epoch, print_grads=False, print_precision=False):
         """
         Runs one training epoch.
 
+        :param print_precision:
         :param print_grads: Flag to denote if gradients are to be printed.
         :param num_train_epoch: Number of batches to train.
         :return: mean_training_multilabel_margin_loss.
@@ -125,20 +104,13 @@ class Run_Network:
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch
                 x_supports, y_support_hots, x_hats, y_hats_hots, target_cat_indices = \
-                    self.data_formatter.get_batches(
-                        batch_size=self.batch_size,
-                        categories_per_batch=self.categories_per_batch,
-                        supports_per_category=self.supports_per_category,
-                        targets_per_category=self.targets_per_category,
-                        vectorizer=self.vectorizer,
-                        input_size=self.input_size)
-
+                    self.data_formatter.get_batches()
                 x_supports = Variable(torch.from_numpy(x_supports), requires_grad=True).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
                 # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                 x_hats = Variable(torch.from_numpy(x_hats), requires_grad=True).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
-                target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
+                # target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                 if self.cuda_available and self.use_cuda:
                     cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(), x_hats.cuda(),
@@ -146,7 +118,7 @@ class Run_Network:
                                                          batch_size=self.batch_size)
                 else:
                     cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, x_hats, y_hats_hots,
-                                                         target_cat_indices, batch_size=self.batch_size, )
+                                                         target_cat_indices, batch_size=self.batch_size)
 
                 ## Print Model Summary:
                 # make_dot(cc_loss, self.match_net)
@@ -172,17 +144,18 @@ class Run_Network:
                 ## update the optimizer learning rate
                 self.__adjust_learning_rate(optimizer)
 
-                precision_1 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
-                precision_3 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
-                precision_5 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
+                if print_precision:
+                    precision_1 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=1)
+                    precision_3 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=3)
+                    precision_5 = self.test_metrics.precision_k_hot(y_hats_hots, hats_preds, k=5)
 
-                logger.info("TRAIN Precisions:")
-                logger.info("Precision @ 1: {}".format(precision_1))
-                logger.info("Precision @ 3: {}".format(precision_3))
-                logger.info("Precision @ 5: {}".format(precision_5))
+                    logger.info("TRAIN Precisions:")
+                    logger.info("Precision @ 1: {}".format(precision_1))
+                    logger.info("Precision @ 3: {}".format(precision_3))
+                    logger.info("Precision @ 5: {}".format(precision_5))
 
                 iter_out = "TRAIN Loss: {}".format(cc_loss.item())
-                logger.debug(iter_out)
+                logger.info(iter_out)
 
                 pbar.set_description(iter_out)
                 print('\n')
@@ -215,14 +188,7 @@ class Run_Network:
             with torch.no_grad():
                 for i in range(num_val_epoch):  # 1 validation epoch
                     x_supports, y_support_hots, x_targets, y_target_hots, target_cat_indices = \
-                        self.data_formatter.get_batches(
-                            batch_size=self.batch_size,
-                            categories_per_batch=self.categories_per_batch,
-                            supports_per_category=self.supports_per_category,
-                            targets_per_category=self.targets_per_category,
-                            vectorizer=self.vectorizer,
-                            input_size=self.input_size,
-                            val=True)
+                        self.data_formatter.get_batches(val=True)
                     logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
                                 .format(x_supports.shape, y_support_hots.shape, x_targets.shape, y_target_hots.shape))
 
@@ -231,7 +197,7 @@ class Run_Network:
                     # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                     x_targets = Variable(torch.from_numpy(x_targets), requires_grad=False).float()
                     y_target_hots = Variable(torch.from_numpy(y_target_hots), requires_grad=False).float()
-                    target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
+                    # target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                     if self.cuda_available and self.use_cuda:
                         cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
@@ -240,10 +206,10 @@ class Run_Network:
                                                                             requires_grad=False, print_accuracy=True)
                     else:
                         cc_loss, hats_preds = self.match_net(x_supports, y_support_hots, x_targets,
-                                                                            y_target_hots, target_cat_indices,
-                                                                            batch_size=self.batch_size,
-                                                                            # requires_grad=False, print_accuracy=True
-                                                                                         )
+                                                             y_target_hots, target_cat_indices,
+                                                             batch_size=self.batch_size,
+                                                             # requires_grad=False, print_accuracy=True
+                                                             )
 
                     logger.debug("Saving encoded_x_hat named: [{}] at: [{}]".format(self.dataset_name
                                                                                     + "_val_encoded_x_hat_" + str(
@@ -300,13 +266,7 @@ class Run_Network:
             with torch.no_grad():
                 for i in range(total_test_batches):  # 1 test epoch
                     x_supports, y_support_hots, x_targets, y_target_hots = \
-                        self.data_formatter.get_batches(
-                            batch_size=self.batch_size,
-                            categories_per_batch=self.categories_per_batch,
-                            supports_per_category=self.supports_per_category,
-                            vectorizer=self.vectorizer,
-                            input_size=self.input_size)
-
+                        self.data_formatter.get_batches(val=True)
                     x_supports = Variable(torch.from_numpy(x_supports), requires_grad=False).float()
                     y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
                     x_targets = Variable(torch.from_numpy(x_targets), requires_grad=False).float()
@@ -350,7 +310,7 @@ class Run_Network:
         """
         Updates the learning rate given the learning rate decay.
 
-        The routine has been implemented according to the original Lua SGD optimizer
+        The routine has been implemented according to the original Lua SGD optimizer_type
         """
         for group in optimizer.param_groups:
             if 'step' not in group:
@@ -359,37 +319,43 @@ class Run_Network:
 
             group['lr'] = self.lr / (1 + group['step'] * self.lr_decay)
 
-    def __create_optimizer(self, model, new_lr):
-        """Setup optimizer"""
-        if self.optimizer == 'sgd':
+    def __create_optimizer(self, model, new_lr, optimizer_type=config["model"]["optimizer"]["optimizer_type"],
+                           weight_decay=config["model"]["optimizer"]["weight_decay"],
+                           rho=config["model"]["optimizer"]["rho"],
+                           momentum=config["model"]["optimizer"]["momentum"],
+                           dampening=config["model"]["optimizer"]["dampening"],
+                           alpha=config["model"]["optimizer"]["alpha"],
+                           centered=config["model"]["optimizer"]["centered"]):
+        """Setup optimizer_type"""
+        if optimizer_type == 'sgd':
             optimizer = torch.optim.SGD(model.parameters(),
                                         lr=new_lr,
-                                        momentum=0.9,
-                                        dampening=0.9,
-                                        weight_decay=self.weight_decay)
-        elif self.optimizer == 'adam':
+                                        momentum=momentum,
+                                        dampening=dampening,
+                                        weight_decay=weight_decay)
+        elif optimizer_type == 'adam':
             optimizer = torch.optim.Adam(model.parameters(),
                                          lr=new_lr,
-                                         weight_decay=self.weight_decay)
-        elif self.optimizer == 'adadelta':
+                                         weight_decay=weight_decay)
+        elif optimizer_type == 'adadelta':
             optimizer = torch.optim.Adadelta(model.parameters(),
                                              lr=new_lr,
-                                             rho=0.9,
-                                             weight_decay=self.weight_decay)
-        elif self.optimizer == 'dagrad':
+                                             rho=rho,
+                                             weight_decay=weight_decay)
+        elif optimizer_type == 'dagrad':
             optimizer = torch.optim.Adagrad(model.parameters(),
                                             lr=new_lr,
                                             lr_decay=self.lr_decay,
-                                            weight_decay=self.weight_decay)
-        elif self.optimizer == 'rmsprop':
+                                            weight_decay=weight_decay)
+        elif optimizer_type == 'rmsprop':
             optimizer = torch.optim.RMSprop(model.parameters(),
                                             lr=new_lr,
-                                            alpha=0.99,
+                                            alpha=alpha,
                                             momentum=0.9,
-                                            centered=False,
-                                            weight_decay=self.weight_decay)
+                                            centered=centered,
+                                            weight_decay=weight_decay)
         else:
-            raise Exception('Optimizer not supported: [{0}]'.format(self.optimizer))
+            raise Exception('Optimizer not supported: [{0}]'.format(optimizer_type))
         return optimizer
 
 

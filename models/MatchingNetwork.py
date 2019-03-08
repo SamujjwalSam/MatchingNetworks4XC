@@ -22,23 +22,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from logger.logger import logger
 from models import Attn
-from models import BiLSTM
 from models import PairCosineSim
+from logger.logger import logger
+from models import BiLSTM
 from models import EmbedText
-
-seed_val = 0
-# random.seed(seed_val)
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
+from config import configuration as config
 
 
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
-    def __init__(self, batch_size, layer_size, num_channels, input_size=28, hid_size=1, fce=True, use_cuda=True,
-                 classify_count=0, dropout=0.2, g_encoder="cnn"):
+    def __init__(self, num_channels, layer_size, fce=config["model"]["fce"]):
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 
@@ -58,24 +52,13 @@ class MatchingNetwork(nn.Module):
 
         self.attn = Attn()
         self.cosine_dis = PairCosineSim.PairCosineSim()
-        self.g = EmbedText(batch_size=batch_size,
-                           layer_size=layer_size,
-                           num_channels=num_channels,
-                           model_type=g_encoder,
-                           classify_count=classify_count,
-                           input_size=input_size,
-                           hid_size=hid_size,
-                           dropout=dropout,
-                           use_cuda=use_cuda)
+        self.g = EmbedText(num_channels, layer_size)
         if self.fce:
-            self.lstm = BiLSTM(input_size=self.g.output_size,
-                               hid_size=hid_size,
-                               batch_size=batch_size,
-                               dropout=dropout,
-                               use_cuda=use_cuda)
+            self.lstm = BiLSTM(input_size=self.g.output_size)
 
-    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, batch_size=64,
-                print_accuracy=False, dropout_external=False, requires_grad=True):
+    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, print_accuracy=False,
+                batch_size=config["sampling"]["batch_size"], dropout_external=config["model"]["dropout_external"],
+                requires_grad=True):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
@@ -128,17 +111,18 @@ class MatchingNetwork(nn.Module):
         #     .format(hats_preds.shape, hats_hots.shape)
 
         loss = 0
+        target_y_mlml = self.create_mlml_data(target_cat_indices, shape=hats_preds.shape)
         ## Calculate accuracy and crossentropy loss. (Need to calculate loss for each sample but for whole batch.)
         for j in np.arange(hats_preds.size(1)):
             # logger.debug((hats_preds[:, j, :].shape, targets_hots.long()[:, j, :].shape))
-            loss += F.binary_cross_entropy_with_logits(hats_preds[:, j, :], targets_hots[:, j, :])
-            # loss += F.multilabel_margin_loss(hats_preds[:, j, :], targets_hots.long()[:, j, :])
+            # loss += F.binary_cross_entropy_with_logits(hats_preds[:, j, :], targets_hots[:, j, :])
+            loss += F.multilabel_margin_loss(hats_preds[:, j, :], target_y_mlml.long()[:, j, :])
             # loss += F.smooth_l1_loss(hats_preds[:, j, :], targets_hots[:, j, :])
             # loss += F.cross_entropy(hats_preds[:, j, :], target_cat_indices[:, j].long())
         crossentropy_loss = loss / targets_x.size(1)
 
         values, indices = hats_preds.max(2)
-        if print_accuracy:
+        if print_accuracy:  ## Valid only for multi-class.
             accuracy = torch.mean((indices == target_cat_indices.long()).float())
             logger.debug("Accuracy: [{}]".format(accuracy))
             return crossentropy_loss, hats_preds, encoded_targets

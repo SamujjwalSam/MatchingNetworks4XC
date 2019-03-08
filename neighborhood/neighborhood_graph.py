@@ -28,6 +28,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from utils import util
 from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
+from config import configuration as config
+from config import platform as plat
 
 
 class Neighborhood:
@@ -37,8 +39,8 @@ class Neighborhood:
     Supported models: glove, word2vec, fasttext, googlenews, bert, lex, etc.
     """
 
-    def __init__(self, dataset_name: str, graph_dir: str = "D:\\Datasets\\Extreme Classification",
-                 graph_format: str = "graphml", k: int = 10):
+    def __init__(self, dataset_name: str = config["data"]["dataset_name"], graph_format: str = "graphml", k: int = 10,
+                 graph_dir: str = config["paths"]["dataset_dir"][plat]):
         """
 
         :param dataset_name:
@@ -208,7 +210,7 @@ class Neighborhood:
 
         return G_stats
 
-    def add_semantic_info(self, E_cats, model_type="glove", embedding_dim=300, alpha=0.5):
+    def add_semantic_info(self, E_cats, model_type="glove", alpha=0.5):
         """
         Calculates and stores the semantic similarity between two label texts.
 
@@ -219,7 +221,7 @@ class Neighborhood:
         :return:
         TODO: handle multi-word categories and unknown words.
         """
-        pretrain_model = TextEncoder(model_type=model_type, embedding_dim=embedding_dim)
+        pretrain_model = TextEncoder(model_type=model_type)
         # semantic_sim = OrderedDict()
         for (cat1, cat2) in E_cats.keys():
             E_cats[(cat1, cat2)] = (E_cats[(cat1, cat2)], pretrain_model.get_sim(cat1, cat2),
@@ -280,7 +282,7 @@ def get_label_dict(label_filepath):
         with open(label_filepath, 'r') as file:
             content = file.read().splitlines()
     except:
-        with open(label_filepath, 'r', encoding='latin-1') as file:  # 'latin-1' encoding for old files.
+        with open(label_filepath, 'r', encoding=config["text_process"]["encoding"]) as file:  # 'latin-1' encoding for old files.
             content = file.read().splitlines()
 
     label_dict = OrderedDict()
@@ -401,7 +403,7 @@ def get_subgraph(V, E, label_filepath, dataset_name, level=1, subgraph_count=5, 
     return subgraph_lists
 
 
-def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=util.get_dataset_path(), seed=0):
+def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=config["paths"]["dataset_dir"][plat], seed=0):
     """
     Splits the data into 2 parts.
 
@@ -452,9 +454,9 @@ def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=util.ge
                     Y_val.append(Y_tr.pop(i))
                     break
     util.save_npz(X_tr, "X_tr", file_path=save_path, overwrite=False)
-    util.save_pickle(Y_tr, pkl_file_name="Y_tr", file_path=save_path)
+    util.save_pickle(Y_tr, filename="Y_tr", file_path=save_path)
     util.save_npz(X_val, "X_val", file_path=save_path, overwrite=False)
-    util.save_pickle(Y_val, pkl_file_name="Y_val", file_path=save_path)
+    util.save_pickle(Y_val, filename="Y_val", file_path=save_path)
     return X_tr, Y_tr, X_val, Y_val
 
 

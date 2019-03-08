@@ -25,12 +25,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from logger.logger import logger
 
-seed_val = 0
-# random.seed(seed_val)
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
-
 
 class PairCosineSim(nn.Module):
     def __init__(self):
@@ -74,12 +68,11 @@ class PairCosineSim(nn.Module):
 
         return cosine_sim
 
-    def forward(self, support_sets, X_hats, normalize=True, dim=0, test=False):
+    def forward(self, support_sets, X_hats, normalize=True, test=False):
         """
         Calculates pairwise cosine similarity of support sets with target sample.
 
         :param test: Flag to denote if checking with sklearn.cosine_similarity is needed.
-        :param dim:
         :param normalize: Whether to normalize the matrix to range: (0,1) from (-1,+1)
         :param support_sets: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
         :param X_hats: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]

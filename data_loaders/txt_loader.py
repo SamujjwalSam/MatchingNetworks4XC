@@ -24,6 +24,8 @@ from smart_open import smart_open as sopen  # Better alternative to Python open(
 
 from utils import util
 from logger.logger import logger
+from config import configuration as config
+from config import platform as plat
 
 seed_val = 0
 
@@ -49,9 +51,7 @@ class TXTLoader(torch.utils.data.Dataset):
         }
     """
 
-    def __init__(self,
-                 dataset_name="AmazonCat-13K",
-                 data_dir: str = "D:\\Datasets\\Extreme Classification"):
+    def __init__(self, dataset_name=config["data"]["dataset_name"], data_dir: str = config["paths"]["dataset_dir"][plat]):
         """
         Initializes the TXT loader.
 
@@ -67,7 +67,7 @@ class TXTLoader(torch.utils.data.Dataset):
         logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
         self.sentences, self.classes, self.categories = self.gen_dicts()
 
-    def gen_dicts(self, json_path=None, encoding='UTF-8'):
+    def gen_dicts(self, encoding='UTF-8'):
         """
         Loads the txt files.
 
@@ -98,7 +98,7 @@ class TXTLoader(torch.utils.data.Dataset):
 
         return sentences, classes, categories
 
-    def read_classes(self, classes_dir=None, classes_file="categories.txt", encoding='latin-1'):
+    def read_classes(self, classes_dir=None, classes_file="categories.txt", encoding=config["text_process"]["encoding"]):
         """
         Reads the categories.txt file and returns a OrderedDict of id : class ids.
 
@@ -127,7 +127,7 @@ class TXTLoader(torch.utils.data.Dataset):
 
         return classes
 
-    def read_titles(self, classes_keys=None, title_path=None, title_file="titles.txt", encoding='latin-1'):
+    def read_titles(self, classes_keys=None, title_path=None, title_file="titles.txt", encoding=config["text_process"]["encoding"]):
         """
         Reads the titles.txt file and returns a OrderedDict of id : title.
 
@@ -147,7 +147,8 @@ class TXTLoader(torch.utils.data.Dataset):
                     titles[line[0].strip()] = " ".join(line[1:]).strip()
         return titles
 
-    def read_desc(self, classes_keys=None, desc_path=None, desc_file="descriptions.txt", encoding='latin-1'):
+    def read_desc(self, classes_keys=None, desc_path=None, desc_file="descriptions.txt",
+                  encoding=config["text_process"]["encoding"]):
         """
         Reads the descriptions.txt file and returns a OrderedDict of id : desc.
 

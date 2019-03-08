@@ -25,16 +25,12 @@ from random import sample, shuffle
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
-from scipy import sparse, random, math
+from scipy import sparse, math
 from unidecode import unidecode
 
 from logger.logger import logger
-
-seed_val = 0
-# random.seed(seed=seed_val)
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
+# from config import configuration as config
+# from config import platform as plat
         
         
 def print_dict(data, count=5):
@@ -613,7 +609,7 @@ def read_inputs(dataset_path, dataset, read_test=False):
     return X, Y, V, E
 
 
-def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_path(), seed=seed_val):
+def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_path(), seed=0):
     """
     Splits the data into 2 parts.
 

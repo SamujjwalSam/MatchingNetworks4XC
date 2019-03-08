@@ -25,12 +25,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from logger.logger import logger
 
-seed_val = 0
-# random.seed(seed_val)
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
-
 
 class PairCosineSim(nn.Module):
     def __init__(self):

@@ -21,14 +21,16 @@ __last_modified__:
 
 from utils import util
 
+global seed
+seed = 0
 
 global configuration
 configuration = {
     "data": {
         "dataset_name": "Wiki10-31K",
-        "val_split": 0.2,
+        "val_split": 0.1,
         "test_split": 0.3,
-        "show_stat":False
+        "show_stat": False
     },
 
     "xc_datasets": {
@@ -45,47 +47,77 @@ configuration = {
 
     "model": {
         "num_folds": 5,
-        "max_nb_words": 20000,
         "max_sequence_length": 100,
-        "learning_rate": 1,
-        "lr_decay": 1e-6,
-        "weight_decay": 1e-4,
-        "optim": "adam",
+        "max_vec_len": 5000,
         "dropout": 0.2,
-        "clipnorm": 3.0,
+        "dropout_external": 0.0,
+        "clipnorm": 1.0,
         "data_slice": 5120,
 
         "g_encoder": "cnn",
-        "vectorizer": "doc2vec",
         "use_cuda": False,
-        "sents_chunk_mode": "word_sum",
         "normalize_inputs": False,
-        "sample_repeat_mode": "append",
         "tfidf_avg": False,
-        "dropout_external": 0.0,
         "kernel_size": 1,
         "stride": 1,
         "padding": 1,
-        "min_word_count": 1,
         "context": 10,
+        "classify_count": 0,
         "fce": False,
+        "optimizer": {
+            "optimizer_type": "adam",
+            "learning_rate": 1e-4,
+            "lr_decay": 1e-6,
+            "weight_decay": 1e-4,
+            "momentum":0.9,
+            "dampening":0.9,
+            "alpha":0.99,
+            "rho":0.9,
+            "centered":False
+        }
+    },
 
-        "hid_size": 64,
-        "input_size": 300,
+    "lstm_params": {
+        "num_layers": 1,
+        "bias": True,
+        "batch_first": True,
+        "bidirectional": True,
+    },
 
-        "num_epochs": 30,
-        "num_train_epoch": 20,
-        "batch_size": 32,
-        "categories_per_batch": 5,
-        "supports_per_category": 4,
-        "targets_per_category": 4
+    "cnn_params": {
+        "padding": 1,
+        "stride": 1,
+        "kernel_size": 1,
+        "bias": True,
+    },
+
+    "sampling": {
+        "num_epochs": 100,
+        "num_train_epoch": 50,
+        "batch_size": 64,
+        "categories_per_batch": 10,
+        "supports_per_category": 5,
+        "targets_per_category": 5
     },
 
     "prep_vecs": {
+        "max_nb_words": 20000,
+        "min_word_count": 1,
         "window": 7,
+        "min_count": 1,
         "negative": 10,
         "num_chunks": 10,
-        "sents_chunk_mode": "word_avg"
+        "vectorizer": "doc2vec",
+        "sample_repeat_mode": "append",
+        "hid_size": 64,
+        "input_size": 300,
+        "tfidf_avg": False
+    },
+
+    "text_process": {
+        "encoding": 'latin-1',
+        "sents_chunk_mode": "word_sum",
+        "workers": 5
     },
 
     "paths": {
@@ -100,9 +132,25 @@ configuration = {
 
         "dataset_dir": {
             "Windows": "D:\\Datasets\\Extreme Classification",
-            "Linux": "/home/cs16resch01001/datasets/Extreme Classification",
+            "Linux": "/raid/ravi/Datasets/Extreme Classification",
             "OSX": "/home/cs16resch01001/datasets/Extreme Classification"
         }
+    },
+
+    "html_parser": {
+        "alt_text": True,
+        "ignore_table": True,
+        "decode_errors": "ignore",
+        "default_alt": "<IMG>",
+        "ignore_link": True,
+        "reference_links": True,
+        "bypass_tables": True,
+        "ignore_emphasis": True,
+        "unicode_snob": True,
+        "no_automatic_links": True,
+        "no_skip_internal_links": True,
+        "single_line_break": True,
+        "escape_all": True
     }
 }
 
@@ -129,6 +177,28 @@ class Config(object):
         Prints the config.
         """
         util.print_json(self.configuration, "System Configuration")
+
+    def get_platform(self):
+        """
+        Returns dataset path based on OS.
+
+        :return: Returns dataset path based on OS.
+        """
+        import platform
+
+        if platform.system() == 'Windows':
+            return platform.system()
+        elif platform.system() == 'Linux':
+            return platform.system()
+        else:  # OS X returns name 'Darwin'
+            return "OSX"
+
+
+config_cls = Config()
+config_cls.print_config()
+
+global platform
+platform = config_cls.get_platform()
 
 
 def main():
