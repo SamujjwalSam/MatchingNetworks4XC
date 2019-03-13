@@ -257,8 +257,41 @@ class PrepareData:
         ## as JSON. Converting them back to integer.
         return selected_cat_ids
 
-    def select_samples(self, support_cat_ids, cat2sample_map=None, input_size=300, samples_per_category=4,
-                       vectorizer="doc2vec", repeat_mode='append', return_cat_indices=False):
+    def cat_jaccard_sim_mat(self, cats_hot:list):
+        """
+        Calculates Jaccard similarities among categories.
+
+        :param cats_hot: List of lists of categories.
+        :return: Matrix of similarities. Matrix of jaccard similarities: number of categories, number of categories
+        """
+        j_sim = np.zeros((len(cats_hot),len(cats_hot)))
+        for i,cat1 in enumerate(cats_hot):
+            for j,cat2 in enumerate(cats_hot):
+                j_sim[i,j] = len(set(cat1).intersection(set(cat2))) / len(set(cat1).union(set(cat2)))
+        return j_sim
+
+    def get_support_cats_jaccard(self, cats=None, select=config["sampling"]["categories_per_batch"]):
+        """
+        Selects categories such that each category is least similar to previously selected categories.
+
+        :param cats: List of lists of categories.
+        :param select: Number of samples to draw.
+        :return:
+        """
+        if cats is None: cats = self.remain_cat_ids
+        selected_cats = []
+        sel_cat = sample(range(len(cats)), k=1)[0]
+        selected_cats.append(sel_cat)
+        cat_sim = self.cat_jaccard_sim_mat(cats)
+        for i in np.arange(select - 1):
+            cat_sim[:,sel_cat] = 1.0
+            sel_cat = np.argmin(cat_sim[sel_cat,i:])  ## Symmetric matrix, need to check only upper triangle.
+            selected_cats.append(sel_cat)
+
+        return selected_cats
+
+    def select_samples(self, support_cat_ids, cat2sample_map=None, select=config["sampling"]["supports_per_category"],
+                       return_cat_indices=False,sample_repeat_mode=config["prep_vecs"]["sample_repeat_mode"]):
         """
         Returns a batch of feature vectors and multi-hot classes.
 

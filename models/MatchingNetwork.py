@@ -24,9 +24,9 @@ import numpy as np
 
 from models import Attn
 from models import PairCosineSim
-from logger.logger import logger
 from models import BiLSTM
 from models import EmbedText
+from logger.logger import logger
 from config import configuration as config
 
 
@@ -127,6 +127,24 @@ class MatchingNetwork(nn.Module):
             logger.debug("Accuracy: [{}]".format(accuracy))
             return crossentropy_loss, hats_preds, encoded_targets
         return crossentropy_loss, hats_preds
+
+    def create_mlml_data(self,target_cat_indices, shape):
+        """
+        Generates true labels in proper format for Multilabel_Margin_Loss.
+
+        :param target_cat_indices: List of categories.
+        """
+        target_y_mlml = torch.full(shape,-1)
+        for i in np.arange(target_y_mlml.size(0)):
+            # logger.debug(target_cat_indices[i])
+            for j in np.arange(target_y_mlml.size(1)):
+                # logger.debug(type(target_cat_indices[i][j]))
+                # logger.debug(target_cat_indices[i][j])
+                for k in np.arange(len(target_cat_indices[i][j])):
+                    # logger.debug(target_cat_indices[i][j][k])
+                    target_y_mlml[i,j,k] = torch.tensor(target_cat_indices[i][j][k], dtype=torch.int32)
+
+        return target_y_mlml
 
 
 if __name__ == '__main__':
