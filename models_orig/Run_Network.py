@@ -1,14 +1,16 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : Matching Networks for Extreme Classification.
+__synopsis__    : Builds the experiment using matching network, the training and evaluation ops as well as data_loader augmentation routines.
+
 __description__ : Builds the experiment using matching network, the training and evaluation ops as well as data_loader augmentation routines.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
 __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
 
 __classes__     : Run_Network
 
@@ -108,7 +110,7 @@ class Run_Network:
                 # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                 x_hats = Variable(torch.from_numpy(x_hats), requires_grad=True).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
-                target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
+                # target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                 if self.cuda_available and self.use_cuda:
                     cc_loss, hats_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(), x_hats.cuda(),
@@ -195,7 +197,7 @@ class Run_Network:
                     # support_cat_indices = Variable(torch.from_numpy(support_cat_indices), requires_grad=False).float()
                     x_targets = Variable(torch.from_numpy(x_targets), requires_grad=False).float()
                     y_target_hots = Variable(torch.from_numpy(y_target_hots), requires_grad=False).float()
-                    target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
+                    # target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                     if self.cuda_available and self.use_cuda:
                         cc_loss, hats_preds, encoded_x_hat = self.match_net(x_supports.cuda(), y_support_hots.cuda(),

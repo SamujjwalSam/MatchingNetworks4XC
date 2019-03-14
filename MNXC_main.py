@@ -2,6 +2,7 @@
 # !/usr/bin/python3.6  # Please use python 3.6
 """
 __synopsis__    : Main file to run Matching Networks for Extreme Classification.
+
 __description__ :
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
@@ -9,7 +10,8 @@ __version__     : ": 0.1 "
 __date__        : "08-11-2018"
 
 __copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
 
 __classes__     :
 
@@ -175,6 +177,15 @@ def main(args):
     logger.info("Train losses: [{}]".format(train_epoch_losses))
     logger.info("Validation losses: [{}]".format(val_epoch_losses))
     logger.info("#" * separator_length)
+    plot_occurance(val_epoch_losses)
+    plot_occurance(total_p1s)
+    plot_occurance(total_p3s)
+    plot_occurance(total_p5s)
+
+    ## Inference Phase
+    ## Data Selection
+
+    test_epoch_loss, test_p1, test_p3, test_p5 = match_net.testing()
     plot_occurance(val_epoch_losses)
     plot_occurance(total_p1s)
     plot_occurance(total_p3s)

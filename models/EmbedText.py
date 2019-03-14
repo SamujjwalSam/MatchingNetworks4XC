@@ -1,14 +1,16 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : Matching Networks for Extreme Classification.
+__synopsis__    : Builds embeddings for pre-trained sentences using either LSTM and/or CNNText.
+
 __description__ : Builds embeddings for pre-trained sentences using either LSTM and/or CNNText.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
 __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
 
 __classes__     : EmbedText
 

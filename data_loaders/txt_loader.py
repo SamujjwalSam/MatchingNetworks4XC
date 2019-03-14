@@ -1,14 +1,16 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : TXTLoader.
+__synopsis__    : Class to process and load txt files from a directory.
+
 __description__ : Class to process and load txt files from a directory.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
 
 __classes__     : TXTLoader,
 
@@ -26,8 +28,6 @@ from utils import util
 from logger.logger import logger
 from config import configuration as config
 from config import platform as plat
-
-seed_val = 0
 
 
 class TXTLoader(torch.utils.data.Dataset):

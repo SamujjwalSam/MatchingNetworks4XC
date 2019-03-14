@@ -1,25 +1,28 @@
 # coding=utf-8
 # !/usr/bin/python3.6  # Please use python 3.6
 """
-__synopsis__    : Short summary of the script.
-__description__ : 
+__synopsis__    : Config file for global variables.
+
+__description__ : We can print the configuration on every run and get the hyper-parameter configuration for each run.
 __project__     : MNXC
-__author__      : sam 
-__version__     : ":  "
+__author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+__version__     : ": 0.1 "
 __date__        : "04-03-2019"
 __copyright__   : "Copyright (c) 2019, All rights reserved."
-__license__     : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+__license__     : "This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree."
 
 __classes__     : config
     
-__variables__   :
+__variables__   : configuration, seed, platform
     
 __methods__     :
 
 __last_modified__: 
 """
 
-from utils import util
+import json
+from logger.logger import logger
 
 global seed
 seed = 0
@@ -172,11 +175,11 @@ class Config(object):
         """
         return self.configuration
 
-    def print_config(self):
+    def print_config(self, indent=4, sort=True):
         """
         Prints the config.
         """
-        util.print_json(self.configuration, "System Configuration")
+        logger.info("[{}] : {}".format("Configuration", json.dumps(self.configuration, indent=indent, sort_keys=sort)))
 
     def get_platform(self):
         """
@@ -190,7 +193,7 @@ class Config(object):
             return platform.system()
         elif platform.system() == 'Linux':
             return platform.system()
-        else:  # OS X returns name 'Darwin'
+        else:  ## OS X returns name 'Darwin'
             return "OSX"
 
 

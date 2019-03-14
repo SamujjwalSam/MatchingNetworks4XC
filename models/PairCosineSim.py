@@ -1,14 +1,16 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : Matching Networks for Extreme Classification.
+__synopsis__    : Calculates cosine similarity of support sets with target sample.
+
 __description__ : Calculates cosine similarity of support sets with target sample.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
 __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
 
 __classes__     : PairCosineSim
 
@@ -29,6 +31,40 @@ from logger.logger import logger
 class PairCosineSim(nn.Module):
     def __init__(self):
         super(PairCosineSim, self).__init__()
+
+    def forward(self, supports, targets, normalize=True, test=False):
+        """
+        Calculates pairwise cosine similarity of support sets with target sample.
+
+        :param test: Flag to denote if checking with sklearn.cosine_similarity is needed.
+        :param normalize: Whether to normalize the matrix to range: (0,1) from (-1,+1)
+        :param supports: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
+        :param targets: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]
+
+        :return: Tensor with cosine similarities of shape [batch_size, target_size, support_size]
+        """
+        eps = 1e-10
+        batch_targets_similarities = []
+        if test:
+            targets_detached = targets.clone().detach()  ## Creating clone() and detaching from graph.
+            supports_detached = supports.clone().detach()
+        for i in np.arange(targets.size(0)):
+            targets_similarities = []
+            for j in np.arange(targets.size(1)):
+                target_similarities = F.cosine_similarity(targets[i, j, :].unsqueeze(0), supports[i, :, :], eps=eps)
+                targets_similarities.append(target_similarities)
+            batch_x_hat_similarities = torch.stack(targets_similarities)
+
+            if test:
+                logger.debug("Computed sim: {}".format(batch_x_hat_similarities))
+                sim = cosine_similarity(targets_detached[i,:,:].numpy(), supports_detached[i,:,:].numpy())
+                logger.debug("sklearn sim: {}".format(sim))
+            batch_targets_similarities.append(batch_x_hat_similarities)
+        batch_targets_similarities = torch.stack(batch_targets_similarities)
+        if normalize:
+            batch_targets_similarities = torch.add(batch_targets_similarities,1)
+            batch_targets_similarities = torch.mul(batch_targets_similarities,0.5)
+        return batch_targets_similarities
 
     def flatten_except_batchdim(self, tensor_data, batch_dim=0):
         """
@@ -67,47 +103,6 @@ class PairCosineSim(nn.Module):
         logger.debug(cosine_sim.shape)
 
         return cosine_sim
-
-    def forward(self, support_sets, X_hats, normalize=True, test=False):
-        """
-        Calculates pairwise cosine similarity of support sets with target sample.
-
-        :param test: Flag to denote if checking with sklearn.cosine_similarity is needed.
-        :param normalize: Whether to normalize the matrix to range: (0,1) from (-1,+1)
-        :param support_sets: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
-        :param X_hats: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]
-        :return: Tensor with cosine similarities of shape [batch_size, target_size, support_size]
-        """
-        eps = 1e-10
-        batch_x_hats_similarities = []
-        # logger.debug((support_sets.shape,X_hats.shape))
-        for i in np.arange(X_hats.size(0)):
-            x_hats_similarities = []
-            for j in np.arange(X_hats.size(1)):
-                # logger.debug((X_hats[i,j,:], support_sets[i,:,:]))
-                # logger.debug((X_hats[i,j,:].shape, support_sets[i,:,:].shape))
-                x_hat_similarities = F.cosine_similarity(X_hats[i,j,:].unsqueeze(0), support_sets[i,:,:], eps=eps)
-                # logger.debug("x_hat_similarities.shape: {}".format(x_hat_similarities.shape))
-                x_hats_similarities.append(x_hat_similarities)
-            batch_x_hat_similarities = torch.stack(x_hats_similarities)
-
-            if test:
-                logger.debug("Computed sim: {}".format(batch_x_hat_similarities))
-                X_hats_2 = X_hats.clone().detach()  ## Creating clone() and detaching from graph.
-                support_sets_2 = support_sets.clone().detach()
-                sim = cosine_similarity(X_hats_2[i,:,:].numpy(), support_sets_2[i,:,:].numpy())
-                logger.debug("sklearn sim: {}".format(sim))
-            # logger.debug("batch_x_hat_similarities.shape: {}".format(batch_x_hat_similarities.shape))
-            batch_x_hats_similarities.append(batch_x_hat_similarities)            
-        # logger.debug("batch_x_hats_similarities: {}".format(batch_x_hats_similarities))
-        batch_x_hats_similarities = torch.stack(batch_x_hats_similarities)
-        # logger.debug("batch_x_hats_similarities.shape: {}".format(batch_x_hats_similarities.shape))
-        if normalize:
-            batch_x_hats_similarities = torch.add(batch_x_hats_similarities,1)
-            batch_x_hats_similarities = torch.mul(batch_x_hats_similarities,0.5)
-        # logger.debug(batch_x_hats_similarities)
-        # logger.debug(batch_x_hats_similarities.shape)
-        return batch_x_hats_similarities
 
 
 if __name__ == '__main__':

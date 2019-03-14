@@ -1,14 +1,16 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : Matching Networks for Extreme Classification.
+__synopsis__    : Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
+
 __description__ : Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : "0.1"
 __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
 
 __classes__     : MatchingNetwork
 
@@ -26,7 +28,8 @@ from models_orig import Attn
 from models_orig import PairCosineSim
 from logger.logger import logger
 from models import BiLSTM
-from models import EmbedText
+# from models import EmbedText
+from models.EmbedText import EmbedText
 from config import configuration as config
 
 
@@ -56,7 +59,7 @@ class MatchingNetwork(nn.Module):
         if self.fce:
             self.lstm = BiLSTM(input_size=self.g.output_size)
 
-    def forward(self, supports_x, supports_hots, hats_x, hats_hots, target_cat_indices, batch_size=config["sampling"]["batch_size"]):
+    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, batch_size=config["sampling"]["batch_size"]):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
@@ -68,10 +71,10 @@ class MatchingNetwork(nn.Module):
         :param supports_hots: A tensor containing the support set labels.
             [batch_size, sequence_size, n_classes]
             torch.Size([32, 25, 5])
-        :param hats_x: A tensor containing the target sample (sample to produce label for).
+        :param targets_x: A tensor containing the target sample (sample to produce label for).
             [batch_size, n_channels, 28]
             torch.Size([32, 5, 1, 28])
-        :param hats_hots: A tensor containing the target label.
+        :param targets_hots: A tensor containing the target label.
             [batch_size, 1]
             torch.Size([32, 5])
         :return:
@@ -85,11 +88,10 @@ class MatchingNetwork(nn.Module):
         # logger.debug("encoded_supports: {}".format(encoded_supports))
 
         accuracy = 0
-        crossentropy_loss = 0
         hats_preds = []
         ## Produce embeddings for target samples
-        for i in np.arange(hats_x.size(1)):
-            encoded_x_hat = self.g(hats_x[:, i, :].unsqueeze(1), batch_size=batch_size)
+        for i in np.arange(targets_x.size(1)):
+            encoded_x_hat = self.g(targets_x[:, i, :].unsqueeze(1), batch_size=batch_size)
             # logger.debug("encoded_x_hat output: {}".format(encoded_x_hat))
 
             if self.fce:
@@ -106,19 +108,19 @@ class MatchingNetwork(nn.Module):
             # logger.debug("similarities shape: {}".format(similarities.shape))
 
             ## Produce predictions for target probabilities
-            hats_pred = self.attn.forward_orig(similarities_squeezed,support_set_y=supports_hots)  # batch_size x # classes = hats_hots.shape
+            hats_pred = self.attn.forward_orig(similarities_squeezed,support_set_y=supports_hots)  # batch_size x # classes = targets_hots.shape
             # logger.debug("target_cat_indices: {}".format(target_cat_indices))
             # logger.debug("hats_pred output: {}".format(hats_pred))
 
             ## Calculate accuracy and crossentropy loss
-            values, indices = hats_pred.max(1)
-            if i == 0:
-                accuracy = torch.mean((indices.unsqueeze(1) == hats_hots[:, i].long()).float())
-                crossentropy_loss = F.cross_entropy(hats_pred, target_cat_indices[:, i].squeeze().long())
-            else:
-                accuracy = accuracy + torch.mean((indices.unsqueeze(1) == hats_hots[:, i].long()).float())
-                crossentropy_loss = crossentropy_loss + F.cross_entropy(hats_pred, target_cat_indices[:, i].long())
-            crossentropy_loss = crossentropy_loss / hats_x.size(1)
+            # values, indices = hats_pred.max(1)
+            # if i == 0:
+            #     accuracy = torch.mean((indices.unsqueeze(1) == targets_hots[:, i].long()).float())
+            #     crossentropy_loss = F.cross_entropy(hats_pred, target_cat_indices[:, i].squeeze().long())
+            # else:
+            #     accuracy = accuracy + torch.mean((indices.unsqueeze(1) == targets_hots[:, i].long()).float())
+            #     crossentropy_loss = crossentropy_loss + F.cross_entropy(hats_pred, target_cat_indices[:, i].long())
+            # crossentropy_loss = crossentropy_loss / targets_x.size(1)
             hats_preds.append(hats_pred)
         hats_preds = torch.stack(hats_preds,dim=1)
         logger.info("Accuracy: [{}]".format(accuracy / hats_hots.size(1)))

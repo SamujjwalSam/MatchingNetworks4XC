@@ -2,13 +2,15 @@
 # !/usr/bin/python3.6  # Please use python 3.6
 """
 __synopsis__    : Initializes weights to various Pytorch modules.
-__description__ : 
+
+__description__ :
 __project__     : MNXC
-__author__      : sam Weight_Init
+__author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ":  "
 __date__        : "26-02-2019"
-__copyright__   : "Copyright (c) 2019, sam. All rights reserved."
-__license__     : "This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree."
+__copyright__   : "Copyright (c) 2019, All rights reserved."
+__license__     : "This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree."
 
 __classes__     :
     

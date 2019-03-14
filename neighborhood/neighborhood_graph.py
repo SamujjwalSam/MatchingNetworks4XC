@@ -1,14 +1,16 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : Script to create Neighborhood graph.
+__synopsis__    : Class to generate neighborhood graph based on label similarity between samples.
+
 __description__ : Class to generate neighborhood graph based on label similarity between samples.
 __project__     : MNXC
 __author__      : Samujjwal Ghosh <cs16resch01001@iith.ac.in>
 __version__     : ": 0.1 "
 __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root directory of this source tree.
+__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
+                  directory of this source tree.
 
 __classes__     : Neighborhood
 
@@ -295,10 +297,10 @@ def get_label_dict(label_filepath):
 def get_subgraph(V, E, label_filepath, dataset_name, level=1, subgraph_count=5, ignore_deg=None, root_node=None):
     """
     # total_points: total number of samples.
-    # feature_dm: number of features per datapoint.
+    # feature_dm: number of features per sample.
     # number_of_labels: total number of categories.
     # X: feature matrix of dimension total_points * feature_dm.
-    # classes: list of size total_points. Each element of the list containing categories corresponding to one datapoint.
+    # classes: list of size total_points. Each element of the list containing categories corresponding to one sample.
     # V: list of all categories (nodes).
     # E: dict of edge tuple(node_1,node_2) -> weight, eg. {(1, 4): 1, (2, 7): 3}.
     """
