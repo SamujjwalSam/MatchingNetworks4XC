@@ -63,8 +63,8 @@ class BiLSTM(nn.Module):
                                 dropout=dropout,
                                 bias=bias,
                                 num_layers=num_layers,
-                                batch_first=batch_first,  ## If True, then the input and lstm
-                                ## tensors are provided as (batch, # seq, feature) rather than (seq, batch, feature)
+                                batch_first=batch_first,  ## If True, then the input and lstm tensors are provided as
+                                ## (batch, # seq, feature) rather than (seq, batch, feature)
                                 bidirectional=bidirectional).cuda()
         else:
             self.lstm = nn.LSTM(input_size=input_size,

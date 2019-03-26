@@ -37,7 +37,7 @@ class PairCosineSim(nn.Module):
         Calculates pairwise cosine similarity of support sets with target sample.
 
         :param supports: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
-        :param target: The embedding of the target image, tensor of shape [batch_size, 64]
+        :param targets: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]
 
         :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
         """

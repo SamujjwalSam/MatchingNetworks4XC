@@ -147,17 +147,16 @@ def main(args):
     config_cls = Config()
     config = config_cls.get_config()
 
+    ## Training Phase
     data_loader = Common_JSON_Handler()
-
     data_formatter = PrepareData(dataset_loader=data_loader)
-
     match_net = Run_Network(data_formatter=data_formatter)
 
     train_epoch_losses = []
     val_epoch_losses = []
-    total_p1s = []
-    total_p3s = []
-    total_p5s = []
+    val_p1s = []
+    val_p3s = []
+    val_p5s = []
     separator_length = 92
     for epoch in range(config["sampling"]["num_epochs"]):
         train_epoch_loss = match_net.training(num_train_epoch=config["sampling"]["num_train_epoch"])
@@ -178,9 +177,16 @@ def main(args):
     logger.info("Validation losses: [{}]".format(val_epoch_losses))
     logger.info("#" * separator_length)
     plot_occurance(val_epoch_losses)
-    plot_occurance(total_p1s)
-    plot_occurance(total_p3s)
-    plot_occurance(total_p5s)
+    plot_occurance(val_p1s)
+    plot_occurance(val_p3s)
+    plot_occurance(val_p5s)
+
+    ## Inference Phase
+    test_epoch_loss, test_p1, test_p3, test_p5 = match_net.testing()
+    plot_occurance(test_epoch_loss)
+    plot_occurance(test_p1)
+    plot_occurance(test_p3)
+    plot_occurance(test_p5)
 
 
 if __name__ == '__main__':

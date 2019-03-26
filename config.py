@@ -95,10 +95,10 @@ configuration = {
     },
 
     "sampling": {
-        "num_epochs": 100,
-        "num_train_epoch": 50,
+        "num_epochs": 30,
+        "num_train_epoch": 20,
         "batch_size": 64,
-        "categories_per_batch": 10,
+        "categories_per_batch": 5,
         "supports_per_category": 5,
         "targets_per_category": 5
     },
@@ -129,7 +129,7 @@ configuration = {
 
         "pretrain_dir": {
             "Windows": "D:\\Datasets\\Extreme Classification",
-            "Linux": "/raid/ravi/pretrain",
+            "Linux": "/raid/ravi/pretrain",  ## Code path: /home/cs14resch11001/codes/MNXC
             "OSX": "/home/cs16resch01001/datasets/Extreme Classification"
         },
 

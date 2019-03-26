@@ -74,12 +74,12 @@ class EmbedText(nn.Module):
                 weight_init(self.conv3)
                 weight_init(self.conv4)
 
-    def forward(self, inputs, batch_size=config["sampling"]["batch_size"], dropout_external=config["model"]["dropout_external"], requires_grad=True):
+    def forward(self, inputs, dropout_external=config["model"]["dropout_external"], requires_grad=True):
         """
         Runs the CNNText producing the embeddings and the gradients.
 
+        :param requires_grad:
         :param dropout_external:
-        :param batch_size:
         :param inputs: Image input to produce embeddings for. [batch_size, 28, 28, 1]
         :return: Embeddings of size [batch_size, 64]
         """

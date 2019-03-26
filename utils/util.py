@@ -413,6 +413,7 @@ def read_json_str(filename, file_path='', date_time_tag='', ext="", show_path=Fa
     """
     Loads json file as python OrderedDict.
 
+    :param show_path:
     :param ext: Should extension be appended?
     :param filename:
     :param file_path:
@@ -436,6 +437,7 @@ def write_file(data, filename, file_path='', overwrite=False, mode='w', encoding
                verbose=False):
     """
 
+    :param verbose:
     :param encoding:
     :param data:
     :param filename:
@@ -554,227 +556,9 @@ def load_pickle(filename, file_path):
         logger.warning("File not found at: [{}]".format(join(file_path, filename + ".pkl")))
 
 
-def read_inputs(dataset_path, dataset, read_test=False):
-    """
-    Reads input files.
-
-    :param read_test: Bool; to indicate between train and test file
-    :param dataset_path:
-    :param dataset:
-    :return:
-    """
-    filename = '_train'
-    if read_test:  ## If true read test file instead of train file
-        filename = '_test'
-
-    file = dataset + filename
-    file = join(dataset_path, dataset, dataset, file)
-    X, Y, V, E = False, False, False, False
-    logger.debug('Reading files from path{0}'.format(file))
-    if exists(join(dataset_path, dataset, "X" + filename + ".npz")):
-        X = load_npz("X" + filename, file_path=join(dataset_path, dataset))
-
-    if exists(join(dataset_path, dataset, "Y_ints" + filename + ".pkl")):
-        Y = load_pickle(filename="Y_ints" + filename, file_path=join(dataset_path, dataset))
-
-    if exists(join(dataset_path, dataset, "V_ints" + filename + ".pkl")):
-        V = load_pickle(filename="V_ints" + filename, file_path=join(dataset_path, dataset))
-
-    if exists(join(dataset_path, dataset, "E" + filename + ".pkl")):
-        E = load_pickle(filename="E" + filename, file_path=join(dataset_path, dataset))
-
-    if X is False or Y is False or V is False or E is False:
-        logger.info('Generating data from train and test files.')
-        _, _, _, X, Y, V, E = get_x_y_v_e(join(dataset_path, dataset, dataset, dataset + filename + '.txt'))
-
-        save_npz(X, "X" + filename, file_path=join(dataset_path, dataset), overwrite=False)
-        Y_ints = []
-        for y_list in Y:
-            Y_ints.append([int(i) for i in y_list])
-        save_pickle(Y_ints, filename="Y_ints" + filename, file_path=join(dataset_path, dataset))
-        save_pickle(Y, filename="Y" + filename, file_path=join(dataset_path, dataset))
-
-        V_ints = []
-        for y_list in V:
-            V_ints.append(int(y_list))
-        save_pickle(V_ints, filename="V_ints" + filename, file_path=join(dataset_path, dataset))
-        save_pickle(V, filename="V" + filename, file_path=join(dataset_path, dataset))
-
-        ## Converting [E] to default dict as returned [E] is not pickle serializable
-        E_tr_2 = OrderedDict()
-        for i, j in E.items():
-            E_tr_2[i] = j
-        save_pickle(E_tr_2, filename="E" + filename, file_path=join(dataset_path, dataset))
-    return X, Y, V, E
-
-
-def split_data(X, Y, V, split=0.1, label_preserve=False, save_path=get_dataset_path(), seed=0):
-    """
-    Splits the data into 2 parts.
-
-    :param X:
-    :param Y:
-    :param V:
-    :param split:
-    :param label_preserve: if True; splits the data keeping the categories common.
-    :param save_path:
-    :param seed:
-    :return:
-    """
-    assert (X.shape[0] == len(Y))
-
-    if not label_preserve:
-        from sklearn.model_selection import train_test_split
-        X_tr, X_val, Y_tr, Y_val = train_test_split(X, Y, test_size=split, random_state=seed)
-        return X_tr, Y_tr, X_val, Y_val
-
-    lbl_feature_count = OrderedDict().fromkeys(V)
-
-    for lbl in V:
-        for y_list in Y:
-            if int(lbl) in y_list:
-                if lbl_feature_count[lbl] is None:
-                    lbl_feature_count[lbl] = 1
-                else:
-                    lbl_feature_count[lbl] += 1
-    assert (len(lbl_feature_count) == len(V))
-
-    lbl_feature_count_portion = OrderedDict().fromkeys(V)
-    for k, val in lbl_feature_count.items():
-        lbl_feature_count_portion[k] = int(math.floor(lbl_feature_count[k] * split))
-    logger.debug(len(lbl_feature_count_portion))
-
-    X_val = []
-    Y_val = []
-    X_tr = None
-    Y_tr = Y.copy()
-    for lbl, count in lbl_feature_count_portion.items():
-        for c in range(count):
-            for i, y_list in enumerate(Y):
-                if lbl in y_list:
-                    X_val.append(X[i])
-                    X_tr = np.delete(X, i)
-                    Y_val.append(Y_tr.pop(i))
-                    break
-    save_npz(X_tr, "X_tr", file_path=save_path, overwrite=False)
-    save_pickle(Y_tr, filename="Y_tr", file_path=save_path)
-    save_npz(X_val, "X_val", file_path=save_path, overwrite=False)
-    save_pickle(Y_val, filename="Y_val", file_path=save_path)
-    return X_tr, Y_tr, X_val, Y_val
-
-
-def _test_split_val():
-    X = np.asarray(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'])
-    Y = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 1], [2, 1]]
-    V = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
-    X_tr, Y_tr, X_val, Y_val = split_data(X, Y, V)
-    logger.debug(X_tr)
-    logger.debug(Y_tr)
-    logger.debug(X_val)
-    logger.debug(Y_val)
-
-
-def main(args):
-    """
-
-    :param args:
-    :return:
-    """
-
-    datasets = ['RCV1-2K', 'EURLex-4K', 'AmazonCat-13K', 'AmazonCat-14K', 'Wiki10-31K', 'Delicious-200K',
-                'WikiLSHTC-325K', 'Wikipedia-500K', 'Amazon-670K', 'Amazon-3M']
-    arff_datasets = ['Corel-374', 'Bibtex_arff', 'Delicious_arff', 'Mediamill_arff', 'Medical', 'Reuters-100_arff']
-    datasets = ['RCV1-2K']
-    for dataset in datasets:
-        train_graph_file = dataset + '_train.txt'
-        train_graph_file = join(args.dataset_path, dataset, train_graph_file)
-
-        total_points, feature_dm, number_of_labels, X, Y, V, E = get_x_y_v_e(train_graph_file)
-
-        save_json(V, dataset + '_V_train', join(args.dataset_path, dataset))
-        save_json(E, dataset + '_E_train', join(args.dataset_path, dataset), overwrite=True)
-
-        # Collecting some stats about the dataset and graph.
-        e_stats, edge_occurances_sorted = edge_stats(E)
-        e_stats['singles_train'] = find_single_labels(Y)
-        save_json(e_stats, dataset + "_edge_statistics_train")
-
-        plot_occurance(edge_occurances_sorted, plot_name=dataset + '_train_edge_occurances_sorted.jpg', clear=False)
-        plot_occurance(edge_occurances_sorted, plot_name=dataset + '_train_edge_occurances_sorted_log.jpg', log=True)
-
-        test_graph_file = dataset + '_test.txt'
-        test_graph_file = join(args.dataset_path, dataset, test_graph_file)
-
-        total_points, feature_dm, number_of_labels, X, Y, V, E = get_x_y_v_e(test_graph_file)
-
-        save_json(V, dataset + '_V_test', join(args.dataset_path, dataset))
-        save_json(E, dataset + '_E_test', join(args.dataset_path, dataset), overwrite=True)
-
-        # Collecting some stats about the dataset and graph.
-        e_stats, edge_occurances_sorted = edge_stats(E)
-        e_stats['singles_test'] = find_single_labels(Y)
-        save_json(e_stats, dataset + "_edge_statistics_test")
-
-        plot_occurance(edge_occurances_sorted, plot_name=dataset + '_test_edge_occurances_sorted.jpg', clear=False)
-        plot_occurance(edge_occurances_sorted, plot_name=dataset + '_test_edge_occurances_sorted_log.jpg', log=True)
+def main():
+    pass
 
 
 if __name__ == '__main__':
-    # text = "Ceñía Lo+=r?e~~m ipsum dol;or sit!! amet, consectet..ur ad%"
-    # logger.debug(remove_special_chars(text))
-    # exit(0)
-    """
-    sample call: python utils/py /Users/monojitdey/Downloads/Wiki10-31K/Wiki10/wiki10_test.txt
-    /Users/monojitdey/Downloads/Wiki10-31K/Wiki10-31K_mappings/wiki10-31K_label_map.txt dataset_path =
-    'D:\Datasets\Extreme Classification' dataset_name = 'Wiki10-31K' test_file = 'Wiki10/wiki10_test.txt'
-    label_map_file = 'Wiki10-31K_mappings/wiki10-31K_label_map.txt'
-
-    Examples:
-      1. python utils/py
-
-      2. python utils/py --node_id 4844
-
-      3. python utils/py --test_file /Users/monojitdey/Downloads/Wiki10-31K/Wiki10/wiki10_test.txt --label_map_file
-      /Users/monojitdey/Downloads/Wiki10-31K/Wiki10-31K_mappings/wiki10-31K_label_map.txt
-
-      4. python utils/py --dataset_path /Users/monojitdey/Downloads/ --dataset_name Wiki10-31K --test_file
-      /Wiki10/wiki10_test.txt --label_map_file /Wiki10-31K_mappings/wiki10-31K_label_map.txt
-      5. python utils/py --dataset_path /Users/monojitdey/Downloads/ --dataset_name Wiki10-31K --test_file
-      /Wiki10/wiki10_test.txt --label_map_file /Wiki10-31K_mappings/wiki10-31K_label_map.txt --node_id 4844
-    """
-    parser = ArgumentParser("Label Sub-graph generator",
-                            formatter_class=ArgumentDefaultsHelpFormatter,
-                            conflict_handler='resolve',
-                            epilog="Example: python utils/py --dataset_path /Users/monojitdey/Downloads/ "
-                                   "--dataset_name Wiki10-31K --test_file /Wiki10/wiki10_train.txt --label_map_file "
-                                   "/Wiki10-31K_mappings/wiki10-31K_label_map.txt --node_id 4844 \n")
-    parser.add_argument('--dataset_path',
-                        help='Path to dataset folder', type=str,
-                        default=get_dataset_path())
-    parser.add_argument('--dataset_name',
-                        help='Name of the dataset to use', type=str,
-                        default='all')
-    # parser.add_argument('--graph_file',  # required=True,
-    #                     help='File path from which graph to be generated',type=str,
-    #                     default='AmazonCat-13K/AmazonCat-13K_train.txt')
-    # parser.add_argument('--label_map_file',
-    #                     help="Label_map file path inside dataset. (If label file is not provided, graph will show "
-    #                          "numeric categories only)",
-    #                     type=str,
-    #                     default='AmazonCat-13K_mappings/AmazonCat-13K_label_map.txt')
-    parser.add_argument('--level',
-                        help='Number of hops to generate graph', type=int,
-                        default=1)
-    parser.add_argument('--ignore_deg',
-                        help='Ignores nodes with degree >= [ignore_degree]', type=int,
-                        default=500)
-    parser.add_argument('--node_id',
-                        help='ID [Row number on  file] of the root node to generate graph', type=int,
-                        default=12854)
-    parser.add_argument('--subgraph_count',
-                        help='How many subgraphs should be generated in single run', type=int,
-                        default=1)
-    args = parser.parse_args()
-
-    logger.info("Parameters: [{}]".format(args))
-    main(args)
+    main()

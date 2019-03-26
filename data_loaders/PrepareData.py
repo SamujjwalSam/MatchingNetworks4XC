@@ -1,7 +1,7 @@
 # coding=utf-8
 # !/usr/bin/python3.6 ## Please use python 3.6
 """
-__synopsis__    : Matching Networks for Extreme Classification.
+__synopsis__    : Prepares the datasets as per Matching Networks model.
 
 __description__ : Prepares the datasets as per Matching Networks model.
 __project__     : MNXC
@@ -11,11 +11,8 @@ __date__        : "08-11-2018"
 __copyright__   : "Copyright (c) 2019"
 __license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
                   directory of this source tree.
-
 __classes__     : PrepareData
-
 __variables__   :
-
 __methods__     :
 """
 
@@ -54,6 +51,7 @@ class PrepareData:
 
         self.mlb = MultiLabelBinarizer()
         dataset_loader.gen_data_stats()
+        self.text_encoder = TextEncoder()
 
     def cat2samples(self, classes_dict: dict = None):
         """
@@ -126,10 +124,7 @@ class PrepareData:
 
         :returns: Vector length, numpy.ndarray(batch_size, vec_len)
         """
-        self.text_encoder = TextEncoder()
-
         # sentences = util.clean_sentences(sentences, specials="""_-@*#'"/\\""", replace='')
-
         if vectorizer == "doc2vec":
             if self.doc2vec_model is None:
                 self.doc2vec_model = self.text_encoder.load_doc2vec(sentences)

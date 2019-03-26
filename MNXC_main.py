@@ -186,10 +186,10 @@ def main(args):
     ## Data Selection
 
     test_epoch_loss, test_p1, test_p3, test_p5 = match_net.testing()
-    plot_occurance(val_epoch_losses)
-    plot_occurance(total_p1s)
-    plot_occurance(total_p3s)
-    plot_occurance(total_p5s)
+    plot_occurance(test_epoch_loss)
+    plot_occurance(test_p1)
+    plot_occurance(test_p3)
+    plot_occurance(test_p5)
 
 
 if __name__ == '__main__':

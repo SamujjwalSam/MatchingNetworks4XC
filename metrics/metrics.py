@@ -145,7 +145,7 @@ class Metrics:
             for j in np.arange(predictions.shape[1]):
                 precision_elm = 0
                 for l in np.arange(preds_desc.shape[2]):
-                    if actuals[i,j,preds_desc[i,j,l].item()] == pos_label:  # Cheking if top index positions are 1.
+                    if actuals[i,j,preds_desc[i,j,l].item()] == pos_label:  # Checking if top index positions are 1.
                         precision_elm += 1
                 precision_samples += precision_elm / preds_desc.shape[2]
             precision_batch += precision_samples / predictions.shape[1]

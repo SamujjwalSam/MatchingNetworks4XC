@@ -41,18 +41,16 @@ class Attn(nn.Module):
         :return: Softmax pdf
         """
         softmax = nn.Softmax(dim=dim)
-        # softmax = nn.Softmax()
         softmax_similarities = softmax(similarities)
-        # logger.debug(softmax_similarities)
-        # softmax_similarities = softmax_similarities.unsqueeze(1)  ## Testing if transpose necessary.
-        x_hats_preds = []
+        # logger.debug(("softmax_similarities.shape: ",softmax_similarities.shape))
+        targets_preds = []
         for j in np.arange(softmax_similarities.size(1)):
             softmax_similarities_unsqueeze = softmax_similarities[:,j,:].unsqueeze(1)
             support_set_y_bmm = softmax_similarities_unsqueeze.bmm(support_set_y)
-            x_hat_pred = support_set_y_bmm.squeeze()
-            x_hats_preds.append(x_hat_pred)
-        x_hats_preds = torch.stack(x_hats_preds,dim=1)
-        return x_hats_preds
+            target_pred = support_set_y_bmm.squeeze()
+            targets_preds.append(target_pred)
+        targets_preds = torch.stack(targets_preds,dim=1)
+        return targets_preds
 
 
 if __name__ == '__main__':

@@ -26,9 +26,10 @@ import numpy as np
 
 from models import Attn
 from models import PairCosineSim
+from logger.logger import logger
 from models import BiLSTM
 from models import EmbedText
-from logger.logger import logger
+
 from config import configuration as config
 
 
@@ -58,16 +59,14 @@ class MatchingNetwork(nn.Module):
         if self.fce:
             self.lstm = BiLSTM(input_size=self.g.output_size)
 
-    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, print_accuracy=False,
-                batch_size=config["sampling"]["batch_size"], dropout_external=config["model"]["dropout_external"],
-                requires_grad=True):
+    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, requires_grad=True,
+                batch_size=config["sampling"]["batch_size"], dropout_external=config["model"]["dropout_external"]):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
         :param target_cat_indices:
         :param requires_grad:
         :param dropout_external:
-        :param print_accuracy:
         :param batch_size:
         :param supports_x: A tensor containing the support set samples.
             [batch_size, sequence_size, n_channels, 28]
@@ -84,10 +83,9 @@ class MatchingNetwork(nn.Module):
         :return:
         """
         encoded_supports = self.g(supports_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
-        # for i in np.arange(supports_x.size(1)):
-        #     gen_encode = self.g(supports_x[:, i, :])
-        #     encoded_supports.append(gen_encode)
-        # logger.debug("encoded_supports output: {}".format(encoded_supports))
+
+        ## Convert target indices to Pytorch multi-label loss format. Takes class indices at the begining and rest should be filled with -1.
+        target_y_mlml = self.create_mlml_data(target_cat_indices, output_shape=targets_hots.shape)
 
         ## Produce embeddings for target samples
         encoded_targets = self.g(targets_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
@@ -99,54 +97,48 @@ class MatchingNetwork(nn.Module):
             # logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
             # logger.debug("FCE encoded_targets output: {}".format(encoded_targets))
 
-        ## Get similarity between support set embeddings and target
+        ## Get similarity between support embeddings and targets
         similarities = self.cosine_dis(support_sets=encoded_supports, X_hats=encoded_targets, normalize=False)
         # logger.debug("similarities: {}".format(similarities))
         # logger.debug("similarities shape: {}".format(similarities.shape))
 
         ## Produce predictions for target probabilities
-        hats_preds = self.attn(similarities,support_set_y=supports_hots)  ## batch_size x # classes = hats_hots.shape
+        targets_preds = self.attn(similarities,support_set_y=supports_hots)  ## batch_size x # classes = hats_hots.shape
         # logger.debug("target_cat_indices: {}".format(target_cat_indices))
-        # logger.debug("hats_preds output: {}".format(hats_preds))
-
-        # assert hats_preds.shape == hats_hots.shape, "hats_preds.shape ({}) == ({}) hats_hots.shape" \
-        #     .format(hats_preds.shape, hats_hots.shape)
+        # logger.debug("targets_preds output: {}".format(targets_preds))
 
         loss = 0
-        target_y_mlml = self.create_mlml_data(target_cat_indices, shape=hats_preds.shape)
-        ## Calculate accuracy and crossentropy loss. (Need to calculate loss for each sample but for whole batch.)
-        for j in np.arange(hats_preds.size(1)):
-            # logger.debug((hats_preds[:, j, :].shape, targets_hots.long()[:, j, :].shape))
-            # loss += F.binary_cross_entropy_with_logits(hats_preds[:, j, :], targets_hots[:, j, :])
-            loss += F.multilabel_margin_loss(hats_preds[:, j, :], target_y_mlml.long()[:, j, :])
-            # loss += F.smooth_l1_loss(hats_preds[:, j, :], targets_hots[:, j, :])
-            # loss += F.cross_entropy(hats_preds[:, j, :], target_cat_indices[:, j].long())
-        crossentropy_loss = loss / targets_x.size(1)
+        ## Calculate loss, need to calculate loss for each sample but for whole batch.
+        for j in np.arange(targets_preds.size(1)):
+            # logger.debug((targets_preds[:, j, :].shape, targets_hots.long()[:, j, :].shape))
+            # loss += F.binary_cross_entropy_with_logits(targets_preds[:, j, :], targets_hots[:, j, :])
+            # loss += F.smooth_l1_loss(targets_preds[:, j, :], targets_hots[:, j, :])
+            # loss += F.cross_entropy(targets_preds[:, j, :], target_cat_indices[:, j].long())
+            loss += F.multilabel_margin_loss(targets_preds[:, j, :], target_y_mlml[:, j, :])
+        loss = loss / targets_x.size(1)
 
-        values, indices = hats_preds.max(2)
-        if print_accuracy:  ## Valid only for multi-class.
-            accuracy = torch.mean((indices == target_cat_indices.long()).float())
-            logger.debug("Accuracy: [{}]".format(accuracy))
-            return crossentropy_loss, hats_preds, encoded_targets
-        return crossentropy_loss, hats_preds
+        return loss, targets_preds
 
-    def create_mlml_data(self,target_cat_indices, shape):
+    def create_mlml_data(self, target_cat_indices, output_shape):
         """
-        Generates true labels in proper format for Multilabel_Margin_Loss.
+        Generates true labels in proper format for Pytorch Multilabel_Margin_Loss.
 
+        Converts target indices to Pytorch 'multilabel_margin_loss' format. Takes class indices at the beginning and rest should be filled with -1.
+        :param output_shape: Shape of the output = batch_size, target count, # labels.
         :param target_cat_indices: List of categories.
         """
-        target_y_mlml = torch.full(shape,-1)
+        target_y_mlml = torch.full(output_shape, -1)  ## Createing a tensor filled with -1.
+        ## Replacing -1 with label indices at the begining of the tensor row.
         for i in np.arange(target_y_mlml.size(0)):
             # logger.debug(target_cat_indices[i])
             for j in np.arange(target_y_mlml.size(1)):
                 # logger.debug(type(target_cat_indices[i][j]))
-                # logger.debug(target_cat_indices[i][j])
-                for k in np.arange(len(target_cat_indices[i][j])):
+                # logger.debug((i,j,target_cat_indices[i][j]))
+                for k in range(len(target_cat_indices[i][j])):
                     # logger.debug(target_cat_indices[i][j][k])
-                    target_y_mlml[i,j,k] = torch.tensor(target_cat_indices[i][j][k], dtype=torch.int32)
+                    target_y_mlml[i, j, k] = torch.tensor(target_cat_indices[i][j][k], dtype=torch.int32)
 
-        return target_y_mlml
+        return target_y_mlml.long()
 
 
 if __name__ == '__main__':
