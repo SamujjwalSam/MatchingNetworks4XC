@@ -50,7 +50,7 @@ class PrepareData:
         self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
 
         self.mlb = MultiLabelBinarizer()
-        dataset_loader.gen_data_stats()
+        # dataset_loader.gen_data_stats()
         self.text_encoder = TextEncoder()
 
     def cat2samples(self, classes_dict: dict = None):
@@ -68,7 +68,7 @@ class PrepareData:
                 cat2id[cat].append(k)
         return cat2id
 
-    def prepare_data(self, load_type='train'):
+    def prepare_data(self, load_type='train', return_loaded=False):
         """
         Prepares (loads, vectorize, etc) the data provided by param "load_type".
 
@@ -87,6 +87,8 @@ class PrepareData:
         for cat_id in self.categories_all.values():
             cat_ids.append([cat_id])
         self.mlb.fit(cat_ids)
+        if return_loaded:
+            return self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all
 
     def txt2vec(self, sentences: list, vectorizer=config["prep_vecs"]["vectorizer"], tfidf_avg=config["prep_vecs"]["tfidf_avg"]):
         """
@@ -339,8 +341,8 @@ class PrepareData:
             return x_target, y_target_hot, y_target_indices
         return x_target, y_target_hot
 
-    def get_batches(self, batch_size=32, supports_per_category=config["sampling"]["supports_per_category"], val=False,
-                    targets_per_category=config["sampling"]["targets_per_category"], sample_repeat_mode='append'):
+    def get_batches(self, batch_size=config["sampling"]["batch_size"], supports_per_category=config["sampling"]["supports_per_category"], val=False,
+                    targets_per_category=config["sampling"]["targets_per_category"]):
         """
         Returns an iterator over data.
 
@@ -353,25 +355,26 @@ class PrepareData:
         :param vectorizer:
         :returns: An iterator over data.
         """
+        target_count = str(config["sampling"]["categories_per_batch"] * supports_per_category)+"_"+str(batch_size)
         if val:  ## If true, it's a validation run. Return stored values.
             logger.debug("Checking if Validation data is stored at: [{}]".format(
-                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
-            if isfile(join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")):
+                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_"+target_count+".pkl")))
+            if isfile(join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_"+target_count+".pkl")):
                 logger.info("Found Validation data at: [{}]".format(
-                    join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
-                supports_x = util.load_pickle(self.dataset_name + "_supports_x",
+                    join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_"+target_count+".pkl")))
+                supports_x = util.load_pickle(self.dataset_name + "_supports_x_"+target_count,
                                               file_path=join(self.dataset_dir, self.dataset_name))
-                supports_y_hots = util.load_pickle(self.dataset_name + "_supports_y_hots",
+                supports_y_hots = util.load_pickle(self.dataset_name + "_supports_y_hots_"+target_count,
                                                    file_path=join(self.dataset_dir, self.dataset_name))
-                targets_x = util.load_pickle(self.dataset_name + "_targets_x",
+                targets_x = util.load_pickle(self.dataset_name + "_targets_x_"+target_count,
                                              file_path=join(self.dataset_dir, self.dataset_name))
-                targets_y_hots = util.load_pickle(self.dataset_name + "_targets_y_hots",
+                targets_y_hots = util.load_pickle(self.dataset_name + "_targets_y_hots_"+target_count,
                                                   file_path=join(self.dataset_dir, self.dataset_name))
-                target_cat_indices = util.load_pickle(self.dataset_name + "_target_cat_indices",
+                target_cat_indices = util.load_pickle(self.dataset_name + "_target_cat_indices_"+target_count,
                                                       file_path=join(self.dataset_dir, self.dataset_name))
                 return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices
             logger.debug("Validation data not found at: [{}]".format(
-                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
+                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_"+target_count+".pkl")))
 
         support_cat_ids = self.get_support_cats()
         supports_x = []
@@ -379,43 +382,33 @@ class PrepareData:
         targets_x = []
         targets_y_hots = []
         target_cat_indices = []
-        # target_cat_indices_list1 = []
-        # target_cat_indices_list2 = []
         for i in range(batch_size):
             x_support, y_support_hot = self.select_samples(support_cat_ids,
-                                                           select=supports_per_category,
-                                                           sample_repeat_mode=sample_repeat_mode,
-                                                           )
-            # sel_cat = sample(support_cat_ids, k=1)
+                                                           select=supports_per_category)
             x_target, y_target_hot, target_cat_indices_batch = \
                 self.select_samples(support_cat_ids, select=targets_per_category, return_cat_indices=True)
             supports_x.append(x_support)
             supports_y_hots.append(y_support_hot)
-            # support_cat_indices.append(support_cat_indices_batch)
             targets_x.append(x_target)
             targets_y_hots.append(y_target_hot)
             target_cat_indices.append(target_cat_indices_batch)
-            # target_cat_indices_list1.append(list(target_cat_indices_batch.tolist()))
         supports_x = np.stack(supports_x)
         supports_y_hots = np.stack(supports_y_hots)
-        # support_cat_indices = np.stack(support_cat_indices)
         targets_x = np.stack(targets_x)
         targets_y_hots = np.stack(targets_y_hots)
-        # target_cat_indices.append(target_cat_indices)
-        # target_cat_indices_list2.append(list(target_cat_indices_list1))
 
         if val:
             logger.info("Storing Validation data at: [{}]".format(
-                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x.pkl")))
-            util.save_pickle(supports_x, filename=self.dataset_name + "_supports_x",
+                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_"+target_count+".pkl")))
+            util.save_pickle(supports_x, filename=self.dataset_name + "_supports_x_"+target_count,
                              file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_pickle(supports_y_hots, self.dataset_name + "_supports_y_hots",
+            util.save_pickle(supports_y_hots, self.dataset_name + "_supports_y_hots_"+target_count,
                              file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_pickle(targets_x, self.dataset_name + "_targets_x",
+            util.save_pickle(targets_x, self.dataset_name + "_targets_x_"+target_count,
                              file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_pickle(targets_y_hots, self.dataset_name + "_targets_y_hots",
+            util.save_pickle(targets_y_hots, self.dataset_name + "_targets_y_hots_"+target_count,
                              file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-            util.save_pickle(target_cat_indices, self.dataset_name + "_target_cat_indices",
+            util.save_pickle(target_cat_indices, self.dataset_name + "_target_cat_indices_"+target_count,
                              file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
         return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices  # , target_cat_indices_list2
 

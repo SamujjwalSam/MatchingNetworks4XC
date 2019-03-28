@@ -33,11 +33,12 @@ class BiLSTM(nn.Module):
     """
         Class for Bidirectional LSTM operations.
     """
+
     def __init__(self, batch_size=config["sampling"]["batch_size"],
                  use_cuda=config["model"]["use_cuda"],
                  bidirectional=config["lstm_params"]["bidirectional"],
                  input_size=config["prep_vecs"]["input_size"],
-                 hid_size=config["prep_vecs"]["hid_size"],
+                 hid_size=config["lstm_params"]["hid_size"],
                  dropout=config["model"]["dropout"],
                  bias=config["lstm_params"]["bias"],
                  num_layers=config["lstm_params"]["num_layers"],
@@ -92,21 +93,30 @@ class BiLSTM(nn.Module):
         # logger.debug(self.lstm.weight_ih_l0_reverse)
         # logger.debug(self.lstm._all_weights)
 
-    def init_hid(self, batch_size=config["sampling"]["batch_size"], requires_grad=True):
-        num_directions = 2  ## For bidirectional, num_layers should be multiplied by 2.
+    def init_hid(self, batch_size=config["sampling"]["batch_size"], requires_grad=True, r1=-1, r2=1, num_directions=2):
+        """
+        Generates h0 and c0 for LSTM initialization with values range from r1 to r2.
+
+        :param num_directions: For bidirectional, num_layers should be multiplied by 2.
+        :param r2: Max value of the range. To generate numbers in range(r1, r2)
+        :param r1: Min value of the range
+        :param batch_size:
+        :param requires_grad:
+        :return:
+        """
         if not self.bidirectional:
             num_directions = 1
-        r1, r2 = -1, 1  ## To generate numbers in range(-1,1)
+        # r1, r2 = -1, 1  ## To generate numbers in range(-1,1)
         if self.use_cuda and torch.cuda.is_available():
-            cell_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                      self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
-            hid_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                     self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
+            cell_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                        self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
+            hid_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                       self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
         else:
-            cell_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                      self.lstm.hidden_size) - r2, requires_grad=requires_grad)
-            hid_init = Variable((r2-r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                     self.lstm.hidden_size) - r2, requires_grad=requires_grad)
+            cell_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                        self.lstm.hidden_size) - r2, requires_grad=requires_grad)
+            hid_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
+                                                       self.lstm.hidden_size) - r2, requires_grad=requires_grad)
         return hid_init, cell_init
 
     def forward(self, inputs, training=True, requires_grad=True, dropout=config["model"]["dropout"],
@@ -114,6 +124,7 @@ class BiLSTM(nn.Module):
         """
         Runs the bidirectional LSTM, produces outputs and hidden states.
 
+        :param requires_grad:
         :param training: Signifies if network is training, during inference dropout is disabled.
         :param dropout: If non-zero, introduces a dropout layer on the outputs of each RNN layer except the last layer.
         :param dropout_external: Flag if dropout should be used externally as Pytorch uses dropout only on last layer.
@@ -135,12 +146,14 @@ class BiLSTM(nn.Module):
 
 
 if __name__ == '__main__':
-    test_blstm = BiLSTM(input_size=5, hid_size=2, batch_size=3, num_layers=1, dropout=0.2, use_cuda=False, bidirectional=True)
+    test_blstm = BiLSTM(input_size=5, hid_size=2, batch_size=3, num_layers=1, dropout=0.2, use_cuda=False,
+                        bidirectional=True)
     print(test_blstm)
     input = torch.rand(3, 1, 5)  ## (batch_size, seq_size, input_size)
     logger.debug("input: {}".format(input))
     logger.debug("input Shape: {}".format(input.shape))
-    result = test_blstm.forward(input, dropout_external=True)  ## output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
+    result = test_blstm.forward(input,
+                                dropout_external=True)  ## output.shape = (batch_size, seq_size, 2 * hid_size); hn.shape = (2 * num_layers, batch_size, hid_size) = cn.shape
     # logger.debug("result: {}".format(result))
     logger.debug("result: {}".format(result[0]))
     logger.debug("result: {}".format(result[0].shape))

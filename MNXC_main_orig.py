@@ -20,11 +20,14 @@ __variables__   :
 __methods__     :
 """
 
+import torch
+from os.path import join, isfile
 from matplotlib import pyplot as plt
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # TIME_STAMP = datetime.utcnow().isoformat()
 
 from config import Config
+from config import platform as plat
 from logger.logger import logger
 from models_orig.Run_Network import Run_Network
 from data_loaders.PrepareData import PrepareData
@@ -159,34 +162,55 @@ def main(args):
     val_p5s = []
     separator_length = 92
     for epoch in range(config["sampling"]["num_epochs"]):
-        train_epoch_loss = match_net.training(num_train_epoch=config["sampling"]["num_train_epoch"])
+        train_epoch_loss = match_net.training(total_epoch=epoch, num_train_epoch=config["sampling"]["num_train_epoch"])
         train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))
         logger.info("-" * separator_length)
-        val_epoch_loss, total_p1, total_p3, total_p5 = match_net.validating(num_val_epoch=1, epoch_count=epoch)
-        # val_epoch_loss = match_net.validating(num_val_epoch=1, epoch_count=epoch)
+
+        # val_epoch_loss, val_p1, val_p3, val_p5 = match_net.testing()
+        val_epoch_loss, val_p1, val_p3, val_p5 = match_net.validating(num_val_epoch=1, epoch_count=epoch)
         val_epoch_losses.append(val_epoch_loss)
-        total_p1s.append(total_p1)
-        total_p3s.append(total_p3)
-        total_p5s.append(total_p5)
+        val_p1s.append(val_p1)
+        val_p3s.append(val_p3)
+        val_p5s.append(val_p5)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
         logger.info("=" * separator_length)
 
-    logger.info("Train losses: [{}]".format(train_epoch_losses))
-    logger.info("Validation losses: [{}]".format(val_epoch_losses))
+    ## Storing trained model
+    torch.save(match_net.match_net.state_dict(),
+               join(config["paths"]["dataset_dir"][plat],config["data"]["dataset_name"],
+                    config["data"]["dataset_name"]+'_'+str(config["sampling"]["num_epochs"])))
+
     logger.info("#" * separator_length)
-    plot_occurance(val_epoch_losses)
-    plot_occurance(val_p1s)
-    plot_occurance(val_p3s)
-    plot_occurance(val_p5s)
+    # logger.info("Train losses: [{}]".format(train_epoch_losses))
+    logger.info("Validation losses: [{}]".format(val_epoch_losses))
+    # plot_occurance(val_epoch_losses)
+    logger.info("Validation Precisions 1: [{}]".format(val_p1s))
+    logger.info("Validation Precisions 3: [{}]".format(val_p3s))
+    logger.info("Validation Precisions 5: [{}]".format(val_p5s))
+    # plot_occurance(val_p1s)
+    # plot_occurance(val_p3s)
+    # plot_occurance(val_p5s)
 
     ## Inference Phase
+    logger.info("=" * separator_length)
+    logger.info("\nStarting Inference...")
     test_epoch_loss, test_p1, test_p3, test_p5 = match_net.testing()
-    plot_occurance(test_epoch_loss)
-    plot_occurance(test_p1)
-    plot_occurance(test_p3)
-    plot_occurance(test_p5)
+    logger.info("Test losses: [{}]".format(test_epoch_loss))
+    logger.info("Test Precision 1: [{}]".format(test_p1))
+    logger.info("Test Precision 3: [{}]".format(test_p3))
+    logger.info("Test Precision 5: [{}]".format(test_p5))
+    # plot_occurance(test_epoch_loss)
+    # plot_occurance(test_p1)
+    # plot_occurance(test_p3)
+    # plot_occurance(test_p5)
+
+    ## Loading model
+    # model = MatchingNetwork(layer_size=1, num_channels=1)
+    # model.load_state_dict(torch.load(join(config["paths"]["dataset_dir"][plat],config["data"]["dataset_name"],
+    #                 config["data"]["dataset_name"]+'_'+str(config["sampling"]["num_epochs"]))))
+    # model.eval()  ## call model.eval() to set dropout and batch normalization layers to evaluation mode before running inference.
 
 
 if __name__ == '__main__':

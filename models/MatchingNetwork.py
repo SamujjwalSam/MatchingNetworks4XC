@@ -82,13 +82,14 @@ class MatchingNetwork(nn.Module):
             torch.Size([32, 5])
         :return:
         """
-        encoded_supports = self.g(supports_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
-
         ## Convert target indices to Pytorch multi-label loss format. Takes class indices at the begining and rest should be filled with -1.
         target_y_mlml = self.create_mlml_data(target_cat_indices, output_shape=targets_hots.shape)
 
-        ## Produce embeddings for target samples
-        encoded_targets = self.g(targets_x, batch_size=batch_size, dropout_external=dropout_external, requires_grad=requires_grad)
+        ## Encode supports
+        encoded_supports = self.g(supports_x, dropout_external=dropout_external)
+
+        ## Encode targets
+        encoded_targets = self.g(targets_x, dropout_external=dropout_external)
         # logger.debug("encoded_targets output: {}".format(encoded_targets))
 
         if self.fce:
@@ -97,8 +98,8 @@ class MatchingNetwork(nn.Module):
             # logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
             # logger.debug("FCE encoded_targets output: {}".format(encoded_targets))
 
-        ## Get similarity between support embeddings and targets
-        similarities = self.cosine_dis(support_sets=encoded_supports, X_hats=encoded_targets, normalize=False)
+        ## Calculate similarity between encoded supports and targets
+        similarities = self.cosine_dis(supports=encoded_supports, targets=encoded_targets, normalize=False)
         # logger.debug("similarities: {}".format(similarities))
         # logger.debug("similarities shape: {}".format(similarities.shape))
 
@@ -110,20 +111,21 @@ class MatchingNetwork(nn.Module):
         loss = 0
         ## Calculate loss, need to calculate loss for each sample but for whole batch.
         for j in np.arange(targets_preds.size(1)):
-            # logger.debug((targets_preds[:, j, :].shape, targets_hots.long()[:, j, :].shape))
-            # loss += F.binary_cross_entropy_with_logits(targets_preds[:, j, :], targets_hots[:, j, :])
-            # loss += F.smooth_l1_loss(targets_preds[:, j, :], targets_hots[:, j, :])
-            # loss += F.cross_entropy(targets_preds[:, j, :], target_cat_indices[:, j].long())
-            loss += F.multilabel_margin_loss(targets_preds[:, j, :], target_y_mlml[:, j, :])
-        loss = loss / targets_x.size(1)
+            # logger.debug((targets_preds[:, j, :].shape, target_y_mlml[:, j, :].long().shape))
+            loss += F.multilabel_margin_loss(targets_preds[:, j, :], target_y_mlml[:, j, :].long(), reduction='mean')
+        crossentropy_loss = loss / targets_x.size(1)
 
-        return loss, targets_preds
+        return crossentropy_loss, targets_preds
 
     def create_mlml_data(self, target_cat_indices, output_shape):
         """
         Generates true labels in proper format for Pytorch Multilabel_Margin_Loss.
 
-        Converts target indices to Pytorch 'multilabel_margin_loss' format. Takes class indices at the beginning and rest should be filled with -1.
+        Converts target indices to Pytorch 'multilabel_margin_loss' format. Takes class indices at the beginning and
+        rest should be filled with -1.
+        Link 1: https://gist.github.com/bartolsthoorn/36c813a4becec1b260392f5353c8b7cc#gistcomment-2742606
+        Link 2: https://gist.github.com/bartolsthoorn/36c813a4becec1b260392f5353c8b7cc#gistcomment-2840045
+
         :param output_shape: Shape of the output = batch_size, target count, # labels.
         :param target_cat_indices: List of categories.
         """

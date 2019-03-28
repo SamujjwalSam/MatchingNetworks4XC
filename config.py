@@ -52,7 +52,7 @@ configuration = {
         "num_folds": 5,
         "max_sequence_length": 100,
         "max_vec_len": 5000,
-        "dropout": 0.2,
+        "dropout": 0.1,
         "dropout_external": 0.0,
         "clipnorm": 1.0,
         "data_slice": 5120,
@@ -69,7 +69,7 @@ configuration = {
         "fce": False,
         "optimizer": {
             "optimizer_type": "adam",
-            "learning_rate": 1e-4,
+            "learning_rate": 1,
             "lr_decay": 1e-6,
             "weight_decay": 1e-4,
             "momentum":0.9,
@@ -85,6 +85,7 @@ configuration = {
         "bias": True,
         "batch_first": True,
         "bidirectional": True,
+        "hid_size": 64,
     },
 
     "cnn_params": {
@@ -95,10 +96,10 @@ configuration = {
     },
 
     "sampling": {
-        "num_epochs": 30,
-        "num_train_epoch": 20,
+        "num_epochs": 50,
+        "num_train_epoch": 10,
         "batch_size": 64,
-        "categories_per_batch": 5,
+        "categories_per_batch": 10,
         "supports_per_category": 5,
         "targets_per_category": 5
     },
@@ -112,7 +113,6 @@ configuration = {
         "num_chunks": 10,
         "vectorizer": "doc2vec",
         "sample_repeat_mode": "append",
-        "hid_size": 64,
         "input_size": 300,
         "tfidf_avg": False
     },

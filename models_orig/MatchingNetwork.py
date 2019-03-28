@@ -82,11 +82,10 @@ class MatchingNetwork(nn.Module):
             torch.Size([32, 5])
         :return:
         """
-        # encoded_supports = self.g(supports_x, batch_size=batch_size)
         encoded_supports = []
         for i in np.arange(supports_x.size(1)):
             encoded_support = self.g(supports_x[:, i, :].unsqueeze(1))  ## LSTM takes batch_size at 2nd param, need to
-            # unsqueeze at index 1. Need to remove this extra dim afterwards.
+            ## unsqueeze at index 1. Need to remove this extra dim afterwards.
             encoded_supports.append(encoded_support.squeeze())
         encoded_supports = torch.stack(encoded_supports)
         # logger.debug("encoded_supports: {}".format(encoded_supports))
@@ -131,15 +130,14 @@ class MatchingNetwork(nn.Module):
                 target_pred = target_pred.unsqueeze(0)
 
             ## Calculate loss, need to calculate loss for each sample but for whole batch.
+
+            logger.debug((target_pred.shape, target_y_mlml[:, i, :].long().shape))
             if i == 0:
                 # logger.debug((targets_preds.shape, target_y_mlml.long().shape))
                 # logger.debug((targets_preds[:, j, :].shape, target_y_mlml.long()[:, j, :].shape))
-                # loss += F.binary_cross_entropy_with_logits(targets_preds[:, j, :], targets_hots[:, j, :])
-                # loss += F.smooth_l1_loss(targets_preds[:, j, :], targets_hots[:, j, :])
-                # loss += F.cross_entropy(targets_preds[:, j, :], target_cat_indices[:, j].long())
-                loss = F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :])
+                loss = F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long(), reduction='mean')
             else:
-                loss = loss + F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :])
+                loss = loss + F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long(), reduction='mean')
             targets_preds.append(target_pred)
         targets_preds = torch.stack(targets_preds, dim=1)
 
@@ -152,7 +150,11 @@ class MatchingNetwork(nn.Module):
         """
         Generates true labels in proper format for Pytorch Multilabel_Margin_Loss.
 
-        Converts target indices to Pytorch 'multilabel_margin_loss' format. Takes class indices at the beginning and rest should be filled with -1.
+        Converts target indices to Pytorch 'multilabel_margin_loss' format. Takes class indices at the beginning and
+        rest should be filled with -1.
+        Link 1: https://gist.github.com/bartolsthoorn/36c813a4becec1b260392f5353c8b7cc#gistcomment-2742606
+        Link 2: https://gist.github.com/bartolsthoorn/36c813a4becec1b260392f5353c8b7cc#gistcomment-2840045
+
         :param output_shape: Shape of the output = batch_size, target count, # labels.
         :param target_cat_indices: List of categories.
         """

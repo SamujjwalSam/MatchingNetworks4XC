@@ -31,10 +31,11 @@ class Attn(nn.Module):
     def __init__(self):
         super(Attn, self).__init__()
 
-    def forward(self, similarities, support_set_y):
+    def forward(self, similarities, support_set_y, dim=1):
         """
         Produces pdfs over the support set classes for the target samples.
 
+        :param dim: Dimension along which Softmax will be computed (so every slice along dim will sum to 1).
         :param similarities: A tensor with cosine similarities of size [sequence_length, batch_size]
         :param support_set_y: A tensor with the one hot vectors of the targets for each support set image
                                                                             [sequence_length,  batch_size, num_classes]
@@ -43,7 +44,7 @@ class Attn(nn.Module):
         # logger.debug(("similarities.shape: ",similarities.shape))
         # logger.debug(("support_set_y.shape: ",support_set_y.shape))
         # logger.debug(("support_set_y: ",support_set_y))
-        softmax = nn.Softmax()
+        softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
         # logger.debug(("softmax_similarities.shape: ",softmax_similarities.shape))
         softmax_similarities = softmax_similarities.unsqueeze(1)

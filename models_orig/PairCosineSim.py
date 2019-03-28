@@ -39,7 +39,7 @@ class PairCosineSim(nn.Module):
         :param supports: The embeddings of the support set samples, tensor of shape [batch_size, sequence_length, input_size]
         :param targets: The embedding of the target sample, tensor of shape [batch_size, input_size] -> [batch_size, sequence_length, input_size]
 
-        :return: Softmax pdf. Tensor with cosine similarities of shape [batch_size, sequence_length]
+        :return: Tensor with cosine similarities of shape [batch_size, target_size, support_size]
         """
         eps = 1e-10
         similarities = []
