@@ -160,14 +160,14 @@ def main(args):
     val_p1s, val_p3s, val_p5s = [], [], []
     separator_length = 92
     for epoch in range(config["sampling"]["num_epochs"]):
-        train_epoch_loss = match_net.training(total_epoch=epoch, num_train_epoch=config["sampling"]["num_train_epoch"])
+        train_epoch_loss = match_net.training(num_train_epoch=config["sampling"]["num_train_epoch"])
         train_epoch_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))
         logger.info("-" * separator_length)
 
         # val_epoch_loss, val_p1, val_p3, val_p5 = match_net.testing()
-        val_epoch_loss, val_p1, val_p3, val_p5 = match_net.validating(num_val_epoch=1, epoch_count=epoch)
+        val_epoch_loss, val_p1, val_p3, val_p5 = match_net.validating(epoch_count=epoch)
         val_epoch_losses.append(val_epoch_loss)
         val_p1s.append(val_p1)
         val_p3s.append(val_p3)

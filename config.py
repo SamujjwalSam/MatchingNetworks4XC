@@ -66,7 +66,7 @@ configuration = {
         "padding": 1,
         "context": 10,
         "classify_count": 0,
-        "fce": False,
+        "fce": True,
         "optimizer": {
             "optimizer_type": "adam",
             "learning_rate": 1,
@@ -77,7 +77,9 @@ configuration = {
             "alpha":0.99,
             "rho":0.9,
             "centered":False
-        }
+        },
+        "view_grads": False,
+        "view_train_precision": True
     },
 
     "lstm_params": {
@@ -85,7 +87,7 @@ configuration = {
         "bias": True,
         "batch_first": True,
         "bidirectional": True,
-        "hid_size": 64,
+        "hid_size": 32,
     },
 
     "cnn_params": {
@@ -97,7 +99,7 @@ configuration = {
 
     "sampling": {
         "num_epochs": 50,
-        "num_train_epoch": 10,
+        "num_train_epoch": 5,
         "batch_size": 64,
         "categories_per_batch": 10,
         "supports_per_category": 5,

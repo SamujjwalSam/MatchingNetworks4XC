@@ -87,19 +87,20 @@ class MatchingNetwork(nn.Module):
 
         ## Encode supports
         encoded_supports = self.g(supports_x, dropout_external=dropout_external)
+        # logger.debug("encoded_supports [{}] output: {}".format(encoded_supports.shape,encoded_supports))
 
         ## Encode targets
         encoded_targets = self.g(targets_x, dropout_external=dropout_external)
-        # logger.debug("encoded_targets output: {}".format(encoded_targets))
+        # logger.debug("encoded_targets[{}] output: {}".format(encoded_targets.shape,encoded_targets))
 
         if self.fce:
-            _, encoded_supports = self.lstm(encoded_supports, requires_grad=requires_grad)
-            _, encoded_targets = self.lstm(encoded_targets, requires_grad=requires_grad)
-            # logger.debug("FCE encoded_supports output: {}".format(encoded_supports))
-            # logger.debug("FCE encoded_targets output: {}".format(encoded_targets))
+            encoded_supports, _ = self.lstm(encoded_supports, requires_grad=requires_grad)
+            encoded_targets, _ = self.lstm(encoded_targets, requires_grad=requires_grad)
+            # logger.debug("FCE encoded_supports [{}] output: {}".format(encoded_supports.shape,encoded_supports))
+            # logger.debug("FCE encoded_targets [{}] output: {}".format(encoded_targets.shape,encoded_targets))
 
         ## Calculate similarity between encoded supports and targets
-        similarities = self.cosine_dis(supports=encoded_supports, targets=encoded_targets, normalize=False)
+        similarities = self.cosine_dis(supports=encoded_supports, targets=encoded_targets, normalize=True)
         # logger.debug("similarities: {}".format(similarities))
         # logger.debug("similarities shape: {}".format(similarities.shape))
 
@@ -112,12 +113,13 @@ class MatchingNetwork(nn.Module):
         ## Calculate loss, need to calculate loss for each sample but for whole batch.
         for j in np.arange(targets_preds.size(1)):
             # logger.debug((targets_preds[:, j, :].shape, target_y_mlml[:, j, :].long().shape))
-            loss += F.multilabel_margin_loss(targets_preds[:, j, :], target_y_mlml[:, j, :].long(), reduction='mean')
-        crossentropy_loss = loss / targets_x.size(1)
+            loss += F.multilabel_margin_loss(targets_preds[:, j, :], target_y_mlml.long()[:, j, :], reduction='mean')
+        multilabel_batch_loss = loss / targets_x.size(1)
 
-        return crossentropy_loss, targets_preds
+        return multilabel_batch_loss, targets_preds
 
-    def create_mlml_data(self, target_cat_indices, output_shape):
+    @staticmethod
+    def create_mlml_data(target_cat_indices, output_shape):
         """
         Generates true labels in proper format for Pytorch Multilabel_Margin_Loss.
 

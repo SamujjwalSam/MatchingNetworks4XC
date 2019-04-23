@@ -410,7 +410,40 @@ class PrepareData:
                              file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
             util.save_pickle(target_cat_indices, self.dataset_name + "_target_cat_indices_"+target_count,
                              file_path=join(self.dataset_dir, self.dataset_name), overwrite=True)
-        return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices  # , target_cat_indices_list2
+        return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices
+
+    def get_test_data(self, return_cat_indices=True):
+        """
+        Creates Test data: Selects whole training data as support set.
+
+        :param return_cat_indices: Flag to set if target_indices are to be returned.
+        :return: test data.
+        """
+        ## Using train data as supports
+        ## Read and select train data
+        self.prepare_data(load_type='train')
+        keys = list(self.classes_selected.keys())
+        train_sentences, train_classes = util.create_batch_repeat(self.sentences_selected, self.classes_selected, keys)
+        ## Vectorize train data
+        test_supports = self.txt2vec(train_sentences)
+        test_supports_hot = self.mlb.transform(train_classes)
+
+        ## Using test set as targets
+        ## Read test data
+        self.prepare_data(load_type='test')
+        keys = list(self.classes_selected.keys())
+        test_sentences, test_classes = util.create_batch_repeat(self.sentences_selected, self.classes_selected, keys)
+        ## Vectorize test data
+        test_targets = self.txt2vec(test_sentences)
+        test_targets_hot = self.mlb.transform(test_classes)
+
+        if return_cat_indices:
+            # y_target_indices = [self.mlb.inverse_transform(test_supports_hot)]
+            y_target_indices = [self.mlb.inverse_transform(test_targets_hot)]
+            # return test_supports, test_supports_hot, test_supports, test_supports_hot, y_target_indices
+            return test_supports, test_supports_hot, test_targets, test_targets_hot, y_target_indices
+
+        return test_supports, test_supports_hot, test_targets, test_targets_hot
 
 
 if __name__ == '__main__':

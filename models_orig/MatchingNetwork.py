@@ -35,7 +35,6 @@ from config import configuration as config
 
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
-
     def __init__(self, num_channels, layer_size, fce=config["model"]["fce"]):
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
@@ -117,7 +116,7 @@ class MatchingNetwork(nn.Module):
             ## Get similarity between supports embeddings and target
             similarities = self.cosine_dis(supports=encoded_supports, target=encoded_target)
             similarities = similarities.t()
-            similarities_squeezed = similarities.squeeze(1)
+            similarities_squeezed = similarities.squeeze()
             # logger.debug("similarities: {}".format(similarities))
             # logger.debug("similarities shape: {}".format(similarities.shape))
 
@@ -146,7 +145,8 @@ class MatchingNetwork(nn.Module):
         # crossentropy_loss = loss / targets_x.size(1)
         return loss / targets_x.size(1), targets_preds
 
-    def create_mlml_data(self, target_cat_indices, output_shape):
+    @staticmethod
+    def create_mlml_data(target_cat_indices, output_shape):
         """
         Generates true labels in proper format for Pytorch Multilabel_Margin_Loss.
 
