@@ -135,7 +135,7 @@ models/desktop.ini
 models/g_BiGRU_Pytorch.py
 neighborhood/desktop.ini
 pretrained/desktop.ini
-utils/desktop.ini
+file_utils/desktop.ini
 MNXC.ipynb
 metrics/desktop.ini
 support_set/

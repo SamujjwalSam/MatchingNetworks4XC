@@ -28,6 +28,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from config import Config
 from config import platform as plat
+from config import username as user
 from logger.logger import logger
 from models_orig.Run_Network import Run_Network
 from data_loaders.PrepareData import PrepareData
@@ -155,26 +156,27 @@ def main(args):
     data_formatter = PrepareData(dataset_loader=data_loader)
     match_net = Run_Network(data_formatter=data_formatter)
 
-    train_epoch_losses = []
-    val_epoch_losses = []
+    train_losses = []
+    val_losses = []
     val_p1s = []
     val_p3s = []
     val_p5s = []
     separator_length = 92
     for epoch in range(config["sampling"]["num_epochs"]):
         train_epoch_loss = match_net.training(num_train_epoch=config["sampling"]["num_train_epoch"])
-        train_epoch_losses.append(train_epoch_loss)
+        train_losses.append(train_epoch_loss)
         logger.info("Train epoch loss: [{}]".format(train_epoch_loss))
         logger.info("[{}] epochs of training completed. \nStarting Validation...".format(epoch))
         logger.info("-" * separator_length)
 
         # val_epoch_loss, val_p1, val_p3, val_p5 = match_net.testing()
-        val_epoch_loss, val_p1, val_p3, val_p5 = match_net.validating(num_val_epoch=1, epoch_count=epoch)
-        val_epoch_losses.append(val_epoch_loss)
+        val_epoch_loss, val_p1, val_p3, val_p5 = match_net.validating(epoch_count=epoch)
+        val_losses.append(val_epoch_loss)
         val_p1s.append(val_p1)
         val_p3s.append(val_p3)
         val_p5s.append(val_p5)
         logger.info("Validation epoch loss: [{}]".format(val_epoch_loss))
+        logger.info("Validation losses: [{}]".format(val_losses))
         logger.info("=" * separator_length)
 
     ## Storing trained model
@@ -183,9 +185,9 @@ def main(args):
                     config["data"]["dataset_name"]+'_'+str(config["sampling"]["num_epochs"])))
 
     logger.info("#" * separator_length)
-    # logger.info("Train losses: [{}]".format(train_epoch_losses))
-    logger.info("Validation losses: [{}]".format(val_epoch_losses))
-    # plot_occurance(val_epoch_losses)
+    # logger.info("Train losses: [{}]".format(train_losses))
+    logger.info("Validation losses: [{}]".format(val_losses))
+    # plot_occurance(val_losses)
     logger.info("Validation Precisions 1: [{}]".format(val_p1s))
     logger.info("Validation Precisions 3: [{}]".format(val_p3s))
     logger.info("Validation Precisions 5: [{}]".format(val_p5s))

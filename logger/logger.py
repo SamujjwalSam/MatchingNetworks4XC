@@ -20,6 +20,7 @@ __methods__     :
 """
 
 import logging
+from json import dumps
 from os import makedirs
 from os.path import join, exists
 import sys
@@ -98,6 +99,42 @@ def create_logger(logger_name='root',
         console.setFormatter(Formatter(console_format))
     logger.addHandler(console)
     return logger
+
+
+def print_dict(data, count=5):
+    """
+    Prints the key and values of a Python dict.
+
+    :param data:
+    :param count:
+    """
+    i = 0
+    for k, v in data.items():
+        logger.debug("{} : {}".format(k, v))
+        i += 1
+        if i >= count:
+            break
+
+
+def print_json(json_data, s="", indent=4, sort_keys=True):
+    """
+    Pretty prints json data.
+
+    :param sort_keys:
+    :param indent:
+    :param s:
+    :param json_data:
+    """
+    logger.info("[{}] : {}".format(s, dumps(json_data, indent=indent, sort_keys=sort_keys)))
+
+
+def get_date_time_tag(caller=False):
+    from datetime import datetime
+    date_time = datetime.now().strftime('%Y%m%d_%H%M%S')
+    tag = str(date_time)
+    if caller:
+        tag = caller + "_" + str(date_time)
+    return tag
 
 
 def _test_colored_logger():

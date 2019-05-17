@@ -24,10 +24,11 @@ import torch.utils.data
 from collections import OrderedDict
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 
-from utils import util
+from file_utils import File_Util
 from logger.logger import logger
 from config import configuration as config
 from config import platform as plat
+from config import username as user
 
 seed_val = 0
 
@@ -53,7 +54,7 @@ class JSONLoader(torch.utils.data.Dataset):
         }
     """
 
-    def __init__(self, dataset_name=config["data"]["dataset_name"], data_dir: str = config["paths"]["dataset_dir"][plat]):
+    def __init__(self, dataset_name=config["data"]["dataset_name"], data_dir: str = config["paths"]["dataset_dir"][plat][user]):
         """
         Initializes the JSON loader.
 
@@ -66,7 +67,7 @@ class JSONLoader(torch.utils.data.Dataset):
         self.data_dir = join(data_dir, self.dataset_name)
         self.raw_json_dir = join(self.data_dir, self.dataset_name + "_RawData")
         self.raw_json_file = self.dataset_name + "_RawData.json"
-        logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
+        logger.info("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
         self.sentences, self.classes, self.categories = self.gen_dicts(json_path=join(self.raw_json_dir,self.raw_json_file), encoding="UTF-8")
 
     def gen_dicts(self,json_path=None, encoding=config["text_process"]["encoding"],specials="""_-@*#'"/\\""", replace=' '):
@@ -83,7 +84,7 @@ class JSONLoader(torch.utils.data.Dataset):
         import ast  # As the data is not proper JSON (single-quote instead of double-quote) format, "json" library will not work.
         from unidecode import unidecode
 
-        logger.debug("Generates the data dictionaries from original json file.")
+        logger.info("Generates the data dictionaries from original json file.")
         sentences = OrderedDict()
         classes = OrderedDict()
         categories = OrderedDict()
@@ -91,7 +92,7 @@ class JSONLoader(torch.utils.data.Dataset):
 
         if json_path is None: json_path = self.raw_json_dir
         with sopen(json_path, encoding=encoding) as raw_json_ptr:
-            trans_table = util.make_trans_table(specials=specials, replace=replace)  # Creating mapping to clean sentences.
+            trans_table = File_Util.make_trans_table(specials=specials,replace=replace)  # Creating mapping to clean sentences.
             cat_idx = 0  # Holds the category index.
             for cnt, line in enumerate(raw_json_ptr):
                 # Instead of: line_dict = OrderedDict(json.loads(line));
@@ -118,7 +119,7 @@ class JSONLoader(torch.utils.data.Dataset):
                 else:  # if "categories" does not exist, then add the id to "no_cat_ids".
                     no_cat_ids.append(line_dict["asin"])
 
-        util.save_json(no_cat_ids, self.dataset_name + "_no_cat_ids", file_path=self.data_dir)
+        File_Util.save_json(no_cat_ids,self.dataset_name + "_no_cat_ids",file_path=self.data_dir)
         logger.info("Number of sentences: [{}], classes: [{}] and categories: [{}]."
                     .format(len(sentences),len(classes),len(categories)))
         return sentences, classes, categories
@@ -152,7 +153,7 @@ def main():
     # config = read_config(args)
     cls = JSONLoader()
     categories_val = cls.get_categories()
-    util.print_dict(categories_val)
+    logger.print_dict(categories_val)
 
 
 if __name__ == '__main__':

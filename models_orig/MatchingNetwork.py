@@ -27,7 +27,7 @@ import numpy as np
 from models_orig import Attn
 from models_orig import PairCosineSim
 from logger.logger import logger
-from models import BiLSTM
+from models import BiLSTM as B
 # from models import EmbedText
 from models.EmbedText import EmbedText
 from config import configuration as config
@@ -57,16 +57,14 @@ class MatchingNetwork(nn.Module):
         self.cosine_dis = PairCosineSim.PairCosineSim()
         self.g = EmbedText(num_channels, layer_size)
         if self.fce:
-            self.lstm = BiLSTM(input_size=self.g.output_size)
+            self.lstm = B.BiLSTM(input_size=self.g.output_size)
 
-    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, testing=False,
-                batch_size=config["sampling"]["batch_size"]):
+    def forward(self, supports_x, supports_hots, targets_x, targets_hots, target_cat_indices, testing=False):
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
         :param testing: True during testing / inference.
         :param target_cat_indices:
-        :param batch_size:
         :param supports_x: A tensor containing the support set samples.
             [batch_size, sequence_size, n_channels, 28]
             torch.Size([32, 25, 1, 28])
@@ -81,62 +79,61 @@ class MatchingNetwork(nn.Module):
             torch.Size([32, 5])
         :return:
         """
-        encoded_supports = []
+        supports_encoded = []
         for i in np.arange(supports_x.size(1)):
             encoded_support = self.g(supports_x[:, i, :].unsqueeze(1))  ## LSTM takes batch_size at 2nd param, need to
-            ## unsqueeze at index 1. Need to remove this extra dim afterwards.
-            encoded_supports.append(encoded_support.squeeze())
-        encoded_supports = torch.stack(encoded_supports)
-        # logger.debug("encoded_supports: {}".format(encoded_supports))
+            ## unsqueeze at index 1 and need to remove this extra dim afterwards.
+            supports_encoded.append(encoded_support.squeeze())
+        supports_encoded = torch.stack(supports_encoded)
+        # logger.debug("supports_encoded: {}".format(supports_encoded))
         ## Modifying Test data shapes
         if testing:
-            encoded_supports = encoded_supports.unsqueeze(1)
+            supports_encoded = supports_encoded.unsqueeze(1)
 
-        ## Convert target indices to Pytorch multi-label loss format. Takes class indices at the begining and rest should be filled with -1.
+        ## Convert target indices to Pytorch multi-label loss format. Takes class indices at the begining and rest
+        ## should be filled with -1.
         target_y_mlml = self.create_mlml_data(target_cat_indices, output_shape=targets_hots.shape)
 
         loss = 0
         targets_preds = []
         ## Produce embeddings for target samples
         for i in np.arange(targets_x.size(1)):
-            encoded_target = self.g(targets_x[:, i, :].unsqueeze(1))
-            encoded_target = encoded_target.squeeze()
-            # logger.debug("encoded_target output: {}".format(encoded_target))
+            target_encoded = self.g(targets_x[:, i, :].unsqueeze(1))
+            target_encoded = target_encoded.squeeze()
+            # logger.debug("target_encoded output: {}".format(target_encoded))
 
             if self.fce:
-                encoded_supports, _ = self.lstm(encoded_supports, batch_size=batch_size)
-                encoded_target, _ = self.lstm(encoded_target, batch_size=batch_size)
-                # logger.debug("FCE encoded_supports: {}".format(encoded_supports))
-                # logger.debug("FCE encoded_target: {}".format(encoded_target))
+                supports_encoded, _ = self.lstm(supports_encoded)
+                target_encoded, _ = self.lstm(target_encoded)
+                # logger.debug("FCE supports_encoded: {}".format(supports_encoded))
+                # logger.debug("FCE target_encoded: {}".format(target_encoded))
 
             ## Modifying Test data shape. Adding 1 dim as batch_size for testing.
             if testing:
-                encoded_target = encoded_target.unsqueeze(0)
+                target_encoded = target_encoded.unsqueeze(0)
 
             ## Get similarity between supports embeddings and target
-            similarities = self.cosine_dis(supports=encoded_supports, target=encoded_target)
+            similarities = self.cosine_dis(supports=supports_encoded, target=target_encoded)
             similarities = similarities.t()
             similarities_squeezed = similarities.squeeze()
             # logger.debug("similarities: {}".format(similarities))
             # logger.debug("similarities shape: {}".format(similarities.shape))
 
-            ## Produce predictions for target probabilities
-            target_pred = self.attn(similarities_squeezed,
-                                    support_set_y=supports_hots)  ## batch_size x # classes = targets_hots.shape
+            ## Produce predictions for target probabilities. targets_hots.shape = batch_size x # classes
+            target_pred = self.attn(similarities_squeezed, supports_hots=supports_hots)
             # logger.debug("target_cat_indices: {}".format(target_cat_indices))
             # logger.debug("target_pred output: {}".format(target_pred))
             if len(target_pred.shape) == 1:  ## If single dim, add dim at 0. This happens during testing.
                 target_pred = target_pred.unsqueeze(0)
 
             ## Calculate loss, need to calculate loss for each sample but for whole batch.
-
-            logger.debug((target_pred.shape, target_y_mlml[:, i, :].long().shape))
             if i == 0:
-                # logger.debug((targets_preds.shape, target_y_mlml.long().shape))
-                # logger.debug((targets_preds[:, j, :].shape, target_y_mlml.long()[:, j, :].shape))
-                loss = F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long(), reduction='mean')
+                logger.debug((target_pred.shape, target_y_mlml[:, i, :].long().shape))
+                loss = F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long())
+                # loss = F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long(), reduction='mean')
             else:
-                loss = loss + F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long(), reduction='mean')
+                loss = loss + F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long())
+                # loss = loss + F.multilabel_margin_loss(target_pred, target_y_mlml[:, i, :].long(), reduction='mean')
             targets_preds.append(target_pred)
         targets_preds = torch.stack(targets_preds, dim=1)
 

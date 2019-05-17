@@ -24,20 +24,20 @@ import numpy as np
 import torch.nn as nn
 
 from logger.logger import logger
-from models import PairCosineSim as C
+# from models import PairCosineSim as C
 
 
 class Attn(nn.Module):
     def __init__(self):
         super(Attn, self).__init__()
 
-    def forward(self, similarities, support_set_y, dim=2):
+    def forward(self, similarities, supports_hots, dim=2):
         """
         Produces pdfs over the support set classes for the target samples.
 
         :param dim: Dimension along which Softmax will be computed (so every slice along dim will sum to 1).
         :param similarities: A tensor with cosine similarities of size [batch_size, sequence_length]
-        :param support_set_y: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
+        :param supports_hots: A tensor with the one hot vectors of the targets for each support set image [batch_size, sequence_length,  num_classes]
         :return: Softmax pdf
         """
         softmax = nn.Softmax(dim=dim)
@@ -46,7 +46,7 @@ class Attn(nn.Module):
         targets_preds = []
         for j in np.arange(softmax_similarities.size(1)):
             softmax_similarities_unsqueeze = softmax_similarities[:,j,:].unsqueeze(1)
-            support_set_y_bmm = softmax_similarities_unsqueeze.bmm(support_set_y)
+            support_set_y_bmm = softmax_similarities_unsqueeze.bmm(supports_hots)
             target_pred = support_set_y_bmm.squeeze()
             targets_preds.append(target_pred)
         targets_preds = torch.stack(targets_preds,dim=1)

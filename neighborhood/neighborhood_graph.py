@@ -27,11 +27,12 @@ from collections import OrderedDict
 from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from utils import util
+from file_utils import File_Util
 from pretrained.TextEncoder import TextEncoder
 from logger.logger import logger
 from config import configuration as config
 from config import platform as plat
+from config import username as user
 
 
 class Neighborhood:
@@ -42,7 +43,7 @@ class Neighborhood:
     """
 
     def __init__(self, dataset_name: str = config["data"]["dataset_name"], graph_format: str = "graphml", k: int = 10,
-                 graph_dir: str = config["paths"]["dataset_dir"][plat]):
+                 graph_dir: str = config["paths"]["dataset_dir"][plat][user]):
         """
 
         :param dataset_name:
@@ -55,11 +56,11 @@ class Neighborhood:
         self.dataset_name = dataset_name
         self.graph_format = graph_format
         self.k = k
-        self.classes = util.load_json(
+        self.classes = File_Util.load_json(
             join(graph_dir, dataset_name, dataset_name + "_text_json", dataset_name + "_classes"))
-        self.categories = util.load_json(
+        self.categories = File_Util.load_json(
             join(graph_dir, dataset_name, dataset_name + "_text_json", dataset_name + "_categories"))
-        self.id2cat_map = util.inverse_dict_elm(self.categories)
+        self.id2cat_map = inverse_dict_elm(self.categories)
 
     def create_V(self):
         """
@@ -140,7 +141,7 @@ class Neighborhood:
                 if sample_ids[i] != sample_ids[nb_id]:
                     G.add_edge(sample_ids[i], sample_ids[nb_id], label='e' + str(i))
                 else:
-                    logger.debug("Both same: [{0}] and [{1}]".format(sample_ids[i], sample_ids[nb_id]))
+                    logger.info("Both same: [{0}] and [{1}]".format(sample_ids[i], sample_ids[nb_id]))
         print("Neighborhood graph: ", G)
         return G
 
@@ -156,7 +157,7 @@ class Neighborhood:
         if exists(join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")):
             G = nx.read_graphml(
                 join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml"))
-            logger.debug("Loaded neighborhood graph from [{0}]".format(
+            logger.info("Loaded neighborhood graph from [{0}]".format(
                 join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")))
             # stats = util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name+"_stats_"+str(self.k)))
             stats = self.graph_stats(G)
@@ -166,13 +167,13 @@ class Neighborhood:
             neighbor_idx = self.topk_sim_idx(data_dict, k)
             G = self.create_neighborhood_graph(neighbor_idx)
             stats = self.graph_stats(G)
-        logger.debug("Saving neighborhood graph at [{0}]".format(
+        logger.info("Saving neighborhood graph at [{0}]".format(
             join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")))
         nx.write_graphml(G,
                          join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml"))
-        util.save_json(stats, filename=self.dataset_name + "_stats_" + str(self.k),
-                       file_path=join(self.graph_dir, self.dataset_name), overwrite=True)
-        logger.debug("Graph stats: [{0}]".format(stats))
+        File_Util.save_json(stats,filename=self.dataset_name + "_stats_" + str(self.k),
+                            file_path=join(self.graph_dir, self.dataset_name),overwrite=True)
+        logger.info("Graph stats: [{0}]".format(stats))
         return G, stats
 
     def graph_stats(self, G):
@@ -338,9 +339,9 @@ def get_subgraph(V, E, label_filepath, dataset_name, level=1, subgraph_count=5, 
         # Remove characters like \, /, <, >, :, *, |, ", ? from file names,
         # windows can not have file name with these characters
         label_info_filepath = 'samples/' + str(dataset_name) + '_Info[{}].txt'.format(
-            str(int(v)) + '-' + util.remove_special_chars(mapping(v)))
+            str(int(v)) + '-' + File_Util.remove_special_chars(mapping(v)))
         label_graph_filepath = 'samples/' + str(dataset_name) + '_G[{}].graphml'.format(
-            str(int(v)) + '-' + util.remove_special_chars(mapping(v)))
+            str(int(v)) + '-' + File_Util.remove_special_chars(mapping(v)))
         # label_graph_el = 'samples/'+str(dataset_name)+'_E[{}].el'.format(str(int(v)) + '-' + mapping(v)).replace(' ','_')
 
         logger.debug('Label:[' + mapping(v) + ']')
@@ -405,7 +406,7 @@ def get_subgraph(V, E, label_filepath, dataset_name, level=1, subgraph_count=5, 
     return subgraph_lists
 
 
-def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=config["paths"]["dataset_dir"][plat], seed=0):
+def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=config["paths"]["dataset_dir"][plat][user], seed=0):
     """
     Splits the data into 2 parts.
 
@@ -455,10 +456,10 @@ def split_data(X, classes, V, split=0.1, label_preserve=False, save_path=config[
                     X_tr = np.delete(X, i)
                     Y_val.append(Y_tr.pop(i))
                     break
-    util.save_npz(X_tr, "X_tr", file_path=save_path, overwrite=False)
-    util.save_pickle(Y_tr, filename="Y_tr", file_path=save_path)
-    util.save_npz(X_val, "X_val", file_path=save_path, overwrite=False)
-    util.save_pickle(Y_val, filename="Y_val", file_path=save_path)
+    File_Util.save_npz(X_tr,"X_tr",file_path=save_path,overwrite=False)
+    File_Util.save_pickle(Y_tr,filename="Y_tr",file_path=save_path)
+    File_Util.save_npz(X_val,"X_val",file_path=save_path,overwrite=False)
+    File_Util.save_pickle(Y_val,filename="Y_val",file_path=save_path)
     return X_tr, Y_tr, X_val, Y_val
 
 
@@ -502,13 +503,13 @@ def main(dataset_path):
 
         total_points, feature_dm, number_of_labels, X, classes, V, E = get_cooccurance_dict(train_graph_file)
 
-        util.save_json(V, dataset + '_V_train', join(dataset_path, dataset))
-        util.save_json(E, dataset + '_E_train', join(dataset_path, dataset), overwrite=True)
+        File_Util.save_json(V,dataset + '_V_train',join(dataset_path,dataset))
+        File_Util.save_json(E,dataset + '_E_train',join(dataset_path,dataset),overwrite=True)
 
         # Collecting some stats about the dataset and graph.
         e_stats, edge_occurances_sorted = edge_stats(E)
         e_stats['singles_train'] = find_single_labels(classes)
-        util.save_json(e_stats, dataset + "_edge_statistics_train")
+        File_Util.save_json(e_stats,dataset + "_edge_statistics_train")
 
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_train_edge_occurances_sorted.jpg', clear=False)
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_train_edge_occurances_sorted_log.jpg', log=True)
@@ -521,13 +522,13 @@ def main(dataset_path):
 
         total_points, feature_dm, number_of_labels, X, classes, V, E = get_cooccurance_dict(test_graph_file)
 
-        util.save_json(V, dataset + '_V_test', join(dataset_path, dataset))
-        util.save_json(E, dataset + '_E_test', join(dataset_path, dataset), overwrite=True)
+        File_Util.save_json(V,dataset + '_V_test',join(dataset_path,dataset))
+        File_Util.save_json(E,dataset + '_E_test',join(dataset_path,dataset),overwrite=True)
 
         # Collecting some stats about the dataset and graph.
         e_stats, edge_occurances_sorted = edge_stats(E)
         e_stats['singles_test'] = find_single_labels(classes)
-        util.save_json(e_stats, dataset + "_edge_statistics_test")
+        File_Util.save_json(e_stats,dataset + "_edge_statistics_test")
 
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_test_edge_occurances_sorted.jpg', clear=False)
         plot_occurance(edge_occurances_sorted, plot_name=dataset + '_test_edge_occurances_sorted_log.jpg', log=True)

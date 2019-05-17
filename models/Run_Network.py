@@ -43,9 +43,10 @@ class Run_Network:
     and evaluation procedures.
     """
 
-    def __init__(self, data_formatter, use_cuda=config["model"]["use_cuda"],
-                 batch_size=config["sampling"]["batch_size"],
-                 lr_decay=config["model"]["optimizer"]["lr_decay"], lr=config["model"]["optimizer"]["learning_rate"]):
+    def __init__(self,data_formatter: data_loaders.PrepareData.PrepareData,use_cuda: bool = config["model"]["use_cuda"],
+                 batch_size: int = config["sampling"]["batch_size"],
+                 lr_decay: int = config["model"]["optimizer"]["lr_decay"],
+                 lr: float = config["model"]["optimizer"]["learning_rate"]) -> None:
         """Builds the Matching Network with all required parameters.
 
         Provides helper functions such as training() and validating() to simplify out training
@@ -114,6 +115,7 @@ class Run_Network:
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
                 x_hats = Variable(torch.from_numpy(x_hats), requires_grad=True).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
+                target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                 ## Print Model Summary:
                 # make_dot(loss, self.match_net)
@@ -164,10 +166,10 @@ class Run_Network:
                 pbar.update(1)
                 total_loss += loss.item()
 
-                self.total_train_iter += 1
-                if self.total_train_iter % 2000 == 0:
-                    self.lr /= 2
-                    logger.debug("change learning rate: [{}]".format(self.lr))
+                # self.total_train_iter += 1
+                # if self.total_train_iter % 2000 == 0:
+                #     self.lr /= 2
+                #     logger.debug("change learning rate: [{}]".format(self.lr))
 
         total_loss = total_loss / num_train_epoch
         return total_loss
@@ -198,6 +200,7 @@ class Run_Network:
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
                 x_targets = Variable(torch.from_numpy(x_targets), requires_grad=False).float()
                 y_target_hots = Variable(torch.from_numpy(y_target_hots), requires_grad=False).float()
+                target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                 if self.cuda_available and self.use_cuda:
                     loss, targets_preds, encoded_x_hat = self.match_net(x_supports.cuda(), y_support_hots.cuda(),
@@ -263,6 +266,7 @@ class Run_Network:
                     y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).long().unsqueeze(0)
                     x_targets = Variable(torch.from_numpy(x_targets), requires_grad=False).float().unsqueeze(0)
                     y_target_hots = Variable(torch.from_numpy(y_target_hots), requires_grad=False).long().unsqueeze(0)
+                    target_cat_indices = Variable(torch.from_numpy(target_cat_indices), requires_grad=False).float()
 
                     if self.cuda_available and self.use_cuda:
                         loss, targets_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(),

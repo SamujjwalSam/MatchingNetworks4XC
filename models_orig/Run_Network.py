@@ -108,12 +108,13 @@ class Run_Network:
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch
                 logger.info("Total EPOCHS: [{}]".format(self.total_train_iter))
-                x_supports, y_support_hots, x_hats, y_hats_hots, target_cat_indices = \
-                    self.data_formatter.get_batches()
+                x_supports, y_support_hots, x_hats, y_hats_hots, target_cat_indices = self.data_formatter.get_batches()
                 x_supports = Variable(torch.from_numpy(x_supports), requires_grad=True).float()
                 y_support_hots = Variable(torch.from_numpy(y_support_hots), requires_grad=False).float()
                 x_hats = Variable(torch.from_numpy(x_hats), requires_grad=True).float()
                 y_hats_hots = Variable(torch.from_numpy(y_hats_hots), requires_grad=False).float()
+
+                ## Embed Label information into
 
                 ## Print Model Summary:
                 # make_dot(loss, self.match_net)
@@ -121,11 +122,10 @@ class Run_Network:
 
                 if self.cuda_available and self.use_cuda:
                     loss, targets_preds = self.match_net(x_supports.cuda(), y_support_hots.cuda(), x_hats.cuda(),
-                                                         y_hats_hots.cuda(), target_cat_indices,
-                                                         batch_size=self.batch_size)
+                                                         y_hats_hots.cuda(), target_cat_indices)
                 else:
                     loss, targets_preds = self.match_net(x_supports, y_support_hots, x_hats, y_hats_hots,
-                                                         target_cat_indices, batch_size=self.batch_size)
+                                                         target_cat_indices)
 
                 ## Before the backward pass, use the optimizer object to zero all of the gradients for the variables
                 ## it will update (which are the learnable weights of the model)
@@ -167,7 +167,7 @@ class Run_Network:
                 self.total_train_iter += 1
                 if self.total_train_iter % 2000 == 0:
                     self.lr /= 2
-                    logger.debug("change learning rate: [{}]".format(self.lr))
+                    logger.info("change learning rate: [{}]".format(self.lr))
 
         total_loss = total_loss / num_train_epoch
         return total_loss

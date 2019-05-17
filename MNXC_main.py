@@ -28,6 +28,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 from config import Config
 from config import platform as plat
+from config import username as user
 from logger.logger import logger
 from models.Run_Network import Run_Network
 from data_loaders.PrepareData import PrepareData
@@ -177,7 +178,7 @@ def main(args):
 
     ## Storing trained model
     torch.save(match_net.match_net.state_dict(),
-               join(config["paths"]["dataset_dir"][plat],config["data"]["dataset_name"],
+               join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"],
                     config["data"]["dataset_name"]+'_'+str(config["sampling"]["num_epochs"])))
 
     logger.info("#" * separator_length)
@@ -206,7 +207,7 @@ def main(args):
 
     ## Loading model
     # model = MatchingNetwork(layer_size=1, num_channels=1)
-    # model.load_state_dict(torch.load(join(config["paths"]["dataset_dir"][plat],config["data"]["dataset_name"],
+    # model.load_state_dict(torch.load(join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"],
     #                 config["data"]["dataset_name"]+'_'+str(config["sampling"]["num_epochs"]))))
     # model.eval()  ## call model.eval() to set dropout and batch normalization layers to evaluation mode before running inference.
 

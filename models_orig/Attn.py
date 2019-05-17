@@ -31,26 +31,26 @@ class Attn(nn.Module):
     def __init__(self):
         super(Attn, self).__init__()
 
-    def forward(self, similarities, support_set_y, dim=1):
+    def forward(self, similarities, supports_hots, dim=1):
         """
         Produces pdfs over the support set classes for the target samples.
 
         :param dim: Dimension along which Softmax will be computed (so every slice along dim will sum to 1).
         :param similarities: A tensor with cosine similarities of size [sequence_length, batch_size]
-        :param support_set_y: A tensor with the one hot vectors of the targets for each support set image
+        :param supports_hots: A tensor with the one hot vectors of the targets for each support set image
                                                                             [sequence_length,  batch_size, num_classes]
         :return: Softmax pdf
         """
         # logger.debug(("similarities.shape: ",similarities.shape))
-        # logger.debug(("support_set_y.shape: ",support_set_y.shape))
-        # logger.debug(("support_set_y: ",support_set_y))
+        # logger.debug(("supports_hots.shape: ",supports_hots.shape))
+        # logger.debug(("supports_hots: ",supports_hots))
         softmax = nn.Softmax(dim=dim)
         softmax_similarities = softmax(similarities)
         # logger.debug(("softmax_similarities.shape: ",softmax_similarities.shape))
         softmax_similarities = softmax_similarities.unsqueeze(1)
         # logger.debug(("softmax_similarities.unsqueeze(1).shape: ",softmax_similarities.shape))
-        # preds = softmax_similarities.unsqueeze(1).bmm(support_set_y).squeeze()
-        preds = softmax_similarities.bmm(support_set_y)
+        # preds = softmax_similarities.unsqueeze(1).bmm(supports_hots).squeeze()
+        preds = softmax_similarities.bmm(supports_hots)
         # logger.debug(("preds.shape: ",preds.shape))
         preds = preds.squeeze()
         # logger.debug(("preds.squeeze().shape: ",preds.shape))

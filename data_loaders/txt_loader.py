@@ -24,10 +24,11 @@ import torch.utils.data
 from collections import OrderedDict
 from smart_open import smart_open as sopen  # Better alternative to Python open().
 
-from utils import util
+from file_utils import File_Util
 from logger.logger import logger
 from config import configuration as config
 from config import platform as plat
+from config import username as user
 
 
 class TXTLoader(torch.utils.data.Dataset):
@@ -64,7 +65,7 @@ class TXTLoader(torch.utils.data.Dataset):
         self.data_dir = join(data_dir, self.dataset_name)
         self.raw_txt_dir = join(self.data_dir, self.dataset_name + "_RawData")
         # self.raw_txt_file = self.dataset_name + "_RawData.txt"
-        logger.debug("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
+        logger.info("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
         self.sentences, self.classes, self.categories = self.gen_dicts()
 
     def gen_dicts(self, encoding='UTF-8'):
@@ -92,9 +93,9 @@ class TXTLoader(torch.utils.data.Dataset):
                             categories[lbl] = cat_idx
                             cat_idx += 1
                         classes[k][classes[k].index(lbl)] = categories[lbl]  # Replacing categories text to categories id.
-        util.print_dict(sentences)
-        util.print_dict(classes)
-        util.print_dict(categories)
+        logger.print_dict(sentences)
+        logger.print_dict(classes)
+        logger.print_dict(categories)
 
         return sentences, classes, categories
 
@@ -107,7 +108,7 @@ class TXTLoader(torch.utils.data.Dataset):
         :param encoding:
         :return:
         """
-        logger.debug("Reads the categories.txt file and returns a OrderedDict of id : class ids.")
+        logger.info("Reads the categories.txt file and returns a OrderedDict of id : class ids.")
         cat_line_phrase = "  "  # Phrase to recognize lines with category information.
         cat_sep_phrase = ", "  # Phrase to separate categories.
         classes = OrderedDict()
@@ -137,7 +138,7 @@ class TXTLoader(torch.utils.data.Dataset):
         :param encoding:
         :return:
         """
-        logger.debug("Reads the titles.txt file and returns a OrderedDict of id : title.")
+        logger.info("Reads the titles.txt file and returns a OrderedDict of id : title.")
         titles = OrderedDict()
         if title_path is None: title_path = join(self.raw_txt_dir, title_file)
         with sopen(title_path, encoding=encoding) as raw_title_ptr:
@@ -162,7 +163,7 @@ class TXTLoader(torch.utils.data.Dataset):
         id_remove = 19  # Length of [id_phrase], to be removed from line.
         desc_phrase = "product/description: "  # Phrase to recognize lines with sample description.
         desc_remove = 21  # Length of [desc_phrase], to be removed from line.
-        logger.debug("Reads the descriptions.txt file and returns a OrderedDict of id : desc.")
+        logger.info("Reads the descriptions.txt file and returns a OrderedDict of id : desc.")
         descriptions = OrderedDict()
         if desc_path is None: desc_path = join(self.raw_txt_dir, desc_file)
         import itertools
@@ -187,7 +188,7 @@ class TXTLoader(torch.utils.data.Dataset):
         :param descriptions:
         :return:
         """
-        logger.debug("Creates sentences for each sample by using either title or descriptions if only one exists else appends desc to title.")
+        logger.info("Creates sentences for each sample by using either title or descriptions if only one exists else appends desc to title.")
         sentences = OrderedDict()
         if descriptions is not None:
             intersect = set(titles.keys()).intersection(set(descriptions.keys()))
@@ -237,9 +238,9 @@ def main():
     # config = read_config(args)
     cls = TXTLoader()
     sentences_val, classes_val, categories_val = cls.get_val_data()
-    util.print_dict(sentences_val)
-    util.print_dict(classes_val)
-    util.print_dict(categories_val)
+    logger.print_dict(sentences_val)
+    logger.print_dict(classes_val)
+    logger.print_dict(categories_val)
 
 
 if __name__ == '__main__':

@@ -49,11 +49,11 @@ def precision_at_k(actuals, predictions, k=5, pos_label=1):
 
     ## Converting to Numpy as it has supported funcions.
     if torch.is_tensor(actuals):
-        logger.debug("'actuals' is of [{}] type. Converting to Numpy.".format(type(actuals)))
+        logger.info("'actuals' is of [{}] type. Converting to Numpy.".format(type(actuals)))
         actuals = actuals.numpy()
         logger.debug(actuals)
     if torch.is_tensor(predictions):
-        logger.debug("'predictions' is of [{}] type. Converting to Numpy.".format(type(predictions)))
+        logger.info("'predictions' is of [{}] type. Converting to Numpy.".format(type(predictions)))
         predictions = predictions.data.numpy()
         logger.debug(predictions)
 
