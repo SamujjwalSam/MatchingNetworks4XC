@@ -57,7 +57,7 @@ class MatchingNetwork(nn.Module):
         self.cosine_dis = PairCosineSim.PairCosineSim()
         self.g = EmbedText(num_channels, layer_size)
         if self.fce:
-            self.lstm = BiLSTM(input_size=self.g.output_size)
+            self.lstm = BiLSTM(input_size=self.g.output_size+1)
 
     def forward(self,supports_x: torch.Tensor,supports_hots: torch.Tensor,targets_x: torch.Tensor,targets_hots: torch.Tensor,target_cat_indices: torch.Tensor,requires_grad: bool = True,
                 batch_size: int = config["sampling"]["batch_size"],
@@ -86,6 +86,10 @@ class MatchingNetwork(nn.Module):
         ## Convert target indices to Pytorch multi-label loss format.
         # target_y_mlml = self.create_mlml_data(target_cat_indices, output_shape=targets_hots.shape)
 
+        logger.debug("targets: \n{}".format(targets_x))
+        # logger.debug("supports: \n{}".format(supports_x))
+        logger.debug("targets X targets: \n{}".format(self.cosine_dis(supports=targets_x, targets=targets_x, normalize=False)))
+        logger.debug("supports X targets: \n{}".format(self.cosine_dis(supports=supports_x, targets=targets_x, normalize=False)))
         ## Encode supports
         supports_x = self.g(supports_x, dropout_external=dropout_external)
         # logger.debug("supports_x [{}] output: {}".format(supports_x.shape,supports_x))
@@ -93,17 +97,21 @@ class MatchingNetwork(nn.Module):
         ## Encode targets
         targets_x = self.g(targets_x, dropout_external=dropout_external)
         # logger.debug("targets_x[{}] output: {}".format(targets_x.shape,targets_x))
+        logger.debug("emb_targets: \n{}".format(targets_x))
+        # logger.debug("emb_supports: \n{}".format(supports_x))
 
+        logger.debug("emb_targets X emb_targets: \n{}".format(self.cosine_dis(supports=targets_x, targets=targets_x, normalize=False)))
         if self.fce:
             supports_x, _ = self.lstm(supports_x, requires_grad=requires_grad)
             targets_x, _ = self.lstm(targets_x, requires_grad=requires_grad)
-            # logger.debug("FCE supports_x [{}] output: {}".format(supports_x.shape,supports_x))
-            # logger.debug("FCE targets_x [{}] output: {}".format(targets_x.shape,targets_x))
+            logger.debug("FCE supports_x: \n{}".format(supports_x))
+            logger.debug("FCE targets_x: \n{}".format(targets_x))
+            logger.debug("FCE_targets X FCE_targets: \n{}".format(self.cosine_dis(supports=targets_x, targets=targets_x, normalize=False)))
 
         ## Calculate similarity between encoded supports and targets
         similarities = self.cosine_dis(supports=supports_x, targets=targets_x, normalize=True)
-        # logger.debug("similarities: {}".format(similarities))
-        # logger.debug("similarities shape: {}".format(similarities.shape))
+
+        logger.debug("emb_supports X emb_targets: \n{}".format(similarities))
 
         ## Produce predictions for target probabilities. targets_preds.shape = batch_size x # classes
         targets_preds = self.attn(similarities, supports_hots=supports_hots.float())

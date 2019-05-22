@@ -24,7 +24,6 @@ import numpy as np
 import torch.nn as nn
 
 from logger.logger import logger
-# from models import PairCosineSim as C
 
 
 class Attn(nn.Module):
@@ -72,6 +71,8 @@ if __name__ == '__main__':
     # b = torch.ones(1,2,7)
     # logger.debug(b)
     logger.debug(b.shape)
+
+    from models import PairCosineSim as C
     test_DN = C.PairCosineSim()
     sim = test_DN(a, b)
     logger.debug(sim.shape)

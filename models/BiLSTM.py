@@ -124,6 +124,20 @@ class BiLSTM(nn.Module):
         """
         Runs the bidirectional LSTM, produces outputs and hidden states.
 
+        https://pytorch.org/docs/master/nn.html#torch.nn.LSTM
+
+        input of shape (seq_len, batch, input_size): tensor containing the features of the input sequence. The input
+        can also be a packed variable length sequence. See torch.nn.utils.rnn.pack_padded_sequence() or
+        torch.nn.utils.rnn.pack_sequence() for details.
+
+        h_0 of shape (num_layers * num_directions, batch, hidden_size): tensor containing the initial hidden state
+        for each element in the batch. If the LSTM is bidirectional, num_directions should be 2, else it should be 1.
+
+        c_0 of shape (num_layers * num_directions, batch, hidden_size): tensor containing the initial cell state for
+        each element in the batch.
+
+        If (h_0, c_0) is not provided, both h_0 and c_0 default to zero.
+
         :param requires_grad:
         :param training: Signifies if network is training, during inference dropout is disabled.
         :param dropout: If non-zero, introduces a dropout layer on the outputs of each RNN layer except the last layer.
@@ -131,25 +145,23 @@ class BiLSTM(nn.Module):
         :param inputs: The inputs should be a list of shape  (seq_len, batch, input_size).
         :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
         """
-        hidden = self.init_hid(self.batch_size, requires_grad=requires_grad)
+        (h0, c0) = self.init_hid(self.batch_size, requires_grad=requires_grad)
         # logger.debug("self.hidden 1: {}".format(self.hidden))
-        outputs, hidden = self.lstm(inputs, hidden)
-        # logger.debug("self.hidden 2: {}".format(self.hidden))
-        # outputs, (hn, cn) = self.lstm(inputs, (h0, c0))
+        outputs, (hn, cn) = self.lstm(inputs, (h0, c0))
 
         if dropout_external and dropout > 0.0:  ## Need to use dropout externally as Pytorch LSTM applies dropout only on
             ## last layer and if there is only one layer, dropout will not be applied.
             logger.info("Applying dropout externally.")
             outputs = F.dropout(outputs, p=dropout, training=training, inplace=False)
         # assert input.shape == text_lstm.shape, "Input {} and Output {} shape should match.".format(input.shape, text_lstm.shape)
-        return outputs, hidden
+        return outputs, hn
 
 
 if __name__ == '__main__':
-    test_blstm = BiLSTM(input_size=5, hid_size=2, batch_size=3, num_layers=1, dropout=0.2, use_cuda=False,
+    test_blstm = BiLSTM(input_size=3, hid_size=2, batch_size=2, num_layers=1, dropout=0.2, use_cuda=False,
                         bidirectional=True)
     print(test_blstm)
-    input = torch.rand(3, 1, 5)  ## (batch_size, seq_size, input_size)
+    input = torch.rand(2, 1, 3)  ## (batch_size, seq_size, input_size)
     logger.debug("input: {}".format(input))
     logger.debug("input Shape: {}".format(input.shape))
     result = test_blstm.forward(input,

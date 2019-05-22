@@ -43,7 +43,7 @@ class Run_Network:
     and evaluation procedures.
     """
 
-    def __init__(self,data_formatter: data_loaders.PrepareData.PrepareData,use_cuda: bool = config["model"]["use_cuda"],
+    def __init__(self,data_formatter,use_cuda: bool = config["model"]["use_cuda"],
                  batch_size: int = config["sampling"]["batch_size"],
                  lr_decay: int = config["model"]["optimizer"]["lr_decay"],
                  lr: float = config["model"]["optimizer"]["learning_rate"]) -> None:

@@ -67,7 +67,7 @@ configuration = {
         "padding": 1,
         "context": 10,
         "classify_count": 0,
-        "fce": False,
+        "fce": True,
         "optimizer": {
             "optimizer_type": "adam",
             "learning_rate": 3e-4,
@@ -88,7 +88,7 @@ configuration = {
         "bias": True,
         "batch_first": True,
         "bidirectional": True,
-        "hid_size": 32,
+        "hid_size": 3,
     },
 
     "cnn_params": {
@@ -99,10 +99,10 @@ configuration = {
     },
 
     "sampling": {
-        "num_epochs": 50,
+        "num_epochs": 20,
         "num_train_epoch": 5,
         "batch_size": 2,
-        "categories_per_batch": 3,
+        "categories_per_batch": 2,
         "supports_per_category": 2,
         "targets_per_category": 2
     },
@@ -114,9 +114,9 @@ configuration = {
         "min_count": 1,
         "negative": 10,
         "num_chunks": 10,
-        "vectorizer": "word2vec",
+        "vectorizer": "doc2vec",
         "sample_repeat_mode": "append",
-        "input_size": 300,
+        "input_size": 7,
         "tfidf_avg": False,
         "idf" : True
     },
