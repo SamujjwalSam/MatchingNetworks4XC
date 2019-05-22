@@ -261,8 +261,30 @@ class Common_JSON_Handler:
                 cat2samples_map[cat].append(sample_id)
         return cat2samples_map
 
-    def find_tail_categories(self, classes_dict: dict = None, cat2samples_map=None, remove_count=3):
-        """ Removes categories with very few [remove_count] samples.
+    def find_samples_with_single_class(self,classes_dict: dict = None,cat2samples_map=None,remove_count=1):
+        """ Finds categories with very few [remove_count] samples.
+
+        :returns:
+            cat2samples_filtered: Category to samples map without tail categories.
+            tail_cats: List of tail category ids.
+            samples_with_tail_cats: Set of sample ids which belong to tail categories.
+        """
+        if cat2samples_map is None: cat2samples_map = self.cat2samples(classes_dict)
+
+        tail_cats = []
+        samples_with_tail_cats = set()
+        cat2samples_filtered = OrderedDict()
+        for category, sample_list in cat2samples_map.items():
+            if len(sample_list) > remove_count:
+                cat2samples_filtered[category] = len(sample_list)
+            else:
+                tail_cats.append(category)
+                samples_with_tail_cats.update(sample_list)
+
+        return tail_cats, samples_with_tail_cats, cat2samples_filtered
+
+    def find_classes_with_single_sample(self, classes_dict: dict = None, cat2samples_map=None, remove_count=1):
+        """ Finds categories with very few [remove_count] samples.
 
         :returns:
             cat2samples_filtered: Category to samples map without tail categories.
@@ -509,8 +531,8 @@ def main():
                                                          config["data"]["dataset_name"]),
                                           show_path=True)
 
-    tail_cats, samples_with_tail_cats, cat2samples_filtered = common_handler.find_tail_categories(classes_dict=classes,
-                                                                                                  remove_count=1)
+    tail_cats, samples_with_tail_cats, cat2samples_filtered = common_handler.find_samples_with_single_class(classes_dict=classes,
+                                                                                                            remove_count=1)
     logger.debug(len(tail_cats))
     logger.debug(len(samples_with_tail_cats))
     logger.debug(len(cat2samples_filtered))
