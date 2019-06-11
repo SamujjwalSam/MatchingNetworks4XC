@@ -255,15 +255,15 @@ class PrepareData:
         """
         chunks = []
         if sents_chunk_mode == "concat":
-            words = self.clean.tokenizer_re(sentence)
+            words = self.clean.tokenizer_spacy(sentence)
             for word in words:
                 chunks.append(word)
         elif sents_chunk_mode == "word_avg":
-            chunks = self.clean.tokenizer_re(sentence)
+            chunks = self.clean.tokenizer_spacy(sentence)
         elif sents_chunk_mode == "sentences":
             chunks = self.clean.sents_split(sentence)
         elif sents_chunk_mode == "chunked":
-            splitted_doc = self.clean.tokenizer_re(sentence)
+            splitted_doc = self.clean.tokenizer_spacy(sentence)
             doc_len = len(splitted_doc)
             chunk_size = doc_len // num_chunks  ## Calculates how large each chunk should be.
             index_start = 0
