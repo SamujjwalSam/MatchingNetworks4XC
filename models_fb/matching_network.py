@@ -29,6 +29,16 @@ from logger.logger import logger
 
 
 def encode_lowshot_trainset(model,base_classes,train_file_handle,novel_idx,lowshotn,num_base=100):
+    """
+
+    :param model:
+    :param base_classes:
+    :param train_file_handle:
+    :param novel_idx:
+    :param lowshotn:
+    :param num_base:
+    :return:
+    """
     all_labels = train_file_handle['all_labels'][...]
     all_feats = train_file_handle['all_feats']
 
@@ -70,6 +80,12 @@ def encode_lowshot_trainset(model,base_classes,train_file_handle,novel_idx,lowsh
 
 
 def perelement_accuracy(scores,label_ind):
+    """
+
+    :param scores:
+    :param label_ind:
+    :return:
+    """
     topk_scores,topk_labels = scores.topk(5,1,True,True)
     topk_ind = topk_labels.cpu().numpy()
     top1_correct = topk_ind[:,0] == label_ind
@@ -78,6 +94,18 @@ def perelement_accuracy(scores,label_ind):
 
 
 def run_test(model,G,G_norm,Y,test_file_handle,base_classes,novel_classes,batchsize=128):
+    """
+
+    :param model:
+    :param G:
+    :param G_norm:
+    :param Y:
+    :param test_file_handle:
+    :param base_classes:
+    :param novel_classes:
+    :param batchsize:
+    :return:
+    """
     count = test_file_handle['count'][0]
     all_feats = test_file_handle['all_feats']
     all_labels = test_file_handle['all_labels'][:count]
@@ -108,6 +136,10 @@ def run_test(model,G,G_norm,Y,test_file_handle,base_classes,novel_classes,batchs
 
 
 def parse_args():
+    """
+
+    :return:
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--test',required=True,type=int)
     parser.add_argument('--trainfile',required=True,type=str)
@@ -124,6 +156,9 @@ def parse_args():
 
 
 def main():
+    """
+
+    """
     params = parse_args()
     with open(params.lowshotmeta,'r') as f:
         lowshotmeta = json.load(f)
@@ -174,7 +209,10 @@ def main():
 
 
 class FullyContextualEmbedding(nn.Module):
-    def __init__(self,feat_dim,K):
+    """
+
+    """
+    def __init__(self,feat_dim: int,K: int) -> None:
         super(FullyContextualEmbedding,self).__init__()
         self.lstmcell = nn.LSTMCell(feat_dim * 2,feat_dim)
         self.softmax = nn.Softmax()
@@ -182,7 +220,13 @@ class FullyContextualEmbedding(nn.Module):
         self.feat_dim = feat_dim
         self.K = K
 
-    def forward(self,f,G):
+    def forward(self,f: torch.Tensor,G: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param f:
+        :param G:
+        :return:
+        """
         h = f
         c = self.c_0.expand_as(f)
         G_T = G.transpose(0,1)
@@ -212,6 +256,11 @@ class MatchingNetwork(nn.Module):
         self.feat_dim = feat_dim
 
     def encode_training_set(self,S):
+        """
+
+        :param S:
+        :return:
+        """
         # out_G = self.G_encoder(S.unsqueeze(0))[0]
         out_G = self.G_encoder(S.unsqueeze(0))[0]  ## Ignoring hidden representation.
         out_G = out_G.squeeze(0)
@@ -234,7 +283,15 @@ class MatchingNetwork(nn.Module):
         G_normalized = G.div(G_norm + 0.00001)
         return G,G_normalized
 
-    def get_logprobs(self,f,G,G_normalized,Y_S):
+    def get_logprobs(self,f: torch.Tensor,G: torch.Tensor,G_normalized: torch.Tensor,Y_S: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param f:
+        :param G:
+        :param G_normalized:
+        :param Y_S:
+        :return:
+        """
         F = self.FCE(f,G)
         g_n_t = G_normalized.transpose(0,1)
         scores = F.mm(g_n_t)
@@ -246,11 +303,22 @@ class MatchingNetwork(nn.Module):
         return logprobs
 
     def forward(self,f,S,Y_S):
+        """
+
+        :param f:
+        :param S:
+        :param Y_S:
+        :return:
+        """
         G,G_normalized = self.encode_training_set(S)
         logprobs = self.get_logprobs(f,G,G_normalized,Y_S)
         return logprobs
 
     def cuda(self):
+        """
+
+        :return:
+        """
         super(MatchingNetwork,self).cuda()
         self.FCE = self.FCE.cuda()
         return self
