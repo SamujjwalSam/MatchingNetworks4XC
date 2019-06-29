@@ -31,7 +31,8 @@ from config import configuration as config
 from config import platform as plat
 from config import username as user
 
-spacy_en = spacy.load("en_core_web_sm")
+spacy_en = spacy.load("en")
+# spacy_en = spacy.load("en_core_web_sm")
 
 """ Cleaning Procedure (in order)::
 5. Remove texts like: "This section may require cleanup to meet Wikipedia's quality standards."

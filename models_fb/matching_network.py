@@ -4,14 +4,12 @@
 __synopsis__    : This file implements the method described in: Vinyals, Oriol, et al. "Matching networks for one shot
                   learning." Advances in Neural Information Processing Systems. 2016.
 
-__description__ :
+__description__ : This is a Matching Networks implementation by Facebbok research located at: https://github.com/facebookresearch/low-shot-shrink-hallucinate/blob/master/matching_network.py
 __project__     : MNXC_2
-__author__      : sam, Samujjwal Ghosh <cs16resch01001@iith.ac.in>
+__author__      : Facebook Research
 __version__     : ":  "
-__date__        : "04/06/19"
-__copyright__   : "Copyright (c) 2019"
-__license__     : This source code is licensed under the MIT-style license found in the LICENSE file in the root
-                  directory of this source tree.
+__copyright__   : Copyright 2017-present, Facebook, Inc. All rights reserved.
+__license__     : License is located at: https://github.com/facebookresearch/low-shot-shrink-hallucinate/blob/master/LICENSE
 
 __classes__     : FullyContextualEmbedding, MatchingNetwork
 

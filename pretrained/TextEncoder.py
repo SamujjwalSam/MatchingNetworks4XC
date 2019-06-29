@@ -19,14 +19,13 @@ __variables__   :
 __methods__     :
 """
 
-import torch
-#from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
+# from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
 import numpy as np
 from os import mkdir
-from os.path import join, exists, split
+from os.path import join,exists,split
 from collections import OrderedDict
 
-from gensim.models import word2vec, doc2vec
+from gensim.models import word2vec,doc2vec
 from gensim.models.fasttext import FastText
 from gensim.models.keyedvectors import KeyedVectors
 # from gensim.models.keyedvectors import Doc2VecKeyedVectors
@@ -37,7 +36,7 @@ from logger.logger import logger
 from config import configuration as config
 from config import platform as plat
 from config import username as user
-# from text_process import Clean_Text as clean
+from text_process import Clean_Text
 
 
 class TextEncoder:
@@ -47,7 +46,7 @@ class TextEncoder:
     Supported models: glove, word2vec, fasttext, googlenews, bert, lex, etc.
     """
 
-    def __init__(self, model_type: str = "googlenews", model_dir: str = config["paths"]["pretrain_dir"][plat][user],
+    def __init__(self,model_type: str = "googlenews",model_dir: str = config["paths"]["pretrain_dir"][plat][user],
                  embedding_dim: int = config["prep_vecs"]["input_size"]):
         """
         Initializes the pretrain class and checks for paths validity.
@@ -67,10 +66,12 @@ class TextEncoder:
                 bert_multi
                 bert_large_uncased
         """
-        super(TextEncoder, self).__init__()
+        super(TextEncoder,self).__init__()
         self.model_type = model_type
         self.model_dir = model_dir
         self.embedding_dim = embedding_dim
+        self.clean = Clean_Text()
+
         if model_type == "googlenews":
             filename = "GoogleNews-vectors-negative300.bin"
             binary_file = True
@@ -109,9 +110,9 @@ class TextEncoder:
         self.pretrain_model = None
         # self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name, model_type=model_type)
 
-    def load_doc2vec(self, documents, vector_size=config["prep_vecs"]["input_size"], window=config["prep_vecs"]["window"],
-                     min_count=config["prep_vecs"]["min_count"], workers=config["text_process"]["workers"], seed=0,
-                     clean_tmp=False, save_model=True, doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
+    def load_doc2vec(self,documents,vector_size=config["prep_vecs"]["input_size"],window=config["prep_vecs"]["window"],
+                     min_count=config["prep_vecs"]["min_count"],workers=config["text_process"]["workers"],seed=0,
+                     clean_tmp=False,save_model=True,doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
                      doc2vec_dir=join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"]),
                      negative=config["prep_vecs"]["negative"]):
         """
@@ -132,37 +133,37 @@ class TextEncoder:
         """
         full_model_name = doc2vec_model_file + "_" + str(vector_size) + "_" + str(window) + "_" + str(min_count) + "_"\
                           + str(negative)
-        if exists(join(doc2vec_dir, full_model_name)):
-            logger.info("Loading doc2vec model [{}] from: [{}]".format(full_model_name, doc2vec_dir))
-            doc2vec_model = doc2vec.Doc2Vec.load(join(doc2vec_dir, full_model_name))
+        if exists(join(doc2vec_dir,full_model_name)):
+            logger.info("Loading doc2vec model [{}] from: [{}]".format(full_model_name,doc2vec_dir))
+            doc2vec_model = doc2vec.Doc2Vec.load(join(doc2vec_dir,full_model_name))
         else:
             train_corpus = list(self.read_corpus(documents))
-            doc2vec_model = doc2vec.Doc2Vec(train_corpus, vector_size=vector_size, window=window, min_count=min_count,
-                                            workers=workers, seed=seed, negative=negative)
+            doc2vec_model = doc2vec.Doc2Vec(train_corpus,vector_size=vector_size,window=window,min_count=min_count,
+                                            workers=workers,seed=seed,negative=negative)
             # doc2vec_model.build_vocab(train_corpus)
-            doc2vec_model.train(train_corpus, total_examples=doc2vec_model.corpus_count, epochs=doc2vec_model.epochs)
+            doc2vec_model.train(train_corpus,total_examples=doc2vec_model.corpus_count,epochs=doc2vec_model.epochs)
             if save_model:
-                save_path = get_tmpfile(join(doc2vec_dir, full_model_name))
+                save_path = get_tmpfile(join(doc2vec_dir,full_model_name))
                 doc2vec_model.save(save_path)
                 logger.info("Saved doc2vec model to: [{}]".format(save_path))
             if clean_tmp:  # Do this when finished training a model (no more updates, only querying, reduce memory usage)
-                doc2vec_model.delete_temporary_training_data(keep_doctags_vectors=True, keep_inference=True)
+                doc2vec_model.delete_temporary_training_data(keep_doctags_vectors=True,keep_inference=True)
         return doc2vec_model
 
-    def read_corpus(self, documents, tokens_only=False):
+    def read_corpus(self,documents,tokens_only=False):
         """
         Read the documents, pre-process each line using a simple gensim pre-processing tool and return a list of words. The tag is simply the zero-based line number.
 
         :param documents: List of documents.
         :param tokens_only:
         """
-        for i, line in enumerate(documents):
+        for i,line in enumerate(documents):
             if tokens_only:
                 yield simple_preprocess(line)
             else:  # For training data, add tags, tags are simply zero-based line number.
-                yield doc2vec.TaggedDocument(simple_preprocess(line), [i])
+                yield doc2vec.TaggedDocument(simple_preprocess(line),[i])
 
-    def get_doc2vecs(self, documents: list, doc2vec_model=None):
+    def get_doc2vecs(self,documents: list,doc2vec_model=None):
         """
         Generates vectors for documents.
 
@@ -174,50 +175,50 @@ class TextEncoder:
             doc2vec_model = self.load_doc2vec(documents)
         doc2vectors = []
         for doc in documents:
-            doc2vectors.append(doc2vec_model.infer_vector(doc))  # Infer vector for a new document
+            doc2vectors.append(doc2vec_model.infer_vector(self.clean.tokenizer_spacy(doc)))  # Infer vector for a new document
         doc2vectors = np.asarray(list(doc2vectors))  # Converting Dict values to Numpy array.
         return doc2vectors
 
-    def load_word2vec(self, model_dir=config["paths"]["pretrain_dir"][plat][user], model_type='googlenews', encoding='utf-8',
-                      model_file_name="GoogleNews-vectors-negative300.bin", newline='\n', errors='ignore'):
+    def load_word2vec(self,model_dir=config["paths"]["pretrain_dir"][plat][user],model_type='googlenews',
+                      encoding='utf-8', model_file_name="GoogleNews-vectors-negative300.bin",
+                      newline='\n',errors='ignore'):
         """
-        Loads Word2Vec model
-        Returns initial weights for embedding layer.
+        Loads Word2Vec model and returns initial weights for embedding layer.
 
         inputs:
         model_type      # GoogleNews / glove
         embedding_dim    # Word vector dimensionality
         """
         if self.pretrain_model is None:
-            logger.debug("Using [{0}] model from [{1}]".format(model_type, join(model_dir, model_file_name)))
+            logger.debug("Using [{0}] model from [{1}]".format(model_type,join(model_dir,model_file_name)))
             if model_type == 'googlenews' or model_type == "fasttext_wiki":
-                assert (exists(join(model_dir, model_file_name)))
-                if exists(join(model_dir, model_file_name + '.bin')):
+                assert (exists(join(model_dir,model_file_name)))
+                if exists(join(model_dir,model_file_name + '.bin')):
                     try:
                         pretrain_model = FastText.load_fasttext_format(
-                            join(model_dir, model_file_name + '.bin'))  # For original fasttext *.bin format.
+                            join(model_dir,model_file_name + '.bin'))  # For original fasttext *.bin format.
                     except Exception as e:
-                        pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name + '.bin'),
+                        pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir,model_file_name + '.bin'),
                                                                            binary=True)
                 else:
                     try:
-                        pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name),
+                        pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir,model_file_name),
                                                                            binary=self.binary)
                     except Exception as e:  # On exception, trying a different format.
                         logger.info('Loading original word2vec format failed. Trying Gensim format.')
-                        pretrain_model = KeyedVectors.load(join(model_dir, model_file_name))
-                    pretrain_model.save_word2vec_format(join(model_dir, model_file_name + ".bin"),
+                        pretrain_model = KeyedVectors.load(join(model_dir,model_file_name))
+                    pretrain_model.save_word2vec_format(join(model_dir,model_file_name + ".bin"),
                                                         binary=True)  # Save model in binary format for faster loading in future.
-                    logger.info("Saved binary model at: [{0}]".format(join(model_dir, model_file_name + ".bin")))
+                    logger.info("Saved binary model at: [{0}]".format(join(model_dir,model_file_name + ".bin")))
                     logger.info(type(pretrain_model))
             elif model_type == 'glove':
-                assert (exists(join(model_dir, model_file_name)))
-                logger.info('Loading existing Glove model: [{0}]'.format(join(model_dir, model_file_name)))
+                assert (exists(join(model_dir,model_file_name)))
+                logger.info('Loading existing Glove model: [{0}]'.format(join(model_dir,model_file_name)))
                 ## dictionary, where key is word, value is word vectors
                 pretrain_model = OrderedDict()
-                for line in open(join(model_dir, model_file_name), encoding=encoding):
+                for line in open(join(model_dir,model_file_name),encoding=encoding):
                     tmp = line.strip().split()
-                    word, vec = tmp[0], map(float, tmp[1:])
+                    word,vec = tmp[0],map(float,tmp[1:])
                     assert (len(vec) == self.embedding_dim)
                     if word not in pretrain_model:
                         pretrain_model[word] = vec
@@ -228,7 +229,7 @@ class TextEncoder:
                 bert_model.eval()
                 # pretrain_model = FastText.load_fasttext_format(join(model_dir,model_file_name))
                 # pretrain_model = FastText.load_binary_data (join(model_dir,model_file_name))
-                pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir, model_file_name), binary=False)
+                pretrain_model = KeyedVectors.load_word2vec_format(join(model_dir,model_file_name),binary=False)
                 # import io
                 # fin = io.open(join(model_dir, model_file_name), encoding=encoding, newline=newline,
                 #               errors=errors)
@@ -246,8 +247,8 @@ class TextEncoder:
         else:
             return self.pretrain_model
 
-    def train_w2v(self, sentence_matrix, vocabulary_inv, embedding_dim=config["prep_vecs"]["input_size"],
-                  min_word_count=config["prep_vecs"]["min_count"], context=config["prep_vecs"]["window"]):
+    def train_w2v(self,sentence_matrix,vocabulary_inv,embedding_dim=config["prep_vecs"]["input_size"],
+                  min_word_count=config["prep_vecs"]["min_count"],context=config["prep_vecs"]["window"]):
         """
         Trains, saves, loads Word2Vec model
         Returns initial weights for embedding layer.
@@ -260,8 +261,8 @@ class TextEncoder:
         context         # Context window size
         """
         model_dir = 'word2vec_models'
-        model_name = "{:d}features_{:d}minwords_{:d}context".format(embedding_dim, min_word_count, context)
-        model_name = join(model_dir, model_name)
+        model_name = "{:d}features_{:d}minwords_{:d}context".format(embedding_dim,min_word_count,context)
+        model_name = join(model_dir,model_name)
         if exists(model_name):
             pretrain_model = word2vec.Word2Vec.load(model_name)
             logger.debug('Loading existing Word2Vec model \'%s\'' % split(model_name)[-1])
@@ -273,7 +274,7 @@ class TextEncoder:
             ## Initialize and train the model
             logger.info("Training Word2Vec model...")
             sentences = [[vocabulary_inv[w] for w in s] for s in sentence_matrix]
-            pretrain_model = word2vec.Word2Vec(sentences, workers=num_workers,
+            pretrain_model = word2vec.Word2Vec(sentences,workers=num_workers,
                                                size=embedding_dim,
                                                min_count=min_word_count,
                                                window=context,
@@ -289,12 +290,12 @@ class TextEncoder:
             pretrain_model.save(model_name)
 
         ## add unknown words
-        embedding_weights = [np.array([pretrain_model[w] if w in pretrain_model else np.random.uniform(-0.25, 0.25,
+        embedding_weights = [np.array([pretrain_model[w] if w in pretrain_model else np.random.uniform(-0.25,0.25,
                                                                                                        pretrain_model.vector_size)
                                        for w in vocabulary_inv])]
         return embedding_weights
 
-    def get_embedding_matrix(self, vocabulary_inv: dict):
+    def get_embedding_matrix(self,vocabulary_inv: dict):
         """
         Generates the embedding matrix.
         :param vocabulary_inv:
@@ -302,7 +303,7 @@ class TextEncoder:
         :return:
         """
         embedding_weights = [self.pretrain_model[w] if w in self.pretrain_model
-                             else np.random.uniform(-0.25, 0.25, self.embedding_dim)
+                             else np.random.uniform(-0.25,0.25,self.embedding_dim)
                              for w in vocabulary_inv]
         embedding_weights = np.array(embedding_weights).astype('float32')
 
@@ -315,7 +316,7 @@ if __name__ == '__main__':
     sentence_obama = 'Obama speaks to the media in Illinois'
     sentence_president = 'The president greets the press in Chicago'
 
-    docs = [sentence_obama, sentence_president]
-    doc2vec_model = cls.load_doc2vec(docs, vector_size=10, window=2, negative=2, save_model=False)
-    vectors = cls.get_doc2vectors(docs, doc2vec_model)
+    docs = [sentence_obama,sentence_president]
+    doc2vec_model = cls.load_doc2vec(docs,vector_size=10,window=2,negative=2,save_model=False)
+    vectors = cls.get_doc2vectors(docs,doc2vec_model)
     logger.debug(vectors)

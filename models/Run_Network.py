@@ -103,8 +103,8 @@ class Run_Network:
         :return: mean_training_multilabel_margin_loss.
         """
         total_loss = 0.
-        # self.data_formatter.prepare_data(load_type='train')  # Loading appropriate data
-        optimizer = self.__create_optimizer(self.match_net, self.lr)  # Creating the optimizer
+        # self.data_formatter.prepare_data(load_type='train')  ## Loading appropriate data
+        optimizer = self.__create_optimizer(self.match_net, self.lr)  ## Creating the optimizer
 
         with tqdm.tqdm(total=num_train_epoch) as pbar:
             for i in range(num_train_epoch):  # 1 train epoch

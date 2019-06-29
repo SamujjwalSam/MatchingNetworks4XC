@@ -21,7 +21,7 @@ __methods__     :
 """
 
 import torch
-from os.path import join, isfile
+from os.path import join
 from matplotlib import pyplot as plt
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 # TIME_STAMP = datetime.utcnow().isoformat()
@@ -38,55 +38,8 @@ from data_loaders.common_data_handler import Common_JSON_Handler
 plt.ioff()
 
 seed_val = 0
-# random.seed(seed_val)
-# np.random.seed(seed_val)
-# torch.manual_seed(seed_val)
-# torch.cuda.manual_seed_all(seed=seed_val)
 
-""" Details
-TODOs:
------------------------------------------
-    Prepare Delicious-T140.
-    Implement TF-IDF weighted vectors.
-=========================================
-
-Variable naming:
------------------------------------------
-
-    Name used   ->  Meaning
-    -------------------------------------
-    Categories  ->  Labels / Classes {}
-    Sample      ->  [Feature, Categories]
-    *_hot       ->  multi-hot vector
-    x_hat       ->  test sample
-    no_cat_ids [list]  -> ids for which no categories were found.
-=========================================
-
-Data formats:
------------------------------------------
-    sentences : Texts after parsing and cleaning.
-    sentences =  {
-                    "id1": "text_1",
-                    "id2": "text_2"
-                 }
-    
-    classes   : OrderedDict of id to classes.
-    classes =    {     
-                    "id1" : [class_id_1,class_id_2],
-                    "id2" : [class_id_2,class_id_10]
-                 }
-    
-    categories : Dict of class texts.
-    categories = {
-                    "text"       : id
-                    "Computer Science" : class_id_1,
-                    "Machine Learning" : class_id_2
-                 }
-
-    samples :    {
-                    "sentences":"",
-                    "classes":""
-                 }
+"""
 ==========================================
 Config values for testing:
 ------------------------------------------
@@ -112,9 +65,6 @@ Config values for testing:
         "supports_per_category" : 10,
         "targets_per_category" : 1
 ==========================================
-
-To solve MKL problem: Adding <conda-env-root>/Library/bin to the path in the run configuration solves the issue, but adding it to the interpreter paths in the project settings doesn't.
-https://stackoverflow.com/questions/35478526/pyinstaller-numpy-intel-mkl-fatal-error-cannot-load-mkl-intel-thread-dll
 """
 
 
