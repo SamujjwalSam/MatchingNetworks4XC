@@ -212,6 +212,7 @@ class FullyContextualEmbedding(nn.Module):
     """
 
     """
+
     def __init__(self,feat_dim: int,K: int) -> None:
         super(FullyContextualEmbedding,self).__init__()
         self.lstmcell = nn.LSTMCell(feat_dim * 2,feat_dim)

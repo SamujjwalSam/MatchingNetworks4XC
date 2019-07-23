@@ -18,7 +18,7 @@ __methods__     :
 
 import torch
 from random import sample
-from os.path import join, isfile
+from os.path import join,isfile
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 from collections import OrderedDict
@@ -51,14 +51,14 @@ class PrepareData:
 
         self.doc2vec_model = None
         self.categories_all = None
-        self.sentences_selected, self.classes_selected, self.categories_selected = None, None, None
+        self.sentences_selected,self.classes_selected,self.categories_selected = None,None,None
         self.clean = Clean_Text()
 
         self.mlb = MultiLabelBinarizer()
         # dataset_loader.gen_data_stats()
         self.text_encoder = TextEncoder.TextEncoder()
 
-    def cat2samples(self, classes_dict: dict = None):
+    def cat2samples(self,classes_dict: dict = None):
         """
         Converts sample : categories to categories : samples
 
@@ -66,7 +66,7 @@ class PrepareData:
         """
         cat2id = OrderedDict()
         if classes_dict is None: classes_dict = self.classes_selected
-        for k, v in classes_dict.items():
+        for k,v in classes_dict.items():
             for cat in v:
                 if cat not in cat2id:
                     cat2id[cat] = []
@@ -81,16 +81,16 @@ class PrepareData:
         :param load_type: Which data to load: Options: ['train', 'val', 'test']
         """
         if load_type is 'train':  ## Get the idf dict for train documents but not for others.
-            self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all, self.idf_dict = \
+            self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all,self.idf_dict =\
                 self.dataset_loader.get_data(load_type=load_type)
         else:
-            self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all = \
+            self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all =\
                 self.dataset_loader.get_data(load_type=load_type)
         self.remain_sample_ids = list(self.sentences_selected.keys())
         self.cat2sample_map = self.cat2samples(self.classes_selected)
         self.remain_cat_ids = list(self.categories_selected.keys())
         logger.info("[{}] data counts:\n\tSentences = [{}],\n\tClasses = [{}],\n\tCategories = [{}]"
-                    .format(load_type, len(self.sentences_selected), len(self.classes_selected),
+                    .format(load_type,len(self.sentences_selected),len(self.classes_selected),
                             len(self.categories_selected)))
         logger.info("Total category count: [{}]".format(len(self.categories_all)))
 
@@ -102,9 +102,9 @@ class PrepareData:
 
         # self.idf_dict = self.clean.calculate_idf(docs=self.sentences_selected.values())
         if return_loaded:
-            return self.sentences_selected, self.classes_selected, self.categories_selected, self.categories_all
+            return self.sentences_selected,self.classes_selected,self.categories_selected,self.categories_all
 
-    def txt2vec(self, sentences: list, vectorizer=config["prep_vecs"]["vectorizer"],
+    def txt2vec(self,sentences: list,vectorizer=config["prep_vecs"]["vectorizer"],
                 tfidf_avg=config["prep_vecs"]["tfidf_avg"]):
         """
         Creates vectors from input_texts based on [vectorizer].
@@ -145,21 +145,21 @@ class PrepareData:
         if vectorizer == "doc2vec":
             if self.doc2vec_model is None:
                 self.doc2vec_model = self.text_encoder.load_doc2vec(sentences)
-            vectors_dict = self.text_encoder.get_doc2vecs(sentences, self.doc2vec_model)
+            vectors_dict = self.text_encoder.get_doc2vecs(sentences,self.doc2vec_model)
             return vectors_dict
         elif vectorizer == "word2vec":
             w2v_model = self.text_encoder.load_word2vec()
-            sentences = list(filter(None, sentences))  ## Removing empty items.
-            return self.create_doc_vecs(sentences, w2v_model=w2v_model)
+            sentences = list(filter(None,sentences))  ## Removing empty items.
+            return self.create_doc_vecs(sentences,w2v_model=w2v_model)
         else:
             raise Exception("Unknown vectorizer: [{}]. \n"
                             "Available options: ['doc2vec','word2vec']"
                             .format(vectorizer))
 
-    def sum_word_vecs(self,words: list, w2v_model,input_size=config["prep_vecs"]["input_size"], avg=True):
-        """
-        Generates a vector of [input_size] using the [words] and [w2v_model].
+    def sum_word_vecs(self,words: list,w2v_model,input_size=config["prep_vecs"]["input_size"],avg=True):
+        """ Generates a vector of [input_size] using the [words] and [w2v_model].
 
+        :param avg: If average to be calculated.
         :param words: List of words
         :param w2v_model: Word2Vec model by Gensim
         :param input_size: Dimension of each vector
@@ -167,7 +167,7 @@ class PrepareData:
         """
         # oov_words_dict = {}  ## To hold out-of-vocab words.
         sum_vec = None
-        for i, word in enumerate(words):
+        for i,word in enumerate(words):
             ## Multiply idf of that word with the vector
             try:  ## If word exists in idf dict
                 idf = self.idf_dict[word]
@@ -178,28 +178,29 @@ class PrepareData:
                 if sum_vec is None:
                     sum_vec = w2v_model[word] * idf
                 else:
-                    sum_vec = np.add(sum_vec, w2v_model[word] * idf)
+                    sum_vec = np.add(sum_vec,w2v_model[word] * idf)
             elif word in PrepareData.oov_words_dict:  ## If word is OOV
                 if sum_vec is None:
                     sum_vec = PrepareData.oov_words_dict[word] * idf
                 else:
-                    sum_vec = np.add(sum_vec, PrepareData.oov_words_dict[word] * idf)
+                    sum_vec = np.add(sum_vec,PrepareData.oov_words_dict[word] * idf)
             else:  ## New unknown word, need to create random vector.
-                new_oov_vec = np.random.uniform(-0.5, 0.5, input_size)
+                new_oov_vec = np.random.uniform(-0.5,0.5,input_size)
                 # w2v_model.add(word, new_oov_vec)  ## For some reason, gensim word2vec.add() not working.
                 PrepareData.oov_words_dict[word] = new_oov_vec
                 if sum_vec is None:
                     sum_vec = PrepareData.oov_words_dict[word] * idf
                 else:
-                    sum_vec = np.add(sum_vec, PrepareData.oov_words_dict[word] * idf)
+                    sum_vec = np.add(sum_vec,PrepareData.oov_words_dict[word] * idf)
         if avg:
-            sum_vec = np.divide(sum_vec, float(len(words)))
+            sum_vec = np.divide(sum_vec,float(len(words)))
 
         return np.stack(sum_vec)
 
     oov_words_dict = {}
 
-    def create_doc_vecs(self, sentences: list, w2v_model, use_idf=config["prep_vecs"]["idf"], concat_axis=0, input_size=config["prep_vecs"]["input_size"]):
+    def create_doc_vecs(self,sentences: list,w2v_model,use_idf=config["prep_vecs"]["idf"],concat_axis=0,
+                        input_size=config["prep_vecs"]["input_size"]):
         """
         Calculates the average of vectors of all words within a chunk and concatenates the chunks.
 
@@ -212,9 +213,9 @@ class PrepareData:
         :returns: Average of vectors of chunks. Dim: input_size.
         """
         docs_vecs = []  # List to hold generated vectors.
-        for i, doc in enumerate(sentences):
+        for i,doc in enumerate(sentences):
             chunks = self.partition_doc(doc)
-            chunks = list(filter(None, chunks))  ## Removing empty items.
+            chunks = list(filter(None,chunks))  ## Removing empty items.
             vecs = self.sum_word_vecs(chunks,w2v_model)
             docs_vecs.append(vecs)
             # for chunk in chunks:  ## Loop to create vector for each chunk to be concatenated.
@@ -273,7 +274,7 @@ class PrepareData:
                     index_end = index_start + chunk_size
                 else:  ## Available data is less than chunk_size
                     index_end = index_start + (doc_len - index_start)
-                logger.info('Making chunk of tokens from [{0}] to [{1}]'.format(index_start, index_end))
+                logger.info('Making chunk of tokens from [{0}] to [{1}]'.format(index_start,index_end))
                 chunk = splitted_doc[index_start:index_end]
                 chunks.append(chunk)
                 index_start = index_end
@@ -281,7 +282,7 @@ class PrepareData:
             raise Exception("Unknown document partition mode: [{}]. \n"
                             "Available options: ['concat','word_avg (Default)','sentences','chunked']"
                             .format(sents_chunk_mode))
-        chunks = list(filter(None, chunks))  ## Removes empty items, like: ""
+        chunks = list(filter(None,chunks))  ## Removes empty items, like: ""
         return chunks
 
     def normalize_inputs(self):
@@ -294,12 +295,12 @@ class PrepareData:
         self.max = np.max(self.x_train)
         self.min = np.min(self.x_train)
         logger.debug(
-            ("train_shape", self.x_train.shape, "test_shape", self.x_test.shape, "val_shape", self.x_val.shape))
+            ("train_shape",self.x_train.shape,"test_shape",self.x_test.shape,"val_shape",self.x_val.shape))
         self.x_train = (self.x_train - self.mean) / self.std
         self.x_val = (self.x_val - self.mean) / self.std
         self.x_test = (self.x_test - self.mean) / self.std
 
-    def create_multihot(self, batch_classes_dict):
+    def create_multihot(self,batch_classes_dict):
         """
         Creates multi-hot vectors for a batch of data.
 
@@ -317,9 +318,9 @@ class PrepareData:
         :param select: Number of samples to draw.
         :return:
         """
-        self.remain_cat_ids, selected_cat_ids = File_Util.get_batch_keys(self.remain_cat_ids,
-                                                                         batch_size=select,
-                                                                         remove_keys=False)
+        self.remain_cat_ids,selected_cat_ids = File_Util.get_batch_keys(self.remain_cat_ids,
+                                                                        batch_size=select,
+                                                                        remove_keys=False)
         selected_cat_ids = [int(cat) for cat in selected_cat_ids]  ## Integer keys are converted to string when saving
         ## as JSON. Converting them back to integer.
         return selected_cat_ids
@@ -332,13 +333,13 @@ class PrepareData:
         :param cats_hot: List of lists of categories.
         :return: Matrix of similarities. Matrix of jaccard similarities: number of categories, number of categories
         """
-        j_sim = np.zeros((len(cats_hot), len(cats_hot)))
-        for i, cat1 in enumerate(cats_hot):
-            for j, cat2 in enumerate(cats_hot):
-                j_sim[i, j] = len(set(cat1).intersection(set(cat2))) / len(set(cat1).union(set(cat2)))
+        j_sim = np.zeros((len(cats_hot),len(cats_hot)))
+        for i,cat1 in enumerate(cats_hot):
+            for j,cat2 in enumerate(cats_hot):
+                j_sim[i,j] = len(set(cat1).intersection(set(cat2))) / len(set(cat1).union(set(cat2)))
         return j_sim
 
-    def get_support_cats_jaccard(self, cats=None, select=config["sampling"]["categories_per_batch"]):
+    def get_support_cats_jaccard(self,cats=None,select=config["sampling"]["categories_per_batch"]):
         """
         Selects categories such that each category is least similar to previously selected categories.
 
@@ -348,12 +349,12 @@ class PrepareData:
         """
         if cats is None: cats = self.remain_cat_ids
         selected_cats = []
-        sel_cat = sample(range(len(cats)), k=1)[0]
+        sel_cat = sample(range(len(cats)),k=1)[0]
         selected_cats.append(sel_cat)
         cat_sim = self.cat_jaccard_sim_mat(cats)
         for i in np.arange(select - 1):
-            cat_sim[:, sel_cat] = 1.0
-            sel_cat = np.argmin(cat_sim[sel_cat, i:])  ## Symmetric matrix, need to check only upper triangle.
+            cat_sim[:,sel_cat] = 1.0
+            sel_cat = np.argmin(cat_sim[sel_cat,i:])  ## Symmetric matrix, need to check only upper triangle.
             selected_cats.append(sel_cat)
 
         return selected_cats
@@ -383,7 +384,7 @@ class PrepareData:
                 selected_samples = selected_samples + cat2sample_map[cat]
             elif len(cat2sample_map[cat]) > select:  ## More than required, sample [supports_per_category]
                 ## from the list.
-                selected_samples = selected_samples + sample(cat2sample_map[cat], k=select)
+                selected_samples = selected_samples + sample(cat2sample_map[cat],k=select)
             else:  ## Less than required, repeat the available classes.
                 selected_samples = selected_samples + cat2sample_map[cat]
                 length = len(cat2sample_map[cat])
@@ -394,12 +395,12 @@ class PrepareData:
                     empty_count = select - length
                     for i in range(
                             empty_count):  ## Sampling [supports_per_category] number of items from cat2sample_map[cat].
-                        selected_samples.append(cat2sample_map[cat][sample(range(length), 1)])
+                        selected_samples.append(cat2sample_map[cat][sample(range(length),1)])
                 else:
                     raise Exception("Unknown [sample_repeat_mode]: [{}]. \n"
                                     "Available options: ['append','word_avg','sample']".format(sample_repeat_mode))
-        sentences_batch, classes_batch = File_Util.create_batch_repeat(self.sentences_selected,self.classes_selected,
-                                                                       selected_samples)
+        sentences_batch,classes_batch = File_Util.create_batch_repeat(self.sentences_selected,self.classes_selected,
+                                                                      selected_samples)
 
         # sentences_batch = list(filter(None, sentences_batch))  ## Removing empty items.
         x_target = self.txt2vec(sentences_batch)
@@ -416,8 +417,8 @@ class PrepareData:
             # for cats in y_target_indices:
             #     np.append(target_y_np, np.array(cats))
             # y_target_indices = np.array(y_target_indices)
-            return x_target, y_target_hot, y_target_indices
-        return x_target, y_target_hot
+            return x_target,y_target_hot,y_target_indices
+        return x_target,y_target_hot
 
     def get_batches(self,batch_size: int = config["sampling"]["batch_size"],
                     supports_per_category: int = config["sampling"]["supports_per_category"],val: bool = False,
@@ -437,25 +438,25 @@ class PrepareData:
         target_count = str(config["sampling"]["categories_per_batch"] * supports_per_category) + "_" + str(batch_size)
         if val:  ## If true, it's a validation run. Return stored values.
             logger.info("Checking if Validation data is stored at: [{}]".format(
-                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_" + target_count + ".pkl")))
-            if isfile(join(self.dataset_dir, self.dataset_name,
+                join(self.dataset_dir,self.dataset_name,self.dataset_name + "_supports_x_" + target_count + ".pkl")))
+            if isfile(join(self.dataset_dir,self.dataset_name,
                            self.dataset_name + "_supports_x_" + target_count + ".pkl")):
                 logger.info("Found Validation data at: [{}]".format(
-                    join(self.dataset_dir, self.dataset_name,
+                    join(self.dataset_dir,self.dataset_name,
                          self.dataset_name + "_supports_x_" + target_count + ".pkl")))
                 supports_x = File_Util.load_pickle(self.dataset_name + "_supports_x_" + target_count,
-                                                   file_path=join(self.dataset_dir, self.dataset_name))
+                                                   file_path=join(self.dataset_dir,self.dataset_name))
                 supports_y_hots = File_Util.load_pickle(self.dataset_name + "_supports_y_hots_" + target_count,
-                                                        file_path=join(self.dataset_dir, self.dataset_name))
+                                                        file_path=join(self.dataset_dir,self.dataset_name))
                 targets_x = File_Util.load_pickle(self.dataset_name + "_targets_x_" + target_count,
-                                                  file_path=join(self.dataset_dir, self.dataset_name))
+                                                  file_path=join(self.dataset_dir,self.dataset_name))
                 targets_y_hots = File_Util.load_pickle(self.dataset_name + "_targets_y_hots_" + target_count,
-                                                       file_path=join(self.dataset_dir, self.dataset_name))
+                                                       file_path=join(self.dataset_dir,self.dataset_name))
                 target_cat_indices = File_Util.load_pickle(self.dataset_name + "_target_cat_indices_" + target_count,
-                                                           file_path=join(self.dataset_dir, self.dataset_name))
-                return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices
+                                                           file_path=join(self.dataset_dir,self.dataset_name))
+                return supports_x,supports_y_hots,targets_x,targets_y_hots,target_cat_indices
             logger.info("Validation data not found at: [{}]".format(
-                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_" + target_count + ".pkl")))
+                join(self.dataset_dir,self.dataset_name,self.dataset_name + "_supports_x_" + target_count + ".pkl")))
 
         support_cat_ids = self.get_support_cats()
         supports_x = []
@@ -464,10 +465,10 @@ class PrepareData:
         targets_y_hots = []
         target_cat_indices = []
         for i in range(batch_size):
-            x_support, y_support_hot = self.select_samples(support_cat_ids,
-                                                           select=supports_per_category)
-            x_target, y_target_hot, target_cat_indices_batch = \
-                self.select_samples(support_cat_ids, select=targets_per_category, return_cat_indices=True)
+            x_support,y_support_hot = self.select_samples(support_cat_ids,
+                                                          select=supports_per_category)
+            x_target,y_target_hot,target_cat_indices_batch =\
+                self.select_samples(support_cat_ids,select=targets_per_category,return_cat_indices=True)
             supports_x.append(x_support)
             supports_y_hots.append(y_support_hot)
             targets_x.append(x_target)
@@ -481,38 +482,38 @@ class PrepareData:
 
         if val:
             logger.info("Storing Validation data at: [{}]".format(
-                join(self.dataset_dir, self.dataset_name, self.dataset_name + "_supports_x_" + target_count + ".pkl")))
+                join(self.dataset_dir,self.dataset_name,self.dataset_name + "_supports_x_" + target_count + ".pkl")))
             File_Util.save_pickle(supports_x,filename=self.dataset_name + "_supports_x_" + target_count,
-                                  file_path=join(self.dataset_dir, self.dataset_name),overwrite=True)
+                                  file_path=join(self.dataset_dir,self.dataset_name),overwrite=True)
             File_Util.save_pickle(supports_y_hots,self.dataset_name + "_supports_y_hots_" + target_count,
-                                  file_path=join(self.dataset_dir, self.dataset_name),overwrite=True)
+                                  file_path=join(self.dataset_dir,self.dataset_name),overwrite=True)
             File_Util.save_pickle(targets_x,self.dataset_name + "_targets_x_" + target_count,
-                                  file_path=join(self.dataset_dir, self.dataset_name),overwrite=True)
+                                  file_path=join(self.dataset_dir,self.dataset_name),overwrite=True)
             File_Util.save_pickle(targets_y_hots,self.dataset_name + "_targets_y_hots_" + target_count,
-                                  file_path=join(self.dataset_dir, self.dataset_name),overwrite=True)
+                                  file_path=join(self.dataset_dir,self.dataset_name),overwrite=True)
             File_Util.save_pickle(target_cat_indices,self.dataset_name + "_target_cat_indices_" + target_count,
-                                  file_path=join(self.dataset_dir, self.dataset_name),overwrite=True)
+                                  file_path=join(self.dataset_dir,self.dataset_name),overwrite=True)
 
         target_cat_indices = np.stack(target_cat_indices)
-        return supports_x, supports_y_hots, targets_x, targets_y_hots, target_cat_indices
+        return supports_x,supports_y_hots,targets_x,targets_y_hots,target_cat_indices
 
     def test_d2v_1nn(self):
         """ Checks embedding quality with 1 Nearest Neighbors.
 
         """
         self.prepare_data(load_type='train')
-        test_supports, test_supports_hot, _, _, _ = self.get_batches(batch_size=1, targets_per_category=0)
+        test_supports,test_supports_hot,_,_,_ = self.get_batches(batch_size=1,targets_per_category=0)
         test_supports = test_supports.squeeze()
         test_supports_hot = test_supports_hot.squeeze()
 
         self.prepare_data(load_type='test')
-        _, _, test_targets, test_targets_hot, _ = self.get_batches(batch_size=1, supports_per_category=0)
+        _,_,test_targets,test_targets_hot,_ = self.get_batches(batch_size=1,supports_per_category=0)
         test_targets = test_targets.squeeze()
         test_targets_hot = test_targets_hot.squeeze()
 
-        self.find_test_supports(test_targets, test_targets_hot, test_supports, test_supports_hot)
+        self.find_test_supports(test_targets,test_targets_hot,test_supports,test_supports_hot)
 
-    def get_test_data(self, return_cat_indices=True):
+    def get_test_data(self,return_cat_indices=True):
         """
         Creates Test data: Selects whole training data as support set.
 
@@ -523,7 +524,8 @@ class PrepareData:
         ## Read and select train data
         self.prepare_data(load_type='train')
         keys = list(self.classes_selected.keys())
-        train_sentences, train_classes = File_Util.create_batch_repeat(self.sentences_selected,self.classes_selected,keys)
+        train_sentences,train_classes = File_Util.create_batch_repeat(self.sentences_selected,self.classes_selected,
+                                                                      keys)
         ## Vectorize train data
         test_supports = self.txt2vec(train_sentences)
         test_supports_hot = self.mlb.transform(train_classes)
@@ -532,12 +534,12 @@ class PrepareData:
         ## Read test data
         self.prepare_data(load_type='test')
         keys = list(self.classes_selected.keys())
-        test_sentences, test_classes = File_Util.create_batch_repeat(self.sentences_selected,self.classes_selected,keys)
+        test_sentences,test_classes = File_Util.create_batch_repeat(self.sentences_selected,self.classes_selected,keys)
         ## Vectorize test data
         test_targets = self.txt2vec(test_sentences)
         test_targets_hot = self.mlb.transform(test_classes)
 
-        self.find_test_supports(test_targets, test_targets_hot, test_supports, test_supports_hot)
+        self.find_test_supports(test_targets,test_targets_hot,test_supports,test_supports_hot)
 
         if return_cat_indices:
             ## For Multi-Label, multi-label-margin loss
@@ -547,12 +549,12 @@ class PrepareData:
             y_target_indices = test_targets_hot.argmax(1)
 
             # return test_supports, test_supports_hot, test_supports, test_supports_hot, y_target_indices
-            return test_supports, test_supports_hot, test_targets, test_targets_hot, y_target_indices
+            return test_supports,test_supports_hot,test_targets,test_targets_hot,y_target_indices
 
-        return test_supports, test_supports_hot, test_targets, test_targets_hot
+        return test_supports,test_supports_hot,test_targets,test_targets_hot
 
     @staticmethod
-    def find_test_supports(test_targets, test_targets_hot, test_supports, test_supports_hot, k=1):
+    def find_test_supports(test_targets,test_targets_hot,test_supports,test_supports_hot,k=1):
         """
         Finds supports for testing using doc2vec similarity.
 
@@ -564,10 +566,11 @@ class PrepareData:
         :return:
         """
         from sklearn.metrics.pairwise import cosine_similarity
-        cosine_sim = cosine_similarity(test_targets, test_supports)
+
+        cosine_sim = cosine_similarity(test_targets,test_supports)
         # logger.debug(cosine_sim.shape)
         # logger.debug(cosine_sim)
-        most_sim_indices = np.argsort(cosine_sim)[:, -k:]
+        most_sim_indices = np.argsort(cosine_sim)[:,-k:]
         # logger.debug(most_sim_indices.shape)
         # logger.debug(most_sim_indices)
         nearest_supports = []
@@ -578,7 +581,7 @@ class PrepareData:
             supports = []
             supports_hot = []
             for j in np.arange(k):
-                ind = most_sim_indices[i, j]
+                ind = most_sim_indices[i,j]
                 supports.append(test_supports[ind])
                 nearest_supports_merged.append(test_supports[ind])
                 supports_hot.append(test_supports_hot[ind])
@@ -600,7 +603,7 @@ class PrepareData:
                         correct_count += 1
 
         logger.info("Number of targets match with their supports: [{}] out of [{}] or [{} %] with [{}] neighbors."
-                    .format(correct_count, test_targets_hot.shape[0], 100 * (correct_count / test_targets_hot.shape[0]),
+                    .format(correct_count,test_targets_hot.shape[0],100 * (correct_count / test_targets_hot.shape[0]),
                             k))
 
         # return np.stack(nearest_supports), np.stack(nearest_supports_hot), np.stack(nearest_supports_merged), \

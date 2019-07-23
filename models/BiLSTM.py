@@ -34,7 +34,7 @@ class BiLSTM(nn.Module):
         Class for Bidirectional LSTM operations.
     """
 
-    def __init__(self, batch_size=config["sampling"]["batch_size"],
+    def __init__(self,batch_size=config["sampling"]["batch_size"],
                  use_cuda=config["model"]["use_cuda"],
                  bidirectional=config["lstm_params"]["bidirectional"],
                  input_size=config["prep_vecs"]["input_size"],
@@ -54,7 +54,7 @@ class BiLSTM(nn.Module):
                and if there is only one layer, dropout will not be used.
         :param bidirectional: If True, becomes a bidirectional RNN. Default: False
         """
-        super(BiLSTM, self).__init__()
+        super(BiLSTM,self).__init__()
         self.use_cuda = use_cuda
         self.bidirectional = bidirectional
         self.batch_size = batch_size
@@ -93,7 +93,7 @@ class BiLSTM(nn.Module):
         # logger.debug(self.lstm.weight_ih_l0_reverse)
         # logger.debug(self.lstm._all_weights)
 
-    def init_hid(self, batch_size=config["sampling"]["batch_size"], requires_grad=True, r1=-1, r2=1, num_directions=2):
+    def init_hid(self,batch_size=config["sampling"]["batch_size"],requires_grad=True,r1=-1,r2=1,num_directions=2):
         """
         Generates h0 and c0 for LSTM initialization with values range from r1 to r2.
 
@@ -108,18 +108,18 @@ class BiLSTM(nn.Module):
             num_directions = 1
         # r1, r2 = -1, 1  ## To generate numbers in range(-1,1)
         if self.use_cuda and torch.cuda.is_available():
-            cell_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                        self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
-            hid_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                       self.lstm.hidden_size) - r2, requires_grad=requires_grad).cuda()
+            cell_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions,batch_size,
+                                                        self.lstm.hidden_size) - r2,requires_grad=requires_grad).cuda()
+            hid_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions,batch_size,
+                                                       self.lstm.hidden_size) - r2,requires_grad=requires_grad).cuda()
         else:
-            cell_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                        self.lstm.hidden_size) - r2, requires_grad=requires_grad)
-            hid_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions, batch_size,
-                                                       self.lstm.hidden_size) - r2, requires_grad=requires_grad)
-        return hid_init, cell_init
+            cell_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions,batch_size,
+                                                        self.lstm.hidden_size) - r2,requires_grad=requires_grad)
+            hid_init = Variable((r2 - r1) * torch.rand(self.lstm.num_layers * num_directions,batch_size,
+                                                       self.lstm.hidden_size) - r2,requires_grad=requires_grad)
+        return hid_init,cell_init
 
-    def forward(self, inputs, training=True, requires_grad=True, dropout=config["model"]["dropout"],
+    def forward(self,inputs,training=True,requires_grad=True,dropout=config["model"]["dropout"],
                 dropout_external=config["model"]["dropout_external"]):
         """
         Runs the bidirectional LSTM, produces outputs and hidden states.
@@ -145,23 +145,23 @@ class BiLSTM(nn.Module):
         :param inputs: The inputs should be a list of shape  (seq_len, batch, input_size).
         :return: Returns the LSTM outputs: (seq_len, batch, num_directions * hidden_size), as well as the cell state (cn: (num_layers * num_directions, batch, hidden_size)) and final hidden representations (hn: (num_layers * num_directions, batch, hidden_size)).
         """
-        (h0, c0) = self.init_hid(self.batch_size, requires_grad=requires_grad)
+        (h0,c0) = self.init_hid(self.batch_size,requires_grad=requires_grad)
         # logger.debug("self.hidden 1: {}".format(self.hidden))
-        outputs, (hn, cn) = self.lstm(inputs, (h0, c0))
+        outputs,(hn,cn) = self.lstm(inputs,(h0,c0))
 
         if dropout_external and dropout > 0.0:  ## Need to use dropout externally as Pytorch LSTM applies dropout only on
             ## last layer and if there is only one layer, dropout will not be applied.
             logger.info("Applying dropout externally.")
-            outputs = F.dropout(outputs, p=dropout, training=training, inplace=False)
+            outputs = F.dropout(outputs,p=dropout,training=training,inplace=False)
         # assert input.shape == text_lstm.shape, "Input {} and Output {} shape should match.".format(input.shape, text_lstm.shape)
-        return outputs, hn
+        return outputs,hn
 
 
 if __name__ == '__main__':
-    test_blstm = BiLSTM(input_size=3, hid_size=2, batch_size=2, num_layers=1, dropout=0.2, use_cuda=False,
+    test_blstm = BiLSTM(input_size=3,hid_size=2,batch_size=2,num_layers=1,dropout=0.2,use_cuda=False,
                         bidirectional=True)
     print(test_blstm)
-    input = torch.rand(2, 1, 3)  ## (batch_size, seq_size, input_size)
+    input = torch.rand(2,1,3)  ## (batch_size, seq_size, input_size)
     logger.debug("input: {}".format(input))
     logger.debug("input Shape: {}".format(input.shape))
     result = test_blstm.forward(input,
@@ -171,6 +171,6 @@ if __name__ == '__main__':
     logger.debug("result: {}".format(result[0].shape))
     logger.debug("result: {}".format(result[1][0].shape))
     logger.debug("result: {}".format(result[1][1].shape))
-    result = test_blstm.forward(input, dropout_external=True)
+    result = test_blstm.forward(input,dropout_external=True)
     logger.debug("result: {}".format(result[0]))
     logger.debug("result: {}".format(result[0].shape))

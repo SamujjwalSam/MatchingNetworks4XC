@@ -31,18 +31,18 @@ from models.Weight_Init import weight_init
 from config import configuration as config
 
 
-def CNN_layer(in_planes, out_planes, kernel_size=config["cnn_params"]["kernel_size"],
-              stride=config["cnn_params"]["stride"], padding=config["cnn_params"]["padding"],
-              bias=config["cnn_params"]["bias"], dropout=config["model"]["dropout"]):
+def CNN_layer(in_planes,out_planes,kernel_size=config["cnn_params"]["kernel_size"],
+              stride=config["cnn_params"]["stride"],padding=config["cnn_params"]["padding"],
+              bias=config["cnn_params"]["bias"],dropout=config["model"]["dropout"]):
     """Convolution with padding to get embeddings for input pre-trained sentences.
 
     Default: Convolution = 1 x 1 with stride = 2.
     """
     seq = nn.Sequential(
-        nn.Conv1d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, bias=bias, padding=padding),
+        nn.Conv1d(in_planes,out_planes,kernel_size=kernel_size,stride=stride,bias=bias,padding=padding),
         nn.BatchNorm1d(out_planes),
         nn.ReLU(True),
-        nn.MaxPool1d(kernel_size=kernel_size, stride=stride + 1)
+        nn.MaxPool1d(kernel_size=kernel_size,stride=stride + 1)
     )
     if dropout > 0.0:  ## Add dropout module
         list_seq = list(seq.modules())[1:]
@@ -52,12 +52,16 @@ def CNN_layer(in_planes, out_planes, kernel_size=config["cnn_params"]["kernel_si
     return seq
 
 
-def init_hid(bidirectional=config["lstm_params"]["bidirectional"], batch_size=config["sampling"]["batch_size"],
-             num_layers=config["lstm_params"]["num_layers"], hid_size=config["lstm_params"]["hid_size"],
-             requires_grad=True, low_val=-1, high_val=1,use_cuda=config["model"]["use_cuda"]):
+def init_hid(bidirectional=config["lstm_params"]["bidirectional"],batch_size=config["sampling"]["batch_size"],
+             num_layers=config["lstm_params"]["num_layers"],hid_size=config["lstm_params"]["hid_size"],
+             requires_grad=True,low_val=-1,high_val=1,use_cuda=config["model"]["use_cuda"]):
     """
     Generates h0 and c0 for LSTM initialization with values range from r1 to r2.
 
+    :param use_cuda:
+    :param num_layers:
+    :param hid_size:
+    :param bidirectional:
     :param high_val: Max value of the range
     :param low_val: Min value of the range
     :param batch_size:
@@ -70,31 +74,31 @@ def init_hid(bidirectional=config["lstm_params"]["bidirectional"], batch_size=co
     # r1, r2 = -1, 1  ## To generate numbers in range(-1,1)
     if use_cuda and torch.cuda.is_available():
         cell_init = Variable((high_val - low_val)
-                             * torch.rand(num_layers * num_directions, batch_size, hid_size)
-                             - high_val, requires_grad=requires_grad).cuda()
+                             * torch.rand(num_layers * num_directions,batch_size,hid_size)
+                             - high_val,requires_grad=requires_grad).cuda()
         hid_init = Variable((high_val - low_val)
-                            * torch.rand(num_layers * num_directions, batch_size, hid_size)
-                            - high_val, requires_grad=requires_grad).cuda()
+                            * torch.rand(num_layers * num_directions,batch_size,hid_size)
+                            - high_val,requires_grad=requires_grad).cuda()
     else:
         cell_init = Variable((high_val - low_val)
-                             * torch.rand(num_layers * num_directions, batch_size, hid_size)
-                             - high_val, requires_grad=requires_grad)
+                             * torch.rand(num_layers * num_directions,batch_size,hid_size)
+                             - high_val,requires_grad=requires_grad)
         hid_init = Variable((high_val - low_val)
-                            * torch.rand(num_layers * num_directions, batch_size, hid_size)
-                            - high_val, requires_grad=requires_grad)
-    return hid_init, cell_init
+                            * torch.rand(num_layers * num_directions,batch_size,hid_size)
+                            - high_val,requires_grad=requires_grad)
+    return hid_init,cell_init
 
 
-def LSTM_layer(bidirectional=config["lstm_params"]["bidirectional"], dropout=config["model"]["dropout"],
-               input_size=config["prep_vecs"]["input_size"], batch_first=config["lstm_params"]["batch_first"],
-               num_layers=config["lstm_params"]["num_layers"], hid_size=config["lstm_params"]["hid_size"],
+def LSTM_layer(bidirectional=config["lstm_params"]["bidirectional"],dropout=config["model"]["dropout"],
+               input_size=config["prep_vecs"]["input_size"],batch_first=config["lstm_params"]["batch_first"],
+               num_layers=config["lstm_params"]["num_layers"],hid_size=config["lstm_params"]["hid_size"],
                bias=config["lstm_params"]["bias"]):
     """Convolution with padding to get embeddings for input pre-trained sentences.
 
     Default:
     """
-    lstm = nn.LSTM(input_size=input_size, hidden_size=hid_size, dropout=dropout, bias=bias, num_layers=num_layers,
-                   batch_first=batch_first, bidirectional=bidirectional)
+    lstm = nn.LSTM(input_size=input_size,hidden_size=hid_size,dropout=dropout,bias=bias,num_layers=num_layers,
+                   batch_first=batch_first,bidirectional=bidirectional)
 
     return lstm
 
@@ -102,9 +106,10 @@ def LSTM_layer(bidirectional=config["lstm_params"]["bidirectional"], dropout=con
 class EmbedText(nn.Module):
     """Builds context sensitive embeddings for pre-trained sentences using either LSTM or CNN."""
 
-    def __init__(self, num_channels, layer_size, classify_count=config["model"]["classify_count"], requires_grad=True,
-                 hid_size=config["lstm_params"]["hid_size"], g_encoder=config["model"]["g_encoder"], use_cuda=config["model"]["use_cuda"],
-                 input_size=config["prep_vecs"]["input_size"], bidirectional=config["lstm_params"]["bidirectional"]):
+    def __init__(self,num_channels,layer_size,classify_count=config["model"]["classify_count"],requires_grad=True,
+                 hid_size=config["lstm_params"]["hid_size"],g_encoder=config["model"]["g_encoder"],
+                 use_cuda=config["model"]["use_cuda"],
+                 input_size=config["prep_vecs"]["input_size"],bidirectional=config["lstm_params"]["bidirectional"]):
         """
         Builds embeddings for pre-trained sentences using either LSTM or CNN.
 
@@ -114,7 +119,7 @@ class EmbedText(nn.Module):
         :param num_channels: Number of channels of samples
         :param useDroput: use Dropout with p=0.1 in each Conv block
         """
-        super(EmbedText, self).__init__()
+        super(EmbedText,self).__init__()
         self.g_encoder = g_encoder
         self.use_cuda = use_cuda
 
@@ -125,9 +130,9 @@ class EmbedText(nn.Module):
             # logger.debug((self.hidden))
             self.output_size = hid_size * 2  ## 2 because bidirectional.
         elif self.g_encoder == "cnn":
-            logger.debug((num_channels, layer_size))
-            self.conv1 = CNN_layer(num_channels, layer_size)
-            self.conv2 = CNN_layer(layer_size, layer_size)
+            logger.debug((num_channels,layer_size))
+            self.conv1 = CNN_layer(num_channels,layer_size)
+            self.conv2 = CNN_layer(layer_size,layer_size)
             # self.conv3 = CNN_layer(layer_size, layer_size)
             # self.conv4 = CNN_layer(layer_size, layer_size)
 
@@ -140,7 +145,7 @@ class EmbedText(nn.Module):
 
         if classify_count > 0:  ## We want a linear layer as last layer of CNN network.
             self.use_linear_last = True
-            self.last_linear_layer = nn.Linear(self.output_size, classify_count)
+            self.last_linear_layer = nn.Linear(self.output_size,classify_count)
             self.output_size = classify_count
         else:
             self.use_linear_last = False
@@ -158,26 +163,26 @@ class EmbedText(nn.Module):
                 # self.weights_init(self.conv3)
                 # self.weights_init(self.conv4)
 
-    def weights_init(self, module):
+    def weights_init(self,module):
         """
         Initialize weights to all the layers of the Network.
         :param module:
         """
         for m in module.modules():
-            if isinstance(m, nn.Conv2d):
-                init.xavier_uniform_(m.weight, gain=np.sqrt(2))
-                init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
+            if isinstance(m,nn.Conv2d):
+                init.xavier_uniform_(m.weight,gain=np.sqrt(2))
+                init.constant_(m.bias,0)
+            elif isinstance(m,nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
-            elif isinstance(m, nn.Conv1d):
-                init.xavier_uniform_(m.weight, gain=np.sqrt(2))
-                init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm1d):
+            elif isinstance(m,nn.Conv1d):
+                init.xavier_uniform_(m.weight,gain=np.sqrt(2))
+                init.constant_(m.bias,0)
+            elif isinstance(m,nn.BatchNorm1d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-    def forward(self, inputs, dropout_external=config["model"]["dropout_external"]):
+    def forward(self,inputs,dropout_external=config["model"]["dropout_external"]):
         """
         Runs the CNNText producing the embeddings and the gradients.
 
@@ -186,7 +191,7 @@ class EmbedText(nn.Module):
         :return: Embeddings of size [batch_size, 64]
         """
         if self.g_encoder == "lstm":
-            output, _ = self.lstm(inputs, self.hidden)
+            output,_ = self.lstm(inputs,self.hidden)
         elif self.g_encoder == "cnn":
             output = self.conv1(inputs)
             output = self.conv2(output)
@@ -211,9 +216,9 @@ class EmbedText(nn.Module):
 if __name__ == '__main__':
     import torch
 
-    a = torch.ones(1, 2, 4)  ## batch_size, <don't matter>, input_size
+    a = torch.ones(1,2,4)  ## batch_size, <don't matter>, input_size
     logger.debug(a)
-    cls = EmbedText(input_size=4, layer_size=1, classify_count=2, g_encoder="lstm")
-    sim = cls.forward(a, batch_size=1, dropout_external=True)
+    cls = EmbedText(input_size=4,layer_size=1,classify_count=2,g_encoder="lstm")
+    sim = cls.forward(a,batch_size=1,dropout_external=True)
     logger.debug(sim)
     logger.debug(sim.shape)

@@ -55,12 +55,12 @@ class Neighborhood:
         self.graph_dir = graph_dir
         self.dataset_name = dataset_name
         self.graph_format = graph_format
-        self.k = k
+        self.top_k = k
         self.classes = File_Util.load_json(
             join(graph_dir, dataset_name, dataset_name + "_text_json", dataset_name + "_classes"))
         self.categories = File_Util.load_json(
             join(graph_dir, dataset_name, dataset_name + "_text_json", dataset_name + "_categories"))
-        self.id2cat_map = inverse_dict_elm(self.categories)
+        self.cat_id2text_map = inverse_dict_elm(self.categories)
 
     def create_V(self):
         """
@@ -111,7 +111,7 @@ class Neighborhood:
 
     def topk_sim_idx(self, multihot_data, k: int):
         """
-        Finds the top k neighrest neighbors for each sample using cosine similarity.
+        Finds the top_k neighrest neighbors for each sample using cosine similarity.
 
         :type k: int
         :param multihot_data: matrix of multi-hot vectors [samples * categories].
@@ -121,8 +121,8 @@ class Neighborhood:
         pair_cosine = cosine_similarity(multihot_data)
         np.fill_diagonal(pair_cosine, 0)  # Remove self-similarity.
         neighbor_idx = np.argpartition(pair_cosine, -k)  # use (-) to partition by largest values.
-        neighbor_idx = neighbor_idx[:, -k:]  # last [k] columns are the largest (most similar).
-        self.k = k  # Storing to use when saving files.
+        neighbor_idx = neighbor_idx[:, -k:]  # last [top_k] columns are the largest (most similar).
+        self.top_k = k  # Storing to use when saving files.
         assert neighbor_idx.shape[0] == len(multihot_data)
         assert neighbor_idx.shape[1] == k
         return neighbor_idx
@@ -153,25 +153,25 @@ class Neighborhood:
         :return:
         """
         if k is None:
-            k = self.k
-        if exists(join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")):
+            k = self.top_k
+        if exists(join(self.graph_dir,self.dataset_name,self.dataset_name + "_G_" + str(self.top_k) + ".graphml")):
             G = nx.read_graphml(
-                join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml"))
+                join(self.graph_dir,self.dataset_name,self.dataset_name + "_G_" + str(self.top_k) + ".graphml"))
             logger.info("Loaded neighborhood graph from [{0}]".format(
-                join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")))
-            # stats = util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name+"_stats_"+str(self.k)))
+                join(self.graph_dir,self.dataset_name,self.dataset_name + "_G_" + str(self.top_k) + ".graphml")))
+            # stats = util.load_json(join(self.graph_dir,self.dataset_name,self.dataset_name+"_stats_"+str(self.top_k)))
             stats = self.graph_stats(G)
-            # util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.k),file_path=join(self.graph_dir,self.dataset_name),overwrite=True)
+            # util.save_json(stats, filename=self.dataset_name+"_stats_"+str(self.top_k),file_path=join(self.graph_dir,self.dataset_name),overwrite=True)
         else:
             data_dict = self.dict2multihot()
             neighbor_idx = self.topk_sim_idx(data_dict, k)
             G = self.create_neighborhood_graph(neighbor_idx)
             stats = self.graph_stats(G)
         logger.info("Saving neighborhood graph at [{0}]".format(
-            join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml")))
+            join(self.graph_dir,self.dataset_name,self.dataset_name + "_G_" + str(self.top_k) + ".graphml")))
         nx.write_graphml(G,
-                         join(self.graph_dir, self.dataset_name, self.dataset_name + "_G_" + str(self.k) + ".graphml"))
-        File_Util.save_json(stats,filename=self.dataset_name + "_stats_" + str(self.k),
+                         join(self.graph_dir,self.dataset_name,self.dataset_name + "_G_" + str(self.top_k) + ".graphml"))
+        File_Util.save_json(stats,filename=self.dataset_name + "_stats_" + str(self.top_k),
                             file_path=join(self.graph_dir, self.dataset_name),overwrite=True)
         logger.info("Graph stats: [{0}]".format(stats))
         return G, stats
@@ -241,8 +241,8 @@ class Neighborhood:
         :return: returns the texual label of the node id [v]
         """
         v = int(v)
-        if v in self.id2cat_map:
-            return self.id2cat_map[v]
+        if v in self.cat_id2text_map:
+            return self.cat_id2text_map[v]
         return str(v)
 
     def find_single_labels(self):
