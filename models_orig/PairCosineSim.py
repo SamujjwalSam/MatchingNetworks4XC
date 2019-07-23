@@ -30,9 +30,9 @@ from logger.logger import logger
 
 class PairCosineSim(nn.Module):
     def __init__(self):
-        super(PairCosineSim, self).__init__()
+        super(PairCosineSim,self).__init__()
 
-    def forward(self, supports, target):
+    def forward(self,supports,target):
         """
         Calculates pairwise cosine similarity of support sets with target sample.
 
@@ -46,8 +46,8 @@ class PairCosineSim(nn.Module):
         # for i in np.arange(supports.size(1)):
         #     support_image = supports[:, i, :]
         for support_image in supports:
-            sum_support = torch.sum(torch.pow(support_image, 2), 1)
-            support_magnitude = sum_support.clamp(eps, float("inf")).rsqrt()
+            sum_support = torch.sum(torch.pow(support_image,2),1)
+            support_magnitude = sum_support.clamp(eps,float("inf")).rsqrt()
             target_unsqueeze = target.unsqueeze(1)
             support_image_unsqueeze = support_image.unsqueeze(2)
             # target = target.squeeze(1)
@@ -61,34 +61,34 @@ class PairCosineSim(nn.Module):
 
 
 if __name__ == '__main__':
-    a1_np = np.array([[[1., 0.4],
-                       [1., 1.],
-                       [0., 1.5]],
-                      [[1., 0.6],
-                       [1., 1.],
-                       [0., 1.5]]])
+    a1_np = np.array([[[1.,0.4],
+                       [1.,1.],
+                       [0.,1.5]],
+                      [[1.,0.6],
+                       [1.,1.],
+                       [0.,1.5]]])
     a1_pt = torch.from_numpy(a1_np)
-    a2_np = np.array([[[1., 2.],
-                       [3., 4.],
-                       [5., 6.]],
-                      [[1., 7.],
-                       [2., 5.],
-                       [5., 6.]]])
+    a2_np = np.array([[[1.,2.],
+                       [3.,4.],
+                       [5.,6.]],
+                      [[1.,7.],
+                       [2.,5.],
+                       [5.,6.]]])
     a2_pt = torch.from_numpy(a2_np)
 
-    b1_np = np.array([[[1., 0.4],
-                       [1., 1.5]],
-                      [[1., 0.7],
-                       [1., 1.5]]])
+    b1_np = np.array([[[1.,0.4],
+                       [1.,1.5]],
+                      [[1.,0.7],
+                       [1.,1.5]]])
     b1_pt = torch.from_numpy(b1_np)
-    b2_np = np.array([[[1., 2.],
-                       [3., 4.]],
-                      [[1., 7.],
-                       [5., 6.]]])
+    b2_np = np.array([[[1.,2.],
+                       [3.,4.]],
+                      [[1.,7.],
+                       [5.,6.]]])
     b2_pt = torch.from_numpy(b2_np)
 
-    output = torch.tensor([[0.8103, 1.0000, 0.8793],
-                           [0.9804, 0.8793, 1.0000]])
+    output = torch.tensor([[0.8103,1.0000,0.8793],
+                           [0.9804,0.8793,1.0000]])
 
     # a = torch.rand(5, 8, 7)
     # b = torch.rand(5, 2, 7)
@@ -97,9 +97,9 @@ if __name__ == '__main__':
     # logger.debug(b)
     # logger.debug(b.shape)
     test_DN = PairCosineSim()
-    sim = test_DN.forward(a1_pt, b1_pt, test=True)
+    sim = test_DN.forward(a1_pt,b1_pt,test=True)
     # logger.debug(sim)
     logger.debug(sim.shape)
-    sim = test_DN.forward(a2_pt, b2_pt, test=True)
+    sim = test_DN.forward(a2_pt,b2_pt,test=True)
     # logger.debug(sim)
     logger.debug(sim.shape)

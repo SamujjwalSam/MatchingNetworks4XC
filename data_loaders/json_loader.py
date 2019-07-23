@@ -54,7 +54,8 @@ class JSONLoader(torch.utils.data.Dataset):
         }
     """
 
-    def __init__(self, dataset_name=config["data"]["dataset_name"], data_dir: str = config["paths"]["dataset_dir"][plat][user]):
+    def __init__(self,dataset_name=config["data"]["dataset_name"],
+                 data_dir: str = config["paths"]["dataset_dir"][plat][user]):
         """
         Initializes the JSON loader.
 
@@ -62,15 +63,17 @@ class JSONLoader(torch.utils.data.Dataset):
             data_dir : Path to directory of the dataset.
             dataset_name : Name of the dataset.
         """
-        super(JSONLoader, self).__init__()
+        super(JSONLoader,self).__init__()
         self.dataset_name = dataset_name
-        self.data_dir = join(data_dir, self.dataset_name)
-        self.raw_json_dir = join(self.data_dir, self.dataset_name + "_RawData")
+        self.data_dir = join(data_dir,self.dataset_name)
+        self.raw_json_dir = join(self.data_dir,self.dataset_name + "_RawData")
         self.raw_json_file = self.dataset_name + "_RawData.json"
-        logger.info("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
-        self.sentences, self.classes, self.categories = self.gen_dicts(json_path=join(self.raw_json_dir,self.raw_json_file), encoding="UTF-8")
+        logger.info("Dataset name: [{}], Directory: [{}]".format(self.dataset_name,self.data_dir))
+        self.sentences,self.classes,self.categories = self.gen_dicts(
+            json_path=join(self.raw_json_dir,self.raw_json_file),encoding="UTF-8")
 
-    def gen_dicts(self,json_path=None, encoding=config["text_process"]["encoding"],specials="""_-@*#'"/\\""", replace=' '):
+    def gen_dicts(self,json_path=None,encoding=config["text_process"]["encoding"],specials="""_-@*#'"/\\""",
+                  replace=' '):
         """
         Generates the data dictionaries from original json file.
 
@@ -81,7 +84,8 @@ class JSONLoader(torch.utils.data.Dataset):
         :return: sentences, classes, categories, no_cat_ids
             no_cat_ids: ids for which no categories were found.
         """
-        import ast  # As the data is not proper JSON (single-quote instead of double-quote) format, "json" library will not work.
+        import\
+            ast  # As the data is not proper JSON (single-quote instead of double-quote) format, "json" library will not work.
         from unidecode import unidecode
 
         logger.info("Generates the data dictionaries from original json file.")
@@ -91,10 +95,11 @@ class JSONLoader(torch.utils.data.Dataset):
         no_cat_ids = []  # To store ids for which no categories were found.
 
         if json_path is None: json_path = self.raw_json_dir
-        with sopen(json_path, encoding=encoding) as raw_json_ptr:
-            trans_table = File_Util.make_trans_table(specials=specials,replace=replace)  # Creating mapping to clean sentences.
+        with sopen(json_path,encoding=encoding) as raw_json_ptr:
+            trans_table = File_Util.make_trans_table(specials=specials,
+                                                     replace=replace)  # Creating mapping to clean sentences.
             cat_idx = 0  # Holds the category index.
-            for cnt, line in enumerate(raw_json_ptr):
+            for cnt,line in enumerate(raw_json_ptr):
                 # Instead of: line_dict = OrderedDict(json.loads(line));
                 # Use: import ast; line_dict = ast.literal_eval(line.strip().replace('\n','\\n'));
                 line_dict = ast.literal_eval(line.strip().replace('\n','\\n'))
@@ -102,33 +107,38 @@ class JSONLoader(torch.utils.data.Dataset):
                     if "title" in line_dict:  # Check if "title" exists, add if True.
                         sentences[line_dict["asin"]] = unidecode(str(line_dict["title"])).translate(trans_table)
                         if "description" in line_dict:  # Check if "description" exists and append to "title" with keyword: ". \nDESC: ", if true.
-                            sentences[line_dict["asin"]] = sentences[line_dict["asin"]] + ". \nDESC: " + unidecode(str(line_dict["description"])).translate(trans_table)
+                            sentences[line_dict["asin"]] = sentences[line_dict["asin"]] + ". \nDESC: " + unidecode(
+                                str(line_dict["description"])).translate(trans_table)
                     else:
                         if "description" in line_dict:  # Check if "description" exists even though "title" does not, use only "description" if true.
                             sentences[line_dict["asin"]] = ". \nDESC: " + line_dict["description"]
                         else:  # Report and skip the sample if neither "title" nor "description" exists.
-                            logger.warning("Neither 'title' nor 'description' found for sample id: [{}]. Adding sample to 'no_cat_ids'.".format(line_dict["asin"]))
-                            no_cat_ids.append(line_dict["asin"])  # As neither "title" nor "description" exists, adding the id to "no_cat_ids".
+                            logger.warning(
+                                "Neither 'title' nor 'description' found for sample id: [{}]. Adding sample to 'no_cat_ids'.".format(
+                                    line_dict["asin"]))
+                            no_cat_ids.append(line_dict[
+                                                  "asin"])  # As neither "title" nor "description" exists, adding the id to "no_cat_ids".
                             continue
                     classes[line_dict["asin"]] = line_dict["categories"][0]
                     for lbl in classes[line_dict["asin"]]:
                         if lbl not in categories:  # If lbl does not exists in categories already, add it and assign a new category index.
                             categories[lbl] = cat_idx
                             cat_idx += 1
-                        classes[line_dict["asin"]][classes[line_dict["asin"]].index(lbl)] = categories[lbl]  # Replacing categories text to categories id.
+                        classes[line_dict["asin"]][classes[line_dict["asin"]].index(lbl)] = categories[
+                            lbl]  # Replacing categories text to categories id.
                 else:  # if "categories" does not exist, then add the id to "no_cat_ids".
                     no_cat_ids.append(line_dict["asin"])
 
         File_Util.save_json(no_cat_ids,self.dataset_name + "_no_cat_ids",file_path=self.data_dir)
         logger.info("Number of sentences: [{}], classes: [{}] and categories: [{}]."
                     .format(len(sentences),len(classes),len(categories)))
-        return sentences, classes, categories
+        return sentences,classes,categories
 
     def get_data(self):
         """
         Function to get the entire dataset
         """
-        return self.sentences, self.classes, self.categories
+        return self.sentences,self.classes,self.categories
 
     def get_sentences(self):
         """

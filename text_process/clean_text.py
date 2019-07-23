@@ -70,7 +70,7 @@ class Clean_Text(object):
         return Y
 
     @staticmethod
-    def split_docs(docs: dict,criteria = ' '):
+    def split_docs(docs: dict,criteria=' '):
         """
         Splits a dict of idx:documents based on [criteria].
 
@@ -245,7 +245,9 @@ class Clean_Text(object):
         return doc
 
     def clean_doc(self,doc: list,pattern=re.compile(r"\[\d\]"),replace='',symbols=('_','-','=','@','<','>','*','{',
-                  '}','[',']','(',')','$','%','^','~','`',':',"\"","\'",'\\','/','|','#','##','###','####','#####')) -> list:
+                                                                                   '}','[',']','(',')','$','%','^','~',
+                                                                                   '`',':',"\"","\'",'\\','/','|','#',
+                                                                                   '##','###','####','#####')) -> list:
         """ Cleans a list of str.
 
         :param doc:
@@ -280,7 +282,8 @@ class Clean_Text(object):
         return doc_cleaned
 
     @staticmethod
-    def read_stopwords(so_filepath: str = '',so_filename: str = 'stopwords_en.txt',encoding: str = "iso-8859-1") -> list:
+    def read_stopwords(so_filepath: str = '',so_filename: str = 'stopwords_en.txt',
+                       encoding: str = "iso-8859-1") -> list:
         """ Reads the stopwords list from file.
 
         :param so_filepath:
@@ -588,7 +591,7 @@ class Clean_Text(object):
             return ps.stem(token)
 
     @staticmethod
-    def tokenizer_re(sent:str,lowercase=False,remove_emoticons=True):
+    def tokenizer_re(sent: str,lowercase=False,remove_emoticons=True):
         """ Tokenize a string.
 
         :param sent:

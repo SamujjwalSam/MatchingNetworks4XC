@@ -52,7 +52,7 @@ class TXTLoader(torch.utils.data.Dataset):
         }
     """
 
-    def __init__(self, dataset_name=config["data"]["dataset_name"], data_dir: str = config["paths"]["dataset_dir"][plat]):
+    def __init__(self,dataset_name=config["data"]["dataset_name"],data_dir: str = config["paths"]["dataset_dir"][plat]):
         """
         Initializes the TXT loader.
 
@@ -60,15 +60,15 @@ class TXTLoader(torch.utils.data.Dataset):
             data_dir : Path to directory containing the txt files.
             dataset_name : Name of the dataset.
         """
-        super(TXTLoader, self).__init__()
+        super(TXTLoader,self).__init__()
         self.dataset_name = dataset_name
-        self.data_dir = join(data_dir, self.dataset_name)
-        self.raw_txt_dir = join(self.data_dir, self.dataset_name + "_RawData")
+        self.data_dir = join(data_dir,self.dataset_name)
+        self.raw_txt_dir = join(self.data_dir,self.dataset_name + "_RawData")
         # self.raw_txt_file = self.dataset_name + "_RawData.txt"
-        logger.info("Dataset name: [{}], Directory: [{}]".format(self.dataset_name, self.data_dir))
-        self.sentences, self.classes, self.categories = self.gen_dicts()
+        logger.info("Dataset name: [{}], Directory: [{}]".format(self.dataset_name,self.data_dir))
+        self.sentences,self.classes,self.categories = self.gen_dicts()
 
-    def gen_dicts(self, encoding='UTF-8'):
+    def gen_dicts(self,encoding='UTF-8'):
         """
         Loads the txt files.
 
@@ -80,26 +80,27 @@ class TXTLoader(torch.utils.data.Dataset):
         all_classes = self.read_classes(encoding=encoding)
         # logger.debug((len(all_classes)))
         # util.print_dict(all_classes)
-        titles = self.read_titles(classes_keys=all_classes.keys(), encoding=encoding)
-        descriptions = self.read_desc(classes_keys=all_classes.keys(), encoding=encoding)
+        titles = self.read_titles(classes_keys=all_classes.keys(),encoding=encoding)
+        descriptions = self.read_desc(classes_keys=all_classes.keys(),encoding=encoding)
         sentences = self.create_sentences(titles,descriptions)
         classes_extra = set(all_classes.keys()).symmetric_difference(set(sentences.keys()))
         if len(classes_extra):
-            for k, v in all_classes.items():
+            for k,v in all_classes.items():
                 if k not in classes_extra:
                     classes[k] = v
                     for lbl in classes[k]:
                         if lbl not in categories:  # If lbl does not exists in categories already, add it and assign a new category index.
                             categories[lbl] = cat_idx
                             cat_idx += 1
-                        classes[k][classes[k].index(lbl)] = categories[lbl]  # Replacing categories text to categories id.
+                        classes[k][classes[k].index(lbl)] = categories[
+                            lbl]  # Replacing categories text to categories id.
         logger.print_dict(sentences)
         logger.print_dict(classes)
         logger.print_dict(categories)
 
-        return sentences, classes, categories
+        return sentences,classes,categories
 
-    def read_classes(self, classes_dir=None, classes_file="categories.txt", encoding=config["text_process"]["encoding"]):
+    def read_classes(self,classes_dir=None,classes_file="categories.txt",encoding=config["text_process"]["encoding"]):
         """
         Reads the categories.txt file and returns a OrderedDict of id : class ids.
 
@@ -114,9 +115,9 @@ class TXTLoader(torch.utils.data.Dataset):
         classes = OrderedDict()
         cat_pool = set()
         if classes_dir is None: classes_dir = self.raw_txt_dir
-        with sopen(join(classes_dir, classes_file), encoding=encoding) as raw_cat_ptr:
+        with sopen(join(classes_dir,classes_file),encoding=encoding) as raw_cat_ptr:
             sample_idx = raw_cat_ptr.readline().strip()
-            for cnt, line in enumerate(raw_cat_ptr):
+            for cnt,line in enumerate(raw_cat_ptr):
                 if cat_line_phrase in line:
                     cats = line.split(cat_sep_phrase)  # Splliting line based on ', ' to get categories.
                     cats = [x.strip() for x in cats]  # Removing extra characters like: ' ','\n'.
@@ -128,7 +129,8 @@ class TXTLoader(torch.utils.data.Dataset):
 
         return classes
 
-    def read_titles(self, classes_keys=None, title_path=None, title_file="titles.txt", encoding=config["text_process"]["encoding"]):
+    def read_titles(self,classes_keys=None,title_path=None,title_file="titles.txt",
+                    encoding=config["text_process"]["encoding"]):
         """
         Reads the titles.txt file and returns a OrderedDict of id : title.
 
@@ -140,15 +142,15 @@ class TXTLoader(torch.utils.data.Dataset):
         """
         logger.info("Reads the titles.txt file and returns a OrderedDict of id : title.")
         titles = OrderedDict()
-        if title_path is None: title_path = join(self.raw_txt_dir, title_file)
-        with sopen(title_path, encoding=encoding) as raw_title_ptr:
-            for cnt, line in enumerate(raw_title_ptr):
+        if title_path is None: title_path = join(self.raw_txt_dir,title_file)
+        with sopen(title_path,encoding=encoding) as raw_title_ptr:
+            for cnt,line in enumerate(raw_title_ptr):
                 line = line.split()
                 if classes_keys is None or line[0] in classes_keys:  # Add this sample if corresponding classes exists.
                     titles[line[0].strip()] = " ".join(line[1:]).strip()
         return titles
 
-    def read_desc(self, classes_keys=None, desc_path=None, desc_file="descriptions.txt",
+    def read_desc(self,classes_keys=None,desc_path=None,desc_file="descriptions.txt",
                   encoding=config["text_process"]["encoding"]):
         """
         Reads the descriptions.txt file and returns a OrderedDict of id : desc.
@@ -165,10 +167,11 @@ class TXTLoader(torch.utils.data.Dataset):
         desc_remove = 21  # Length of [desc_phrase], to be removed from line.
         logger.info("Reads the descriptions.txt file and returns a OrderedDict of id : desc.")
         descriptions = OrderedDict()
-        if desc_path is None: desc_path = join(self.raw_txt_dir, desc_file)
+        if desc_path is None: desc_path = join(self.raw_txt_dir,desc_file)
         import itertools
-        with sopen(desc_path, encoding=encoding) as raw_desc_ptr:
-            for idx_line, desc_line in itertools.zip_longest(
+
+        with sopen(desc_path,encoding=encoding) as raw_desc_ptr:
+            for idx_line,desc_line in itertools.zip_longest(
                     *[raw_desc_ptr] * 2):  # Reads multi-line [2] per iteration.
                 if id_phrase in idx_line:
                     sample_id = idx_line[id_remove:].strip()
@@ -180,7 +183,7 @@ class TXTLoader(torch.utils.data.Dataset):
                         descriptions[sample_id] = sample_desc
         return descriptions
 
-    def create_sentences(self, titles, descriptions=None):
+    def create_sentences(self,titles,descriptions=None):
         """
         Creates sentences for each sample by using either title or descriptions if only one exists else appends desc to title.
 
@@ -188,7 +191,8 @@ class TXTLoader(torch.utils.data.Dataset):
         :param descriptions:
         :return:
         """
-        logger.info("Creates sentences for each sample by using either title or descriptions if only one exists else appends desc to title.")
+        logger.info(
+            "Creates sentences for each sample by using either title or descriptions if only one exists else appends desc to title.")
         sentences = OrderedDict()
         if descriptions is not None:
             intersect = set(titles.keys()).intersection(set(descriptions.keys()))
@@ -213,7 +217,7 @@ class TXTLoader(torch.utils.data.Dataset):
         """
         Function to get the entire dataset
         """
-        return self.sentences, self.classes, self.categories
+        return self.sentences,self.classes,self.categories
 
     def get_sentences(self):
         """
@@ -237,7 +241,7 @@ class TXTLoader(torch.utils.data.Dataset):
 def main():
     # config = read_config(args)
     cls = TXTLoader()
-    sentences_val, classes_val, categories_val = cls.get_val_data()
+    sentences_val,classes_val,categories_val = cls.get_val_data()
     logger.print_dict(sentences_val)
     logger.print_dict(classes_val)
     logger.print_dict(categories_val)

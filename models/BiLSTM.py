@@ -34,15 +34,15 @@ class BiLSTM(nn.Module):
         Class for Bidirectional LSTM operations.
     """
 
-    def __init__(self,batch_size=config["sampling"]["batch_size"],
-                 use_cuda=config["model"]["use_cuda"],
-                 bidirectional=config["lstm_params"]["bidirectional"],
-                 input_size=config["prep_vecs"]["input_size"],
-                 hid_size=config["lstm_params"]["hid_size"],
-                 dropout=config["model"]["dropout"],
-                 bias=config["lstm_params"]["bias"],
-                 num_layers=config["lstm_params"]["num_layers"],
-                 batch_first=config["lstm_params"]["batch_first"]):
+    def __init__(self,batch_size: int = config["sampling"]["batch_size"],
+                 use_cuda: bool = config["model"]["use_cuda"],
+                 bidirectional: bool = config["lstm_params"]["bidirectional"],
+                 input_size: int = config["prep_vecs"]["input_size"],
+                 hid_size: int = config["lstm_params"]["hid_size"],
+                 dropout: float = config["model"]["dropout"],
+                 bias: bool = config["lstm_params"]["bias"],
+                 num_layers: int = config["lstm_params"]["num_layers"],
+                 batch_first: bool = config["lstm_params"]["batch_first"]) -> None:
         """
         Initializes a multi layer bidirectional LSTM based on parameter values.
 
@@ -93,7 +93,8 @@ class BiLSTM(nn.Module):
         # logger.debug(self.lstm.weight_ih_l0_reverse)
         # logger.debug(self.lstm._all_weights)
 
-    def init_hid(self,batch_size=config["sampling"]["batch_size"],requires_grad=True,r1=-1,r2=1,num_directions=2):
+    def init_hid(self,batch_size: int = config["sampling"]["batch_size"],requires_grad: bool = True,r1: int = -1,
+                 r2: int = 1,num_directions: int = 2) -> [torch.Tensor,torch.Tensor]:
         """
         Generates h0 and c0 for LSTM initialization with values range from r1 to r2.
 
@@ -119,8 +120,9 @@ class BiLSTM(nn.Module):
                                                        self.lstm.hidden_size) - r2,requires_grad=requires_grad)
         return hid_init,cell_init
 
-    def forward(self,inputs,training=True,requires_grad=True,dropout=config["model"]["dropout"],
-                dropout_external=config["model"]["dropout_external"]):
+    def forward(self,inputs: torch.Tensor,training: bool = True,requires_grad: bool = True,
+                dropout: float = config["model"]["dropout"],
+                dropout_external: float = config["model"]["dropout_external"]) -> [torch.Tensor,torch.Tensor]:
         """
         Runs the bidirectional LSTM, produces outputs and hidden states.
 
@@ -149,7 +151,7 @@ class BiLSTM(nn.Module):
         # logger.debug("self.hidden 1: {}".format(self.hidden))
         outputs,(hn,cn) = self.lstm(inputs,(h0,c0))
 
-        if dropout_external and dropout > 0.0:  ## Need to use dropout externally as Pytorch LSTM applies dropout only on
+        if dropout_external and dropout > 0.0:  ## Use dropout externally as Pytorch LSTM applies dropout only on
             ## last layer and if there is only one layer, dropout will not be applied.
             logger.info("Applying dropout externally.")
             outputs = F.dropout(outputs,p=dropout,training=training,inplace=False)

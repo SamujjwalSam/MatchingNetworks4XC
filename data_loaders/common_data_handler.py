@@ -187,7 +187,8 @@ class Common_JSON_Handler:
         sentences,classes,categories = self.dataset.get_data()
         return sentences,classes,categories
 
-    def split_data(self,sentences: OrderedDict,classes: OrderedDict,categories: OrderedDict,test_split: int = config["data"]["test_split"],
+    def split_data(self,sentences: OrderedDict,classes: OrderedDict,categories: OrderedDict,
+                   test_split: int = config["data"]["test_split"],
                    val_split: int = config["data"]["val_split"]):
         """
         Splits input data into train, val and test.
@@ -274,16 +275,16 @@ class Common_JSON_Handler:
         tail_cats = []
         samples_with_tail_cats = set()
         cat2samples_filtered = OrderedDict()
-        for category, sample_list in cat2samples_map.items():
+        for category,sample_list in cat2samples_map.items():
             if len(sample_list) > remove_count:
                 cat2samples_filtered[category] = len(sample_list)
             else:
                 tail_cats.append(category)
                 samples_with_tail_cats.update(sample_list)
 
-        return tail_cats, samples_with_tail_cats, cat2samples_filtered
+        return tail_cats,samples_with_tail_cats,cat2samples_filtered
 
-    def find_classes_with_single_sample(self, classes_dict: dict = None, cat2samples_map=None, remove_count=1):
+    def find_classes_with_single_sample(self,classes_dict: dict = None,cat2samples_map=None,remove_count=1):
         """ Finds categories with very few [remove_count] samples.
 
         :returns:
@@ -296,16 +297,16 @@ class Common_JSON_Handler:
         tail_cats = []
         samples_with_tail_cats = set()
         cat2samples_filtered = OrderedDict()
-        for category, sample_list in cat2samples_map.items():
+        for category,sample_list in cat2samples_map.items():
             if len(sample_list) > remove_count:
                 cat2samples_filtered[category] = len(sample_list)
             else:
                 tail_cats.append(category)
                 samples_with_tail_cats.update(sample_list)
 
-        return tail_cats, samples_with_tail_cats, cat2samples_filtered
+        return tail_cats,samples_with_tail_cats,cat2samples_filtered
 
-    def get_data(self,load_type: str = "train") -> (OrderedDict, OrderedDict, OrderedDict):
+    def get_data(self,load_type: str = "train") -> (OrderedDict,OrderedDict,OrderedDict):
         """:returns loaded dictionaries based on "load_type" value."""
         self.categories_all = self.load_categories()
         if load_type == "train":
@@ -331,7 +332,7 @@ class Common_JSON_Handler:
                 _,_,self.categories_all = self.load_full_json(return_values=True)
         return self.categories_all
 
-    def load_train(self) -> (OrderedDict, OrderedDict, OrderedDict):
+    def load_train(self) -> (OrderedDict,OrderedDict,OrderedDict):
         """Loads and returns training set."""
         logger.debug(join(self.data_dir,self.dataset_name + "_sentences_train.json"))
         if self.sentences_train is None:
@@ -359,7 +360,7 @@ class Common_JSON_Handler:
         #             .format(len(self.sentences_train), len(self.classes_train), len(self.categories_train)))
         return self.sentences_train,self.classes_train,self.categories_train
 
-    def load_val(self) -> (OrderedDict, OrderedDict, OrderedDict):
+    def load_val(self) -> (OrderedDict,OrderedDict,OrderedDict):
         """Loads and returns validation set."""
         if self.sentences_val is None:
             if isfile(join(self.data_dir,self.dataset_name + "_sentences_val.json")):
@@ -384,7 +385,7 @@ class Common_JSON_Handler:
         #             .format(len(self.sentences_val), len(self.classes_val), len(self.categories_val)))
         return self.sentences_val,self.classes_val,self.categories_val
 
-    def load_test(self) -> (OrderedDict, OrderedDict, OrderedDict):
+    def load_test(self) -> (OrderedDict,OrderedDict,OrderedDict):
         """Loads and returns test set."""
         if self.sentences_test is None:
             if isfile(join(self.data_dir,self.dataset_name + "_sentences_test.json")):
@@ -457,7 +458,7 @@ class Common_JSON_Handler:
         return sentences_new,classes_new,categories_new
 
     def _create_fixed_cat_data(self,sentences: OrderedDict,classes: OrderedDict,fixed5_cats: list = None,
-                               cat_id2text_map=None) -> (OrderedDict, OrderedDict, OrderedDict):
+                               cat_id2text_map=None) -> (OrderedDict,OrderedDict,OrderedDict):
         """Creates a dataset of samples which belongs to any of the below 5 classes only.
 
         Selected classes: [114, 3178, 3488, 1922, 517], these classes has max number of samples associated with them.
@@ -479,7 +480,8 @@ class Common_JSON_Handler:
 
         return sentences_one_fixed5,classes_one_fixed5,categories_one_fixed5
 
-    def _create_oneclass_data(self,sentences: OrderedDict,classes: OrderedDict,cat_id2text_map: OrderedDict = None) -> (OrderedDict, OrderedDict, OrderedDict):
+    def _create_oneclass_data(self,sentences: OrderedDict,classes: OrderedDict,cat_id2text_map: OrderedDict = None) -> (
+    OrderedDict,OrderedDict,OrderedDict):
         """Creates a dataset which belongs to single class only.
 
         NOTE: This method is used only for sanity testing using multi-class scenario.
@@ -499,7 +501,8 @@ class Common_JSON_Handler:
 
         return sentences_one,classes_one,categories_one
 
-    def _create_pointer_data(self,sentences: OrderedDict,classes: OrderedDict,cat_id2text_map: OrderedDict = None) -> (OrderedDict, OrderedDict, OrderedDict):
+    def _create_pointer_data(self,sentences: OrderedDict,classes: OrderedDict,cat_id2text_map: OrderedDict = None) -> (
+    OrderedDict,OrderedDict,OrderedDict):
         """ Creates pointer network type dataset, i.e. labels are marked within document text. """
         if cat_id2text_map is None: cat_id2text_map = File_Util.load_json(self.dataset_name +
                                                                           "_cat_id2text_map",file_path=self.data_dir)
@@ -527,12 +530,13 @@ def main():
                                          dataset_name=config["data"]["dataset_name"],
                                          data_dir=config["paths"]["dataset_dir"][plat][user])
     classes = File_Util.load_json(config["data"]["dataset_name"] + "_classes",
-                                          file_path=join(config["paths"]["dataset_dir"][plat][user],
-                                                         config["data"]["dataset_name"]),
-                                          show_path=True)
+                                  file_path=join(config["paths"]["dataset_dir"][plat][user],
+                                                 config["data"]["dataset_name"]),
+                                  show_path=True)
 
-    tail_cats, samples_with_tail_cats, cat2samples_filtered = common_handler.find_samples_with_single_class(classes_dict=classes,
-                                                                                                            remove_count=1)
+    tail_cats,samples_with_tail_cats,cat2samples_filtered = common_handler.find_samples_with_single_class(
+        classes_dict=classes,
+        remove_count=1)
     logger.debug(len(tail_cats))
     logger.debug(len(samples_with_tail_cats))
     logger.debug(len(cat2samples_filtered))

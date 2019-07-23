@@ -24,13 +24,15 @@ import torch
 from logger.logger import logger
 
 seed_val = 0
+
+
 # random.seed(seed_val)
 # np.random.seed(seed_val)
 # torch.manual_seed(seed_val)
 # torch.cuda.manual_seed_all(seed=seed_val)
 
 
-def precision_at_k(actuals, predictions, k=5, pos_label=1):
+def precision_at_k(actuals,predictions,k=5,pos_label=1):
     """
     Function to evaluate the precision @ k for a given
     ground truth vector and a list of predictions (between 0 and 1).
@@ -44,8 +46,8 @@ def precision_at_k(actuals, predictions, k=5, pos_label=1):
     Returns:
         precision @ k for a given ground truth - prediction pair.
     """
-    assert len(actuals) == len(predictions), "P@k: Length mismatch: len(actuals) [{}] == [{}] len(predictions)" \
-        .format(len(actuals), len(predictions))
+    assert len(actuals) == len(predictions),"P@k: Length mismatch: len(actuals) [{}] == [{}] len(predictions)"\
+        .format(len(actuals),len(predictions))
 
     ## Converting to Numpy as it has supported funcions.
     if torch.is_tensor(actuals):
@@ -58,14 +60,14 @@ def precision_at_k(actuals, predictions, k=5, pos_label=1):
         logger.debug(predictions)
 
     n_pos_vals = (actuals == pos_label).sum()
-    desc_order = np.argsort(predictions, -k)  # [::-1] reverses array
-    matches = np.take(actuals, desc_order[:, :k])  # taking the top indices
+    desc_order = np.argsort(predictions,-k)  # [::-1] reverses array
+    matches = np.take(actuals,desc_order[:,:k])  # taking the top indices
     relevant_preds = (matches == pos_label).sum()
 
-    return relevant_preds / min(n_pos_vals, k)
+    return relevant_preds / min(n_pos_vals,k)
 
 
-def dcg_score_at_k(actuals, predictions, k=5, pos_label=1):
+def dcg_score_at_k(actuals,predictions,k=5,pos_label=1):
     """
     Function to evaluate the Discounted Cumulative Gain @ k for a given
     ground truth vector and a list of predictions (between 0 and 1).
@@ -81,18 +83,18 @@ def dcg_score_at_k(actuals, predictions, k=5, pos_label=1):
     Returns:
         DCG @ k for a given ground truth - prediction pair.
     """
-    assert len(actuals) == len(predictions), "DCG@k: Length mismatch: len(actuals) [{}] == [{}] len(predictions)" \
-        .format(len(actuals), len(predictions))
+    assert len(actuals) == len(predictions),"DCG@k: Length mismatch: len(actuals) [{}] == [{}] len(predictions)"\
+        .format(len(actuals),len(predictions))
 
     desc_order = np.argsort(predictions)[::-1]  # ::-1 reverses array
-    actuals = np.take(actuals, desc_order[:k])  # the top indices
+    actuals = np.take(actuals,desc_order[:k])  # the top indices
     gains = 2 ** actuals - 1
 
-    discounts = np.log2(np.arange(1, len(actuals) + 1) + 1)
+    discounts = np.log2(np.arange(1,len(actuals) + 1) + 1)
     return np.sum(gains / discounts)
 
 
-def ndcg_score_at_k(actuals, predictions, k=5, pos_label=1):
+def ndcg_score_at_k(actuals,predictions,k=5,pos_label=1):
     """
     Function to evaluate the Discounted Cumulative Gain @ k for a given
     ground truth vector and a list of predictions (between 0 and 1).
@@ -108,14 +110,15 @@ def ndcg_score_at_k(actuals, predictions, k=5, pos_label=1):
     Returns:
         NDCG @ k for a given ground truth - prediction pair.
     """
-    dcg_at_k = dcg_score_at_k(actuals, predictions, k, pos_label)
-    best_dcg_at_k = dcg_score_at_k(actuals, actuals, k, pos_label)
+    dcg_at_k = dcg_score_at_k(actuals,predictions,k,pos_label)
+    best_dcg_at_k = dcg_score_at_k(actuals,actuals,k,pos_label)
     return dcg_at_k / best_dcg_at_k
 
 
 class Metrics:
     """ Initializes an Metrics object. """
-    def __init__(self, cuda_available=None, use_cuda=False):
+
+    def __init__(self,cuda_available=None,use_cuda: bool = False) -> None:
         if cuda_available is None:
             self.cuda_available = torch.cuda.is_available()
         else:
@@ -123,7 +126,8 @@ class Metrics:
 
         self.use_cuda = use_cuda
 
-    def precision_k_hot(self, actuals, predictions, k=1, pos_label=1):
+    @staticmethod
+    def precision_k_hot(actuals: torch.Tensor,predictions: torch.Tensor,k: int = 1,pos_label: int = 1) -> float:
         """
         Calculates precision of actuals multi-hot vectors and predictions probabilities of shape: (batch_size, Number of samples, Number of categories).
 
@@ -135,7 +139,7 @@ class Metrics:
         :return: Precision @ k for a given ground truth - prediction pair.for a batch of samples.
         """
         ## Top k probabilities
-        preds_indices = torch.argsort(predictions,dim=2, descending=True)
+        preds_indices = torch.argsort(predictions,dim=2,descending=True)
         preds_desc = preds_indices[:,:,:k]
 
         # com_labels = []  # batch_size, Number of samples
@@ -150,23 +154,23 @@ class Metrics:
                 precision_samples += precision_elm / preds_desc.shape[2]
             precision_batch += precision_samples / predictions.shape[1]
         precision = precision_batch / predictions.shape[0]
-        return precision#, com_labels
+        return precision  # , com_labels
 
 
 if __name__ == '__main__':
     cls_count = 3
-    multi_hot = np.random.randint(2, size=(2, 2, cls_count))  # Generates integers till 2-1, i.e. [0 or 1]
+    multi_hot = np.random.randint(2,size=(2,2,cls_count))  # Generates integers till 2-1, i.e. [0 or 1]
     logger.debug(multi_hot)
-    indices = [[[0], [0, 2]], [[1], [0, 2]]]  # Generates integers till [cls_count]
+    indices = [[[0],[0,2]],[[1],[0,2]]]  # Generates integers till [cls_count]
     logger.debug(indices)
     # indices = np.random.randint(cls_count, size=(1, 2, cls_count))  # Generates integers till [cls_count]
-    proba = np.random.rand(2, 2, cls_count)
+    proba = np.random.rand(2,2,cls_count)
     logger.debug(proba)
 
     test_metrics = Metrics()
     proba_t = torch.from_numpy(proba)
     multi_hot_t = torch.from_numpy(multi_hot)
-    precision, com_labels = test_metrics.precision_k_hot(multi_hot_t, proba_t, k=2)
+    precision,com_labels = test_metrics.precision_k_hot(multi_hot_t,proba_t,k=2)
     logger.debug(precision)
     logger.debug(com_labels)
 

@@ -28,9 +28,9 @@ from logger.logger import logger
 
 class Attn(nn.Module):
     def __init__(self):
-        super(Attn, self).__init__()
+        super(Attn,self).__init__()
 
-    def forward(self, similarities, supports_hots, dim=2):
+    def forward(self,similarities: torch.Tensor,supports_hots: torch.Tensor,dim: int = 2) -> torch.Tensor:
         """
         Produces pdfs over the support set classes for the target samples.
 
@@ -53,18 +53,17 @@ class Attn(nn.Module):
 
 
 if __name__ == '__main__':
+    a = torch.tensor([[[1.,0.4],
+                       [1.,1.]],
+                      [[1.,0.4],
+                       [0.,1.5]],
+                      [[1.,0.4],
+                       [1.,1.5]]])
 
-    a = torch.tensor([[[1., 0.4],
-                       [1., 1.]],
-                      [[1., 0.4],
-                       [0., 1.5]],
-                      [[1., 0.4],
-                       [1., 1.5]]])
-
-    b = torch.tensor([[[1., 0.4],
-                       [0., 1.5]],
-                      [[1., 0.4],
-                       [1., 1.5]]])
+    b = torch.tensor([[[1.,0.4],
+                       [0.,1.5]],
+                      [[1.,0.4],
+                       [1.,1.5]]])
     # a = torch.ones(1,4,7)
     # logger.debug(a)
     logger.debug(a.shape)
@@ -73,24 +72,25 @@ if __name__ == '__main__':
     logger.debug(b.shape)
 
     from models import PairCosineSim as C
+
     test_DN = C.PairCosineSim()
-    sim = test_DN(a, b)
+    sim = test_DN(a,b)
     logger.debug(sim.shape)
     logger.debug("sim: {}".format(sim))
 
     # y = torch.tensor([[1., 0.],
     #                   [0., 1.],
     #                   [1., 0.]])
-    y = torch.tensor([[[1., 0.],
-                       [0., 1.]],
-                      [[0., 1.],
-                       [1., 0.]]])
+    y = torch.tensor([[[1.,0.],
+                       [0.,1.]],
+                      [[0.,1.],
+                       [1.,0.]]])
     # y = torch.ones(2, 2, 5)
     # y = torch.ones(1, 4, 5)
     logger.debug("y.shape: {}".format(y.shape))
     logger.debug("y: {}".format(y))
     test_attn = Attn()
-    result = test_attn(sim, y)
+    result = test_attn(sim,y)
     logger.debug("Attention: {}".format(result))
     logger.debug("Attention.shape: {}".format(result.shape))
     # result = test_attn.forward2(sim, y)

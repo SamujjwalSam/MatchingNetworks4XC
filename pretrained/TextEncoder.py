@@ -25,6 +25,7 @@ from os import mkdir
 from os.path import join,exists,split
 from collections import OrderedDict
 
+import gensim
 from gensim.models import word2vec,doc2vec
 from gensim.models.fasttext import FastText
 from gensim.models.keyedvectors import KeyedVectors
@@ -110,11 +111,13 @@ class TextEncoder:
         self.pretrain_model = None
         # self.pretrain_model = self.load_word2vec(self.model_dir, model_file_name=self.model_file_name, model_type=model_type)
 
-    def load_doc2vec(self,documents,vector_size=config["prep_vecs"]["input_size"],window=config["prep_vecs"]["window"],
-                     min_count=config["prep_vecs"]["min_count"],workers=config["text_process"]["workers"],seed=0,
-                     clean_tmp=False,save_model=True,doc2vec_model_file=config["data"]["dataset_name"] + "_doc2vec",
-                     doc2vec_dir=join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"]),
-                     negative=config["prep_vecs"]["negative"]):
+    def load_doc2vec(self,documents: List[str],vector_size: int = config["prep_vecs"]["input_size"],
+                     window: int = config["prep_vecs"]["window"],
+                     min_count: int = config["prep_vecs"]["min_count"],workers: int = config["text_process"]["workers"],seed: int = 0,
+                     clean_tmp: bool = False,save_model: bool = True,
+                     doc2vec_model_file: str = config["data"]["dataset_name"] + "_doc2vec",
+                     doc2vec_dir: str = join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"]),
+                     negative: int = config["prep_vecs"]["negative"]) -> gensim.models.doc2vec.Doc2Vec:
         """
         Generates vectors from documents.
         https://radimrehurek.com/gensim/models/doc2vec.html
@@ -175,13 +178,14 @@ class TextEncoder:
             doc2vec_model = self.load_doc2vec(documents)
         doc2vectors = []
         for doc in documents:
-            doc2vectors.append(doc2vec_model.infer_vector(self.clean.tokenizer_spacy(doc)))  # Infer vector for a new document
+            doc2vectors.append(
+                doc2vec_model.infer_vector(self.clean.tokenizer_spacy(doc)))  # Infer vector for a new document
         doc2vectors = np.asarray(list(doc2vectors))  # Converting Dict values to Numpy array.
         return doc2vectors
 
-    def load_word2vec(self,model_dir=config["paths"]["pretrain_dir"][plat][user],model_type='googlenews',
-                      encoding='utf-8', model_file_name="GoogleNews-vectors-negative300.bin",
-                      newline='\n',errors='ignore'):
+    def load_word2vec(self,model_dir: str = config["paths"]["pretrain_dir"][plat][user],model_type: str = 'googlenews',
+                      encoding: str = 'utf-8',model_file_name: str = "GoogleNews-vectors-negative300.bin",
+                      newline: str = '\n',errors: str = 'ignore') -> gensim.models.keyedvectors.Word2VecKeyedVectors:
         """
         Loads Word2Vec model and returns initial weights for embedding layer.
 

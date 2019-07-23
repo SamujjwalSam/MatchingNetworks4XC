@@ -195,7 +195,7 @@ class HTMLLoader(torch.utils.data.Dataset):
         html_parser.escape_all = escape_all  ## Escape all special characters.
         return html_parser
 
-    def read_html_dir(self,html_parser,encoding="iso-8859-1",specials="""_-@*#'"/\\""",replace=' '):
+    def read_html_dir(self,html_parser: html2text.HTML2Text,encoding: str = "iso-8859-1",specials: str = """_-@*#'"/\\""",replace: str = ' ') -> None:
         """
         Reads all html files in a folder as str and returns a OrderedDict[str(filename)]=str(content).
 

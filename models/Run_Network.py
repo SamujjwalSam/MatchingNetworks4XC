@@ -73,7 +73,7 @@ class Run_Network:
         self.data_formatter = data_formatter
         self.dataset_name = self.data_formatter.dataset_name
         self.dataset_dir = self.data_formatter.dataset_dir
-        self.data_formatter.prepare_data(load_type='train')  # Loading appropriate data
+        self.data_formatter.prepare_data(load_type='train')
 
         self.batch_size = batch_size
         self.lr = lr
@@ -106,7 +106,7 @@ class Run_Network:
         optimizer = self.__create_optimizer(self.match_net,self.lr)  ## Creating the optimizer
 
         with tqdm.tqdm(total=num_train_epoch) as pbar:
-            for i in range(num_train_epoch):  # 1 train epoch
+            for i in range(num_train_epoch):  ## 1 train epoch
                 logger.info("Total EPOCHS: [{}]".format(self.total_train_iter))
                 x_supports,y_support_hots,x_hats,y_hats_hots,target_cat_indices =\
                     self.data_formatter.get_batches()
@@ -189,7 +189,7 @@ class Run_Network:
 
         with tqdm.tqdm(total=num_val_epoch) as pbar:
             # with torch.no_grad():
-            for i in range(num_val_epoch):  # 1 validation epoch
+            for i in range(num_val_epoch):  ## 1 validation epoch
                 x_supports,y_support_hots,x_targets,y_target_hots,target_cat_indices =\
                     self.data_formatter.get_batches(val=True)
                 logger.info("Shapes: x_supports [{}], y_support_hots [{}], x_targets [{}], y_target_hots [{}]"
@@ -258,7 +258,7 @@ class Run_Network:
         # self.data_formatter.prepare_data(load_type='test')
         with tqdm.tqdm(total=total_test_batches) as pbar:
             with torch.no_grad():
-                for i in range(total_test_batches):  # 1 test epoch
+                for i in range(total_test_batches):  ## 1 test epoch
                     x_supports,y_support_hots,x_targets,y_target_hots,target_cat_indices =\
                         self.data_formatter.get_test_data(return_cat_indices=True)
                     x_supports = Variable(torch.from_numpy(x_supports),requires_grad=False).float().unsqueeze(0)

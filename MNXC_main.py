@@ -23,7 +23,7 @@ __methods__     :
 import torch
 from os.path import join
 from matplotlib import pyplot as plt
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from argparse import ArgumentParser,ArgumentDefaultsHelpFormatter
 # TIME_STAMP = datetime.utcnow().isoformat()
 
 from config import Config
@@ -68,7 +68,7 @@ Config values for testing:
 """
 
 
-def plot_occurance(losses:list, plot_name='val_loss.jpg', clear=True, log=False):
+def plot_occurance(losses: list,plot_name='val_loss.jpg',clear=True,log=False):
     """
     Plots the validation loss against epochs.
 
@@ -108,7 +108,7 @@ def main(args):
 
     train_epoch_losses = []
     val_epoch_losses = []
-    val_p1s, val_p3s, val_p5s = [], [], []
+    val_p1s,val_p3s,val_p5s = [],[],[]
     separator_length = 92
     for epoch in range(config["sampling"]["num_epochs"]):
         train_epoch_loss = match_net.training(num_train_epoch=config["sampling"]["num_train_epoch"])
@@ -118,7 +118,7 @@ def main(args):
         logger.info("-" * separator_length)
 
         # val_epoch_loss, val_p1, val_p3, val_p5 = match_net.testing()
-        val_epoch_loss, val_p1, val_p3, val_p5 = match_net.validating(epoch_count=epoch)
+        val_epoch_loss,val_p1,val_p3,val_p5 = match_net.validating(epoch_count=epoch)
         val_epoch_losses.append(val_epoch_loss)
         val_p1s.append(val_p1)
         val_p3s.append(val_p3)
@@ -129,7 +129,7 @@ def main(args):
     ## Storing trained model
     torch.save(match_net.match_net.state_dict(),
                join(config["paths"]["dataset_dir"][plat][user],config["data"]["dataset_name"],
-                    config["data"]["dataset_name"]+'_'+str(config["sampling"]["num_epochs"])))
+                    config["data"]["dataset_name"] + '_' + str(config["sampling"]["num_epochs"])))
 
     logger.info("#" * separator_length)
     # logger.info("Train losses: [{}]".format(train_epoch_losses))
@@ -145,7 +145,7 @@ def main(args):
     ## Inference Phase
     logger.info("=" * separator_length)
     logger.info("\nStarting Inference...")
-    test_epoch_loss, test_p1, test_p3, test_p5 = match_net.testing()
+    test_epoch_loss,test_p1,test_p3,test_p5 = match_net.testing()
     logger.info("Test losses: [{}]".format(test_epoch_loss))
     logger.info("Test Precision 1: [{}]".format(test_p1))
     logger.info("Test Precision 3: [{}]".format(test_p3))
@@ -174,43 +174,43 @@ if __name__ == '__main__':
                         help='Config to read details',
                         default='MNXC.config')
     parser.add_argument('--dataset_dir',
-                        help='Path to dataset folder.', type=str,
+                        help='Path to dataset folder.',type=str,
                         default="")
     parser.add_argument('--dataset_name',
-                        help='Name of the dataset to use.', type=str,
+                        help='Name of the dataset to use.',type=str,
                         default='all')
     parser.add_argument('--train_path',
-                        help='Path to train file (Absolute or Relative to [dataset_url]).', type=str,
+                        help='Path to train file (Absolute or Relative to [dataset_url]).',type=str,
                         default='train')
     parser.add_argument('--test_path',
-                        help='Path to test file (Absolute or Relative to [dataset_url]).', type=str,
+                        help='Path to test file (Absolute or Relative to [dataset_url]).',type=str,
                         default='test')
     parser.add_argument('--solution_path',
-                        help='Path to result folder (Absolute or Relative to [dataset_url]).', type=str,
+                        help='Path to result folder (Absolute or Relative to [dataset_url]).',type=str,
                         default='result')
     parser.add_argument('--pretrain_dir',
-                        help='Path to pre-trained embedding file. Default: [dataset_url/pretrain].', type=str,
+                        help='Path to pre-trained embedding file. Default: [dataset_url/pretrain].',type=str,
                         default='pretrain')
 
     # Training configuration arguments
-    parser.add_argument('--device', type=str, default='cpu',
+    parser.add_argument('--device',type=str,default='cpu',
                         help='PyTorch device string <device_name>:<device_id>')
-    parser.add_argument('--seed', type=int, default=None,
+    parser.add_argument('--seed',type=int,default=None,
                         help='Manually set the seed for the experiments for reproducibility.')
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size',type=int,default=32,
                         help='Batch size for training.')
-    parser.add_argument('--epochs', type=int, default=20,
+    parser.add_argument('--epochs',type=int,default=20,
                         help='Number of epochs to train.')
-    parser.add_argument('--interval', type=int, default=-1,
+    parser.add_argument('--interval',type=int,default=-1,
                         help='Interval between two status updates during training.')
 
     # Optimizer arguments
-    parser.add_argument('--optimizer_cfg', type=str,
+    parser.add_argument('--optimizer_cfg',type=str,
                         help='Optimizer configuration in YAML format for model.')
 
     # Post-training arguments
-    parser.add_argument('--save_model', type=str, default=None,
-                        choices=['all', 'inputAE', 'outputAE', 'regressor'], nargs='+',
+    parser.add_argument('--save_model',type=str,default=None,
+                        choices=['all','inputAE','outputAE','regressor'],nargs='+',
                         help='Options to save the model partially or completely.')
 
     args = parser.parse_args()

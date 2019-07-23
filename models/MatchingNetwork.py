@@ -35,7 +35,8 @@ from config import configuration as config
 
 class MatchingNetwork(nn.Module):
     """Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines."""
-    def __init__(self, num_channels, layer_size, fce=config["model"]["fce"]):
+
+    def __init__(self,num_channels: int,layer_size: int,fce: bool = config["model"]["fce"]) -> None:
         """
         Builds a matching network, the training and evaluation ops as well as data_loader augmentation routines.
 
@@ -50,19 +51,19 @@ class MatchingNetwork(nn.Module):
         :param classify_count: total number of classes. It changes the text_lstm size of the classifier g with a final FC layer.
         :param sample_input: size of the input sample. It is needed in case we want to create the last FC classification.
         """
-        super(MatchingNetwork, self).__init__()
+        super(MatchingNetwork,self).__init__()
         self.fce = fce
 
         self.attn = Attn()
         self.cosine_dis = PairCosineSim.PairCosineSim()
-        self.g = EmbedText(num_channels, layer_size)
+        self.g = EmbedText(num_channels,layer_size)
         if self.fce:
-            self.lstm = BiLSTM(input_size=self.g.output_size+1)
+            self.lstm = BiLSTM(input_size=self.g.output_size + 1)
 
     def forward(self,supports_x: torch.Tensor,supports_hots: torch.Tensor,targets_x: torch.Tensor,
                 targets_hots: torch.Tensor,target_cat_indices: torch.Tensor,requires_grad: bool = True,
                 batch_size: int = config["sampling"]["batch_size"],
-                dropout_external: float = config["model"]["dropout_external"]) -> [torch.Tensor, torch.Tensor]:
+                dropout_external: float = config["model"]["dropout_external"]) -> [torch.Tensor,torch.Tensor]:
         """
         Builds graph for Matching Networks, produces losses and summary statistics.
 
@@ -89,11 +90,14 @@ class MatchingNetwork(nn.Module):
 
         logger.debug("targets: \n{}".format(targets_x))
         logger.debug("supports: \n{}".format(supports_x))
-        logger.debug("targets X targets: \n{}".format(self.cosine_dis(supports=targets_x, targets=targets_x, normalize=False)))
-        logger.debug("supports X supports: \n{}".format(self.cosine_dis(supports=supports_x, targets=supports_x, normalize=False)))
-        logger.debug("supports X targets: \n{}".format(self.cosine_dis(supports=supports_x, targets=targets_x, normalize=False)))
+        logger.debug(
+            "targets X targets: \n{}".format(self.cosine_dis(supports=targets_x,targets=targets_x,normalize=False)))
+        logger.debug(
+            "supports X supports: \n{}".format(self.cosine_dis(supports=supports_x,targets=supports_x,normalize=False)))
+        logger.debug(
+            "supports X targets: \n{}".format(self.cosine_dis(supports=supports_x,targets=targets_x,normalize=False)))
         ## Encode supports
-        supports_x = self.g(supports_x, dropout_external=dropout_external)
+        supports_x = self.g(supports_x,dropout_external=dropout_external)
         # logger.debug("supports_x [{}] output: {}".format(supports_x.shape,supports_x))
 
         ## Encode targets
@@ -103,23 +107,26 @@ class MatchingNetwork(nn.Module):
         logger.debug("emb_supports: \n{}".format(supports_x))
 
         # logger.debug("emb_targets X emb_targets: \n{}".format(self.cosine_dis(supports=targets_x, targets=targets_x, normalize=False)))
-        logger.debug("emb_supports X emb_supports: \n{}".format(self.cosine_dis(supports=supports_x, targets=supports_x, normalize=False)))
-        logger.debug("emb_supports X emb_targets: \n{}".format(self.cosine_dis(supports=supports_x, targets=targets_x, normalize=False)))
+        logger.debug("emb_supports X emb_supports: \n{}".format(
+            self.cosine_dis(supports=supports_x,targets=supports_x,normalize=False)))
+        logger.debug("emb_supports X emb_targets: \n{}".format(
+            self.cosine_dis(supports=supports_x,targets=targets_x,normalize=False)))
         if self.fce:
             # supports_x, _ = self.lstm(supports_x, requires_grad=requires_grad)
-            targets_x, _ = self.lstm(targets_x, requires_grad=requires_grad)
+            targets_x,_ = self.lstm(targets_x,requires_grad=requires_grad)
             # logger.debug("FCE supports_x: \n{}".format(supports_x))
             logger.debug("FCE targets_x: \n{}".format(targets_x))
-            logger.debug("FCE_targets X FCE_targets: \n{}".format(self.cosine_dis(supports=targets_x, targets=targets_x, normalize=False)))
+            logger.debug("FCE_targets X FCE_targets: \n{}".format(
+                self.cosine_dis(supports=targets_x,targets=targets_x,normalize=False)))
             # logger.debug("FCE supports_x X FCE supports_x: \n{}".format(self.cosine_dis(supports=supports_x, targets=supports_x, normalize=False)))
 
         ## Calculate similarity between encoded supports and targets
-        similarities = self.cosine_dis(supports=supports_x, targets=targets_x, normalize=True)
+        similarities = self.cosine_dis(supports=supports_x,targets=targets_x,normalize=True)
 
         logger.debug("FCE supports_x X FCE targets_x: \n{}".format(similarities))
 
         ## Produce predictions for target probabilities. targets_preds.shape = batch_size x # classes
-        targets_preds = self.attn(similarities, supports_hots=supports_hots.float())
+        targets_preds = self.attn(similarities,supports_hots=supports_hots.float())
         # logger.debug("target_cat_indices: {}".format(target_cat_indices))
         # logger.debug("targets_preds output: {}".format(targets_preds))
 
@@ -134,10 +141,10 @@ class MatchingNetwork(nn.Module):
             # logger.debug(targets_preds[:, j, :][0])
             # logger.debug(target_y_mlml.long()[:, j, :][0])
             # loss += F.multilabel_margin_loss(targets_preds[:, j, :], target_y_mlml.long()[:, j, :])
-            loss += F.cross_entropy(targets_preds[:, j, :], target_cat_indices[:, j].long())
+            loss += F.cross_entropy(targets_preds[:,j,:],target_cat_indices[:,j].long())
         multilabel_batch_loss = loss / targets_x.size(1)
 
-        return multilabel_batch_loss, targets_preds
+        return multilabel_batch_loss,targets_preds
 
     @staticmethod
     def create_mlml_data(target_cat_indices: list,output_shape: tuple) -> torch.Tensor:
@@ -152,7 +159,7 @@ class MatchingNetwork(nn.Module):
         :param output_shape: Shape of the output = batch_size, target count, # labels.
         :param target_cat_indices: List of categories.
         """
-        target_y_mlml = torch.full(output_shape, -1)  ## Createing a tensor filled with -1.
+        target_y_mlml = torch.full(output_shape,-1)  ## Createing a tensor filled with -1.
         ## Replacing -1 with label indices at the begining of the tensor row.
         for i in np.arange(target_y_mlml.size(0)):
             # logger.debug(target_cat_indices[i])
@@ -161,7 +168,7 @@ class MatchingNetwork(nn.Module):
                 # logger.debug((i,j,target_cat_indices[i][j]))
                 for k in range(len(target_cat_indices[i][j])):
                     # logger.debug(target_cat_indices[i][j][k])
-                    target_y_mlml[i, j, k] = torch.tensor(target_cat_indices[i][j][k], dtype=torch.int32)
+                    target_y_mlml[i,j,k] = torch.tensor(target_cat_indices[i][j][k],dtype=torch.int32)
 
         return target_y_mlml.long()
 
@@ -169,10 +176,10 @@ class MatchingNetwork(nn.Module):
 if __name__ == '__main__':
     import torch
 
-    support_set = torch.rand(4, 2, 4)  # [batch_size, sequence_size, input_size]
-    support_set_hot = torch.zeros(4, 2, 1)  # [batch_size, n_classes]
-    x_hat = torch.rand(4, 2, 4)
-    x_hat_hot = torch.zeros(4, 2, 1)
+    support_set = torch.rand(4,2,4)  # [batch_size, sequence_size, input_size]
+    support_set_hot = torch.zeros(4,2,1)  # [batch_size, n_classes]
+    x_hat = torch.rand(4,2,4)
+    x_hat_hot = torch.zeros(4,2,1)
     logger.debug(support_set_hot)
     logger.debug(x_hat_hot)
 
@@ -183,41 +190,41 @@ if __name__ == '__main__':
     #                             [[1., 0.4],
     #                              [1., 1.5]]])
     #
-    support_set_hot = torch.tensor([[[1., 0.],
-                                     [0., 1.]],
+    support_set_hot = torch.tensor([[[1.,0.],
+                                     [0.,1.]],
 
-                                    [[1., 0.],
-                                     [0., 1.]],
+                                    [[1.,0.],
+                                     [0.,1.]],
 
-                                    [[1., 0.],
-                                     [0., 1.]],
+                                    [[1.,0.],
+                                     [0.,1.]],
 
-                                    [[1., 0.],
-                                     [0., 1.]]])
+                                    [[1.,0.],
+                                     [0.,1.]]])
     #
     # x_hat = torch.tensor([[[1., 0.4],
     #                        [0., 1.5]],
     #                       [[1., 0.4],
     #                        [1., 1.5]]])
     #
-    x_hat_hot = torch.tensor([[[1., 0.],
-                               [0., 1.]],
+    x_hat_hot = torch.tensor([[[1.,0.],
+                               [0.,1.]],
 
-                              [[1., 0.],
-                               [0., 1.]],
+                              [[1.,0.],
+                               [0.,1.]],
 
-                              [[1., 0.],
-                               [0., 1.]],
+                              [[1.,0.],
+                               [0.,1.]],
 
-                              [[1., 0.],
-                               [0., 1.]]])
+                              [[1.,0.],
+                               [0.,1.]]])
 
     logger.debug(support_set.shape)
     logger.debug(support_set_hot.shape)
     logger.debug(x_hat.shape)
     logger.debug(x_hat_hot.shape)
 
-    cls = MatchingNetwork(input_size=4, hid_size=4, classify_count=5, use_cuda=False)
+    cls = MatchingNetwork(input_size=4,hid_size=4,classify_count=5,use_cuda=False)
     logger.debug(cls)
-    sim = cls.forward(support_set, support_set_hot, x_hat, x_hat_hot, batch_size=4)
+    sim = cls.forward(support_set,support_set_hot,x_hat,x_hat_hot,batch_size=4)
     logger.debug(sim)

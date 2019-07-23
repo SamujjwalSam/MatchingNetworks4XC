@@ -31,9 +31,10 @@ from models.Weight_Init import weight_init
 from config import configuration as config
 
 
-def CNN_layer(in_planes,out_planes,kernel_size=config["cnn_params"]["kernel_size"],
-              stride=config["cnn_params"]["stride"],padding=config["cnn_params"]["padding"],
-              bias=config["cnn_params"]["bias"],dropout=config["model"]["dropout"]):
+def CNN_layer(in_planes: int,out_planes: int,kernel_size: int = config["cnn_params"]["kernel_size"],
+              stride: int = config["cnn_params"]["stride"],padding: int = config["cnn_params"]["padding"],
+              bias: bool = config["cnn_params"]["bias"],
+              dropout: float = config["model"]["dropout"]) -> torch.nn.modules.container.Sequential:
     """Convolution with padding to get embeddings for input pre-trained sentences.
 
     Default: Convolution = 1 x 1 with stride = 2.
@@ -106,10 +107,12 @@ def LSTM_layer(bidirectional=config["lstm_params"]["bidirectional"],dropout=conf
 class EmbedText(nn.Module):
     """Builds context sensitive embeddings for pre-trained sentences using either LSTM or CNN."""
 
-    def __init__(self,num_channels,layer_size,classify_count=config["model"]["classify_count"],requires_grad=True,
-                 hid_size=config["lstm_params"]["hid_size"],g_encoder=config["model"]["g_encoder"],
-                 use_cuda=config["model"]["use_cuda"],
-                 input_size=config["prep_vecs"]["input_size"],bidirectional=config["lstm_params"]["bidirectional"]):
+    def __init__(self,num_channels: int,layer_size: int,classify_count: int = config["model"]["classify_count"],
+                 requires_grad: bool = True,
+                 hid_size: int = config["lstm_params"]["hid_size"],g_encoder: str = config["model"]["g_encoder"],
+                 use_cuda: bool = config["model"]["use_cuda"],
+                 input_size: int = config["prep_vecs"]["input_size"],
+                 bidirectional: bool = config["lstm_params"]["bidirectional"]) -> None:
         """
         Builds embeddings for pre-trained sentences using either LSTM or CNN.
 
@@ -182,7 +185,7 @@ class EmbedText(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-    def forward(self,inputs,dropout_external=config["model"]["dropout_external"]):
+    def forward(self,inputs: torch.Tensor,dropout_external: float = config["model"]["dropout_external"]) -> torch.Tensor:
         """
         Runs the CNNText producing the embeddings and the gradients.
 
